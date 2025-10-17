@@ -33,7 +33,7 @@ fn write_sample_csv(delimiter: u8) -> (tempfile::TempDir, std::path::PathBuf) {
 fn probe_creates_metadata_with_custom_delimiter() {
     let (dir, csv_path) = write_sample_csv(b';');
     let meta_path = dir.path().join("schema.meta");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "probe",
@@ -57,7 +57,7 @@ fn probe_creates_metadata_with_custom_delimiter() {
 fn process_sorts_filters_and_derives_output() {
     let (dir, csv_path) = write_sample_csv(b',');
     let meta_path = dir.path().join("schema.meta");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "probe",
@@ -70,7 +70,7 @@ fn process_sorts_filters_and_derives_output() {
         .success();
 
     let output_path = dir.path().join("filtered.csv");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "process",
@@ -100,7 +100,7 @@ fn process_sorts_filters_and_derives_output() {
 fn index_is_used_for_sorted_output() {
     let (dir, csv_path) = write_sample_csv(b',');
     let meta_path = dir.path().join("schema.meta");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "probe",
@@ -113,7 +113,7 @@ fn index_is_used_for_sorted_output() {
         .success();
 
     let index_path = dir.path().join("data.idx");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "index",
@@ -132,7 +132,7 @@ fn index_is_used_for_sorted_output() {
     assert!(index_path.exists());
 
     let output_path = dir.path().join("sorted.csv");
-    Command::cargo_bin("csv_managed")
+    Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "process",

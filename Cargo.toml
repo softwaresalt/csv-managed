@@ -1,5 +1,5 @@
 [package]
-name = "csv_managed"
+name = "csv-managed"
 version = "0.1.0"
 edition = "2024"
 

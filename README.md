@@ -1,6 +1,6 @@
-# csv_managed
+# csv-managed
 
-`csv_managed` is a high-performance command-line utility, written in Rust, for exploring and transforming CSV datasets of any size. It offers schema inference, typed filtering, derived columns, on-disk indexing, and configurable input/output formats.
+`csv-managed` is a high-performance command-line utility, written in Rust, for exploring and transforming CSV datasets of any size. It offers schema inference, typed filtering, derived columns, on-disk indexing, and configurable input/output formats.
 
 ## Getting Started
 
@@ -21,7 +21,7 @@ Set `RUST_LOG=info` (or `debug`) to enable structured logging.
 Infer column data types and save them in a `.meta` JSON file:
 
 ```bash
-csv_managed probe \
+csv-managed probe \
   --input ./data/orders.csv \
   --meta ./data/orders.meta \
   --delimiter ';' \
@@ -33,7 +33,7 @@ csv_managed probe \
 Generate a B-Tree index over one or more columns to accelerate subsequent processing:
 
 ```bash
-csv_managed index \
+csv-managed index \
   --input ./data/orders.csv \
   --index ./data/orders.idx \
   --columns ordered_at,customer_id \
@@ -45,7 +45,7 @@ csv_managed index \
 Sort, filter, project, and derive new columns while streaming rows to stdout or a file:
 
 ```bash
-csv_managed process \
+csv-managed process \
   --input ./data/orders.csv \
   --meta ./data/orders.meta \
   --index ./data/orders.idx \
