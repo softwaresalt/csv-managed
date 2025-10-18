@@ -4,8 +4,9 @@ use anyhow::{Context, Result, anyhow, bail};
 use chrono::{NaiveDate, NaiveDateTime};
 use evalexpr;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::metadata::ColumnType;
+use crate::schema::ColumnType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
@@ -15,6 +16,7 @@ pub enum Value {
     Boolean(bool),
     Date(NaiveDate),
     DateTime(NaiveDateTime),
+    Guid(Uuid),
 }
 
 impl Eq for Value {}
@@ -34,6 +36,7 @@ impl Value {
             Value::Boolean(b) => b.to_string(),
             Value::Date(d) => d.format("%Y-%m-%d").to_string(),
             Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+            Value::Guid(g) => g.to_string(),
         }
     }
 }
@@ -47,6 +50,7 @@ impl Ord for Value {
             (Value::Boolean(a), Value::Boolean(b)) => a.cmp(b),
             (Value::Date(a), Value::Date(b)) => a.cmp(b),
             (Value::DateTime(a), Value::DateTime(b)) => a.cmp(b),
+            (Value::Guid(a), Value::Guid(b)) => a.cmp(b),
             _ => panic!("Cannot compare heterogeneous Value variants"),
         }
     }
@@ -156,6 +160,12 @@ pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> 
             let parsed = parse_naive_datetime(value)?;
             Value::DateTime(parsed)
         }
+        ColumnType::Guid => {
+            let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
+            let parsed = Uuid::parse_str(trimmed)
+                .with_context(|| format!("Failed to parse '{{value}}' as GUID"))?;
+            Value::Guid(parsed)
+        }
     };
     Ok(Some(parsed))
 }
@@ -168,6 +178,7 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
         Value::Boolean(b) => evalexpr::Value::Boolean(*b),
         Value::Date(d) => evalexpr::Value::String(d.format("%Y-%m-%d").to_string()),
         Value::DateTime(dt) => evalexpr::Value::String(dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+        Value::Guid(g) => evalexpr::Value::String(g.to_string()),
     }
 }
 
@@ -176,6 +187,7 @@ mod tests {
     use super::*;
     use chrono::{NaiveDate, NaiveDateTime};
     use evalexpr::Value as EvalValue;
+    use uuid::Uuid;
 
     #[test]
     fn normalize_column_name_replaces_non_alphanumeric() {
@@ -221,6 +233,26 @@ mod tests {
         assert_eq!(falsy, Value::Boolean(false));
 
         assert!(parse_typed_value("maybe", &ColumnType::Boolean).is_err());
+    }
+
+    #[test]
+    fn parse_typed_value_supports_guid_inputs() {
+        let raw = "550e8400-e29b-41d4-a716-446655440000";
+        let parsed = parse_typed_value(raw, &ColumnType::Guid).unwrap().unwrap();
+        match parsed {
+            Value::Guid(g) => {
+                assert_eq!(g, Uuid::parse_str(raw).unwrap());
+            }
+            other => panic!("Expected GUID value, got {other:?}"),
+        }
+
+        let braced = "{550e8400-e29b-41d4-a716-446655440000}";
+        let parsed_braced = parse_typed_value(braced, &ColumnType::Guid)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(parsed_braced, Value::Guid(_)));
+
+        assert!(parse_typed_value("not-a-guid", &ColumnType::Guid).is_err());
     }
 
     #[test]

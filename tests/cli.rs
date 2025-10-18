@@ -1,7 +1,10 @@
 use std::{env, fs, io::Write, process::Command as StdCommand};
 
 use assert_cmd::Command;
-use csv_managed::metadata::Schema;
+use csv_managed::{
+    index::CsvIndex,
+    schema::{ColumnType, Schema},
+};
 use predicates::str::contains;
 use tempfile::tempdir;
 
@@ -31,9 +34,9 @@ fn write_sample_csv(delimiter: u8) -> (tempfile::TempDir, std::path::PathBuf) {
 }
 
 #[test]
-fn probe_creates_metadata_with_custom_delimiter() {
+fn probe_creates_schema_with_custom_delimiter() {
     let (dir, csv_path) = write_sample_csv(b';');
-    let meta_path = dir.path().join("schema.meta");
+    let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -41,23 +44,54 @@ fn probe_creates_metadata_with_custom_delimiter() {
             "-i",
             csv_path.to_str().unwrap(),
             "-m",
-            meta_path.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
             "--delimiter",
             ";",
         ])
         .assert()
         .success();
 
-    let contents = fs::read_to_string(&meta_path).expect("read meta");
+    let contents = fs::read_to_string(&schema_path).expect("read schema");
     let schema: Schema = serde_json::from_str(&contents).expect("parse schema");
     assert_eq!(schema.columns.len(), 5);
     assert_eq!(schema.columns[0].name, "id");
 }
 
 #[test]
+fn schema_command_writes_manual_schema() {
+    let dir = tempdir().expect("temp dir");
+    let schema_path = dir.path().join("manual.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "-o",
+            schema_path.to_str().unwrap(),
+            "-c",
+            "id:integer->Identifier",
+            "-c",
+            "name:string->Customer Name,amount:float,guid:guid",
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&schema_path).expect("read manual schema");
+    let schema: Schema = serde_json::from_str(&contents).expect("parse manual schema");
+    assert_eq!(schema.columns.len(), 4);
+    assert_eq!(schema.columns[0].name, "id");
+    assert_eq!(schema.columns[0].rename.as_deref(), Some("Identifier"));
+    assert_eq!(schema.columns[1].rename.as_deref(), Some("Customer Name"));
+    assert_eq!(schema.columns[0].data_type, ColumnType::Integer);
+    assert_eq!(schema.columns[1].data_type, ColumnType::String);
+    assert_eq!(schema.columns[2].data_type, ColumnType::Float);
+    assert_eq!(schema.columns[3].data_type, ColumnType::Guid);
+}
+
+#[test]
 fn process_sorts_filters_and_derives_output() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let meta_path = dir.path().join("schema.meta");
+    let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -65,7 +99,7 @@ fn process_sorts_filters_and_derives_output() {
             "-i",
             csv_path.to_str().unwrap(),
             "-m",
-            meta_path.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -79,8 +113,8 @@ fn process_sorts_filters_and_derives_output() {
             csv_path.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--filter",
             "status = shipped",
             "--derive",
@@ -100,7 +134,7 @@ fn process_sorts_filters_and_derives_output() {
 #[test]
 fn index_is_used_for_sorted_output() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let meta_path = dir.path().join("schema.meta");
+    let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -108,7 +142,7 @@ fn index_is_used_for_sorted_output() {
             "-i",
             csv_path.to_str().unwrap(),
             "-m",
-            meta_path.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -124,8 +158,8 @@ fn index_is_used_for_sorted_output() {
             index_path.to_str().unwrap(),
             "-C",
             "ordered_at",
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -141,8 +175,8 @@ fn index_is_used_for_sorted_output() {
             csv_path.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--index",
             index_path.to_str().unwrap(),
             "--sort",
@@ -157,6 +191,50 @@ fn index_is_used_for_sorted_output() {
     assert!(header.contains("ordered_at"));
     let first_row = lines.next().expect("first row");
     assert!(first_row.starts_with("1"));
+}
+
+#[test]
+fn index_combo_spec_generates_multiple_variants() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let index_path = dir.path().join("combo.idx");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "index",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            index_path.to_str().unwrap(),
+            "--combo",
+            "geo=ordered_at:asc|desc,amount:asc",
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let index = CsvIndex::load(&index_path).expect("load combo index");
+    assert!(index.variants().len() >= 4);
+    assert!(
+        index
+            .variants()
+            .iter()
+            .filter_map(|variant| variant.name())
+            .any(|name| name.starts_with("geo_"))
+    );
 }
 
 #[test]
@@ -223,7 +301,7 @@ fn install_command_passes_arguments_to_cargo() {
 #[test]
 fn process_accepts_named_index_variant() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let meta_path = dir.path().join("schema.meta");
+    let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -231,7 +309,7 @@ fn process_accepts_named_index_variant() {
             "-i",
             csv_path.to_str().unwrap(),
             "-m",
-            meta_path.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -249,8 +327,8 @@ fn process_accepts_named_index_variant() {
             "default=ordered_at:asc",
             "--spec",
             "recent=ordered_at:desc",
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -264,8 +342,8 @@ fn process_accepts_named_index_variant() {
             csv_path.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--index",
             index_path.to_str().unwrap(),
             "--index-variant",
@@ -286,7 +364,7 @@ fn process_accepts_named_index_variant() {
 #[test]
 fn process_errors_when_variant_missing() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let meta_path = dir.path().join("schema.meta");
+    let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -294,7 +372,7 @@ fn process_errors_when_variant_missing() {
             "-i",
             csv_path.to_str().unwrap(),
             "-m",
-            meta_path.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -310,8 +388,8 @@ fn process_errors_when_variant_missing() {
             index_path.to_str().unwrap(),
             "--spec",
             "default=ordered_at:asc",
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -322,8 +400,8 @@ fn process_errors_when_variant_missing() {
             "process",
             "-i",
             csv_path.to_str().unwrap(),
-            "--meta",
-            meta_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--index",
             index_path.to_str().unwrap(),
             "--index-variant",

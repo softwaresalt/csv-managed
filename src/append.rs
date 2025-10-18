@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, anyhow};
 use log::info;
 
-use crate::{cli::AppendArgs, data::parse_typed_value, io_utils, metadata::Schema};
+use crate::{cli::AppendArgs, data::parse_typed_value, io_utils, schema::Schema};
 
 pub fn execute(args: &AppendArgs) -> Result<()> {
     if args.inputs.is_empty() {
@@ -16,8 +16,8 @@ pub fn execute(args: &AppendArgs) -> Result<()> {
         io_utils::resolve_output_delimiter(args.output.as_deref(), None, delimiter);
     let output_encoding = io_utils::resolve_encoding(args.output_encoding.as_deref())?;
 
-    let schema = if let Some(path) = &args.meta {
-        Some(Schema::load(path).with_context(|| format!("Loading metadata from {:?}", path))?)
+    let schema = if let Some(path) = &args.schema {
+        Some(Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))?)
     } else {
         None
     };
@@ -80,9 +80,16 @@ fn append_single(
     }
 
     if write_header {
-        writer
-            .write_record(headers.iter())
-            .with_context(|| "Writing output headers")?;
+        if let Some(schema) = schema {
+            let output_headers = schema.output_headers();
+            writer
+                .write_record(output_headers.iter())
+                .with_context(|| "Writing output headers")?;
+        } else {
+            writer
+                .write_record(headers.iter())
+                .with_context(|| "Writing output headers")?;
+        }
     }
 
     for (row_idx, record) in reader.byte_records().enumerate() {
@@ -108,7 +115,7 @@ fn validate_record(schema: &Schema, record: &[String], row_index: usize) -> Resu
             continue;
         }
         parse_typed_value(value, &column.data_type)
-            .with_context(|| format!("Row {row_index} column '{}'", column.name))?;
+            .with_context(|| format!("Row {row_index} column '{}'", column.output_name()))?;
     }
     Ok(())
 }

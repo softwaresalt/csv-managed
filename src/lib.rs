@@ -8,9 +8,10 @@ pub mod index;
 pub mod install;
 pub mod io_utils;
 pub mod join;
-pub mod metadata;
 pub mod preview;
 pub mod process;
+pub mod schema;
+pub mod schema_cmd;
 pub mod stats;
 pub mod table;
 pub mod verify;
@@ -41,6 +42,7 @@ pub fn run() -> Result<()> {
     match cli.command {
         Commands::Probe(args) => handle_probe(&args),
         Commands::Index(args) => handle_index(&args),
+        Commands::Schema(args) => schema_cmd::execute(&args),
         Commands::Process(args) => process::execute(&args),
         Commands::Append(args) => append::execute(&args),
         Commands::Verify(args) => verify::execute(&args),
@@ -60,15 +62,15 @@ fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
         args.input.display(),
         printable_delimiter(delimiter)
     );
-    let schema = metadata::infer_schema(&args.input, args.sample_rows, delimiter, encoding)
+    let schema = schema::infer_schema(&args.input, args.sample_rows, delimiter, encoding)
         .with_context(|| format!("Inferring schema from {:?}", args.input))?;
     schema
-        .save(&args.meta)
-        .with_context(|| format!("Writing metadata to {:?}", args.meta))?;
+        .save(&args.schema)
+        .with_context(|| format!("Writing schema to {:?}", args.schema))?;
     info!(
         "Inferred schema for {} column(s) written to {:?}",
         schema.columns.len(),
-        args.meta
+        args.schema
     );
     Ok(())
 }
@@ -81,10 +83,9 @@ fn handle_index(args: &cli::IndexArgs) -> Result<()> {
         args.input.display(),
         printable_delimiter(delimiter)
     );
-    let schema = match &args.meta {
+    let schema = match &args.schema {
         Some(path) => Some(
-            metadata::Schema::load(path)
-                .with_context(|| format!("Loading metadata from {path:?}"))?,
+            schema::Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))?,
         ),
         None => None,
     };
@@ -93,6 +94,11 @@ fn handle_index(args: &cli::IndexArgs) -> Result<()> {
         let definition = index::IndexDefinition::parse(spec)
             .with_context(|| format!("Parsing index specification '{spec}'"))?;
         definitions.push(definition);
+    }
+    for combo in &args.combos {
+        let expanded = index::IndexDefinition::expand_combo_spec(combo)
+            .with_context(|| format!("Parsing index combination '{combo}'"))?;
+        definitions.extend(expanded);
     }
     if definitions.is_empty() {
         let columns = args

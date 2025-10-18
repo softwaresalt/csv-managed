@@ -8,7 +8,7 @@ use crate::{
     cli::{JoinArgs, JoinKind},
     data::parse_typed_value,
     io_utils,
-    metadata::{self, ColumnType, Schema},
+    schema::{self, ColumnType, Schema},
 };
 
 const KEY_SEPARATOR: &str = "\u{1f}";
@@ -22,9 +22,9 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
             "Right input cannot be stdin for join operations; provide a file path"
         ));
     }
-    if io_utils::is_dash(&args.left) && args.left_meta.is_none() {
+    if io_utils::is_dash(&args.left) && args.left_schema.is_none() {
         return Err(anyhow!(
-            "Joining from stdin requires --left-meta to describe the schema"
+            "Joining from stdin requires --left-schema (or --left-meta) to describe the schema"
         ));
     }
 
@@ -46,13 +46,13 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
 
     let left_schema = load_schema(
         &args.left,
-        args.left_meta.as_ref(),
+        args.left_schema.as_ref(),
         left_delimiter,
         left_encoding,
     )?;
     let right_schema = load_schema(
         &args.right,
-        args.right_meta.as_ref(),
+        args.right_schema.as_ref(),
         right_delimiter,
         right_encoding,
     )?;
@@ -181,14 +181,14 @@ fn parse_key_list(value: &str) -> Result<Vec<String>> {
 
 fn load_schema(
     path: &PathBuf,
-    meta: Option<&PathBuf>,
+    schema_path: Option<&PathBuf>,
     delimiter: u8,
     encoding: &'static Encoding,
 ) -> Result<Schema> {
-    if let Some(meta_path) = meta {
-        Schema::load(meta_path).with_context(|| format!("Loading metadata from {:?}", meta_path))
+    if let Some(schema_path) = schema_path {
+        Schema::load(schema_path).with_context(|| format!("Loading schema from {:?}", schema_path))
     } else {
-        metadata::infer_schema(path, 0, delimiter, encoding)
+        schema::infer_schema(path, 0, delimiter, encoding)
             .with_context(|| format!("Inferring schema from {:?}", path))
     }
 }

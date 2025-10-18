@@ -1,8 +1,9 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{fmt, fs::File, io::BufReader, path::Path};
 
 use anyhow::{Context, Result, anyhow};
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     data::{parse_naive_date, parse_naive_datetime},
@@ -17,12 +18,62 @@ pub enum ColumnType {
     Boolean,
     Date,
     DateTime,
+    Guid,
+}
+
+impl ColumnType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ColumnType::String => "string",
+            ColumnType::Integer => "integer",
+            ColumnType::Float => "float",
+            ColumnType::Boolean => "boolean",
+            ColumnType::Date => "date",
+            ColumnType::DateTime => "datetime",
+            ColumnType::Guid => "guid",
+        }
+    }
+
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "string", "integer", "float", "boolean", "date", "datetime", "guid",
+        ]
+    }
+}
+
+impl fmt::Display for ColumnType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for ColumnType {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let normalized = value.trim().to_ascii_lowercase();
+        match normalized.as_str() {
+            "string" => Ok(ColumnType::String),
+            "integer" | "int" => Ok(ColumnType::Integer),
+            "float" | "double" => Ok(ColumnType::Float),
+            "boolean" | "bool" => Ok(ColumnType::Boolean),
+            "date" => Ok(ColumnType::Date),
+            "datetime" | "date-time" | "timestamp" => Ok(ColumnType::DateTime),
+            "guid" | "uuid" => Ok(ColumnType::Guid),
+            _ => Err(anyhow!(
+                "Unknown column type '{value}'. Supported types: {}",
+                ColumnType::variants().join(", ")
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
     pub data_type: ColumnType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rename: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,23 +88,33 @@ impl Schema {
             .map(|name| ColumnMeta {
                 name: name.clone(),
                 data_type: ColumnType::String,
+                rename: None,
             })
             .collect();
         Schema { columns }
     }
 
     pub fn column_index(&self, name: &str) -> Option<usize> {
-        self.columns.iter().position(|c| c.name == name)
+        self.columns
+            .iter()
+            .position(|c| c.name == name || c.rename.as_deref() == Some(name))
     }
 
     pub fn headers(&self) -> Vec<String> {
         self.columns.iter().map(|c| c.name.clone()).collect()
     }
 
+    pub fn output_headers(&self) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|c| c.output_name().to_string())
+            .collect()
+    }
+
     pub fn validate_headers(&self, headers: &[String]) -> Result<()> {
         if headers.len() != self.columns.len() {
             return Err(anyhow!(
-                "Header length mismatch: metadata expects {} column(s) but file contains {}",
+                "Header length mismatch: schema expects {} column(s) but file contains {}",
                 self.columns.len(),
                 headers.len()
             ));
@@ -73,14 +134,14 @@ impl Schema {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
-        let file = File::create(path).with_context(|| format!("Creating meta file {path:?}"))?;
-        serde_json::to_writer_pretty(file, self).context("Writing metadata JSON")
+        let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
+        serde_json::to_writer_pretty(file, self).context("Writing schema JSON")
     }
 
     pub fn load(path: &Path) -> Result<Self> {
-        let file = File::open(path).with_context(|| format!("Opening meta file {path:?}"))?;
+        let file = File::open(path).with_context(|| format!("Opening schema file {path:?}"))?;
         let reader = BufReader::new(file);
-        let schema = serde_json::from_reader(reader).context("Parsing metadata JSON")?;
+        let schema = serde_json::from_reader(reader).context("Parsing schema JSON")?;
         Ok(schema)
     }
 }
@@ -92,6 +153,7 @@ struct TypeCandidate {
     possible_boolean: bool,
     possible_date: bool,
     possible_datetime: bool,
+    possible_guid: bool,
 }
 
 impl TypeCandidate {
@@ -102,6 +164,7 @@ impl TypeCandidate {
             possible_boolean: true,
             possible_date: true,
             possible_datetime: true,
+            possible_guid: true,
         }
     }
 
@@ -126,7 +189,14 @@ impl TypeCandidate {
         if self.possible_datetime && parse_naive_datetime(value).is_err() {
             self.possible_datetime = false;
         }
+        if self.possible_guid {
+            let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
+            if Uuid::parse_str(trimmed).is_err() {
+                self.possible_guid = false;
+            }
+        }
     }
+
     fn decide(&self) -> ColumnType {
         if self.possible_boolean {
             ColumnType::Boolean
@@ -138,6 +208,8 @@ impl TypeCandidate {
             ColumnType::Date
         } else if self.possible_datetime {
             ColumnType::DateTime
+        } else if self.possible_guid {
+            ColumnType::Guid
         } else {
             ColumnType::String
         }
@@ -177,8 +249,18 @@ pub fn infer_schema(
         .map(|(idx, header)| ColumnMeta {
             name: header.clone(),
             data_type: candidates[idx].decide(),
+            rename: None,
         })
         .collect();
 
     Ok(Schema { columns })
+}
+
+impl ColumnMeta {
+    pub fn output_name(&self) -> &str {
+        self.rename
+            .as_deref()
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&self.name)
+    }
 }

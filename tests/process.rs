@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use assert_cmd::Command;
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use csv_managed::data::parse_typed_value;
-use csv_managed::metadata::{ColumnType, Schema};
+use csv_managed::schema::{ColumnType, Schema};
 use tempfile::tempdir;
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -13,26 +13,26 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn create_metadata(dir: &tempfile::TempDir, input: &Path) -> PathBuf {
-    create_metadata_internal(dir, input, &[])
+fn create_schema(dir: &tempfile::TempDir, input: &Path) -> PathBuf {
+    create_schema_internal(dir, input, &[])
 }
 
-fn create_metadata_with_overrides(
+fn create_schema_with_overrides(
     dir: &tempfile::TempDir,
     input: &Path,
     overrides: &[(&str, ColumnType)],
 ) -> PathBuf {
-    create_metadata_internal(dir, input, overrides)
+    create_schema_internal(dir, input, overrides)
 }
 
-fn create_metadata_internal(
+fn create_schema_internal(
     dir: &tempfile::TempDir,
     input: &Path,
     overrides: &[(&str, ColumnType)],
 ) -> PathBuf {
-    let meta = dir.path().join("schema.meta");
+    let schema = dir.path().join("schema.schema");
     let input_str = input.to_str().expect("input path utf-8");
-    let meta_str = meta.to_str().expect("meta path utf-8");
+    let schema_str = schema.to_str().expect("schema path utf-8");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -40,7 +40,7 @@ fn create_metadata_internal(
             "-i",
             input_str,
             "-m",
-            meta_str,
+            schema_str,
             "--delimiter",
             "tab",
             "--sample-rows",
@@ -49,15 +49,17 @@ fn create_metadata_internal(
         .assert()
         .success();
     if !overrides.is_empty() {
-        let mut schema = Schema::load(&meta).expect("load schema for overrides");
+        let mut schema_doc = Schema::load(&schema).expect("load schema for overrides");
         for (name, ty) in overrides {
-            if let Some(column) = schema.columns.iter_mut().find(|col| col.name == *name) {
+            if let Some(column) = schema_doc.columns.iter_mut().find(|col| col.name == *name) {
                 column.data_type = ty.clone();
             }
         }
-        schema.save(&meta).expect("write schema with overrides");
+        schema_doc
+            .save(&schema)
+            .expect("write schema with overrides");
     }
-    meta
+    schema
 }
 
 #[derive(Clone, Copy)]
@@ -165,9 +167,9 @@ fn read_csv(path: &Path) -> (StringRecord, Vec<StringRecord>) {
 fn probe_infers_expected_types_for_ipqs() {
     let temp = tempdir().expect("tempdir");
     let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let meta = create_metadata(&temp, &input);
+    let schema_path = create_schema(&temp, &input);
 
-    let schema = Schema::load(&meta).expect("load schema");
+    let schema = Schema::load(&schema_path).expect("load schema");
     let find_type = |name: &str| -> ColumnType {
         schema
             .columns
@@ -206,7 +208,7 @@ fn process_with_index_respects_sort_order() {
         ],
         5000,
     );
-    let meta = create_metadata_with_overrides(
+    let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
@@ -225,8 +227,8 @@ fn process_with_index_respects_sort_order() {
             data.to_str().unwrap(),
             "-o",
             index_path.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "--spec",
@@ -243,8 +245,8 @@ fn process_with_index_respects_sort_order() {
             data.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--index",
             index_path.to_str().unwrap(),
             "--delimiter",
@@ -306,7 +308,7 @@ fn process_filters_and_derives_high_risk_segment() {
         &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
         5000,
     );
-    let meta = create_metadata_with_overrides(
+    let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
@@ -324,8 +326,8 @@ fn process_filters_and_derives_high_risk_segment() {
             data.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "--filter",
@@ -445,7 +447,7 @@ fn verify_accepts_valid_ipqs_files() {
         &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
         5000,
     );
-    let meta = create_metadata_with_overrides(
+    let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[("ipqs_email_Fraud Score", ColumnType::Integer)],
@@ -456,7 +458,7 @@ fn verify_accepts_valid_ipqs_files() {
         .args([
             "verify",
             "-m",
-            meta.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
             "-i",
             data.to_str().unwrap(),
             "--delimiter",
@@ -476,7 +478,7 @@ fn verify_rejects_invalid_numeric_value() {
         &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
         5000,
     );
-    let meta = create_metadata_with_overrides(
+    let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[("ipqs_email_Fraud Score", ColumnType::Integer)],
@@ -513,7 +515,7 @@ fn verify_rejects_invalid_numeric_value() {
         .args([
             "verify",
             "-m",
-            meta.to_str().unwrap(),
+            schema_path.to_str().unwrap(),
             "-i",
             broken.to_str().unwrap(),
             "--delimiter",
@@ -536,7 +538,7 @@ fn stats_outputs_summary_for_selected_columns() {
         ],
         5000,
     );
-    let meta = create_metadata_with_overrides(
+    let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
@@ -551,8 +553,8 @@ fn stats_outputs_summary_for_selected_columns() {
             "stats",
             "-i",
             data.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "-C",
@@ -581,8 +583,8 @@ fn frequency_outputs_top_values_for_boolean_column() {
         &[("ipqs_email_Valid", ColumnCheck::Boolean)],
         5000,
     );
-    let meta =
-        create_metadata_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
 
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -590,8 +592,8 @@ fn frequency_outputs_top_values_for_boolean_column() {
             "frequency",
             "-i",
             data.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "-C",
@@ -617,8 +619,8 @@ fn process_boolean_format_true_false_outputs_normalized_values() {
         &[("ipqs_email_Valid", ColumnCheck::Boolean)],
         2000,
     );
-    let meta =
-        create_metadata_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
     let output_path = temp.path().join("booleans_true_false.tsv");
 
     Command::cargo_bin("csv-managed")
@@ -629,8 +631,8 @@ fn process_boolean_format_true_false_outputs_normalized_values() {
             data.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "--columns",
@@ -664,8 +666,8 @@ fn process_boolean_format_one_zero_outputs_digits() {
         &[("ipqs_email_Valid", ColumnCheck::Boolean)],
         2000,
     );
-    let meta =
-        create_metadata_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
     let output_path = temp.path().join("booleans_one_zero.tsv");
 
     Command::cargo_bin("csv-managed")
@@ -676,8 +678,8 @@ fn process_boolean_format_one_zero_outputs_digits() {
             data.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--meta",
-            meta.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
             "--delimiter",
             "tab",
             "--columns",

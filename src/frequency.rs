@@ -8,14 +8,14 @@ use crate::{
     cli::FrequencyArgs,
     data::{Value, parse_typed_value},
     io_utils,
-    metadata::{self, Schema},
+    schema::{self, Schema},
     table,
 };
 
 pub fn execute(args: &FrequencyArgs) -> Result<()> {
-    if args.meta.is_none() && io_utils::is_dash(&args.input) {
+    if args.schema.is_none() && io_utils::is_dash(&args.input) {
         return Err(anyhow!(
-            "Reading from stdin requires --meta for frequency analysis"
+            "Reading from stdin requires --schema (or --meta) for frequency analysis"
         ));
     }
 
@@ -67,10 +67,10 @@ fn load_or_infer_schema(
     delimiter: u8,
     encoding: &'static Encoding,
 ) -> Result<Schema> {
-    if let Some(path) = &args.meta {
-        Schema::load(path).with_context(|| format!("Loading metadata from {:?}", path))
+    if let Some(path) = &args.schema {
+        Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))
     } else {
-        metadata::infer_schema(&args.input, 0, delimiter, encoding)
+        schema::infer_schema(&args.input, 0, delimiter, encoding)
             .with_context(|| format!("Inferring schema from {:?}", args.input))
     }
 }
@@ -105,7 +105,7 @@ impl FrequencyAccumulator {
         for idx in columns {
             totals.insert(*idx, 0);
             counts.insert(*idx, HashMap::new());
-            names.insert(*idx, schema.columns[*idx].name.clone());
+            names.insert(*idx, schema.columns[*idx].output_name().to_string());
         }
         Self {
             columns: columns.to_vec(),
@@ -123,7 +123,7 @@ impl FrequencyAccumulator {
                 String::from("<empty>")
             } else {
                 match parse_typed_value(raw, &column.data_type)
-                    .with_context(|| format!("Column '{}'", column.name))?
+                    .with_context(|| format!("Column '{}'", column.output_name()))?
                 {
                     Some(Value::String(s)) => s,
                     Some(Value::Integer(i)) => i.to_string(),
@@ -131,6 +131,7 @@ impl FrequencyAccumulator {
                     Some(Value::Boolean(b)) => b.to_string(),
                     Some(Value::Date(d)) => d.format("%Y-%m-%d").to_string(),
                     Some(Value::DateTime(dt)) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+                    Some(Value::Guid(g)) => g.to_string(),
                     None => String::from("<empty>"),
                 }
             };
@@ -206,7 +207,7 @@ mod tests {
     fn accumulator_counts_ipqs_boolean_values() {
         let path = fixture_path();
         assert!(path.exists(), "fixture missing: {:?}", path);
-        let schema = crate::metadata::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
+        let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
         let column_index = schema
             .column_index("ipqs_email_Valid")
             .expect("column index");

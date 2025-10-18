@@ -11,15 +11,17 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Probe a CSV file and infer column data types into a .meta file
+    /// Probe a CSV file and infer column data types into a .schema file
     Probe(ProbeArgs),
+    /// Create a .schema file from explicit column definitions
+    Schema(SchemaArgs),
     /// Create a B-Tree index (.idx) for one or more columns
     Index(IndexArgs),
     /// Transform a CSV file using sorting, filtering, projection, and derivations
     Process(ProcessArgs),
     /// Append multiple CSV files into a single output
     Append(AppendArgs),
-    /// Verify one or more CSV files against a metadata definition
+    /// Verify one or more CSV files against a schema definition
     Verify(VerifyArgs),
     /// Preview the first few rows of a CSV file in a formatted table
     Preview(PreviewArgs),
@@ -38,9 +40,9 @@ pub struct ProbeArgs {
     /// Input CSV file to inspect
     #[arg(short = 'i', long = "input")]
     pub input: PathBuf,
-    /// Destination .meta file path
-    #[arg(short, long)]
-    pub meta: PathBuf,
+    /// Destination .schema file path
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: PathBuf,
     /// Number of rows to sample when inferring types (0 means full scan)
     #[arg(long, default_value_t = 2000)]
     pub sample_rows: usize,
@@ -50,6 +52,16 @@ pub struct ProbeArgs {
     /// Character encoding of the input file (defaults to utf-8)
     #[arg(long = "input-encoding")]
     pub input_encoding: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct SchemaArgs {
+    /// Destination .schema file path
+    #[arg(short = 'o', long = "output")]
+    pub output: PathBuf,
+    /// Column definitions using `name:type` syntax (comma-separated or repeatable)
+    #[arg(short = 'c', long = "column", action = clap::ArgAction::Append, required = true)]
+    pub columns: Vec<String>,
 }
 
 #[derive(Debug, Args)]
@@ -66,9 +78,12 @@ pub struct IndexArgs {
     /// Repeatable index specifications such as `col_a:asc,col_b:desc` or `fast=col_a:asc`
     #[arg(long = "spec", action = clap::ArgAction::Append)]
     pub specs: Vec<String>,
-    /// Optional metadata file describing column types
-    #[arg(short, long)]
-    pub meta: Option<PathBuf>,
+    /// Generate index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
+    #[arg(long = "combo", action = clap::ArgAction::Append)]
+    pub combos: Vec<String>,
+    /// Optional schema file describing column types
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: Option<PathBuf>,
     /// Limit number of rows to scan (useful for prototyping)
     #[arg(long)]
     pub limit: Option<usize>,
@@ -88,9 +103,9 @@ pub struct ProcessArgs {
     /// Output CSV file (stdout if omitted)
     #[arg(short = 'o', long = "output")]
     pub output: Option<PathBuf>,
-    /// Metadata file to drive typed operations
-    #[arg(short, long)]
-    pub meta: Option<PathBuf>,
+    /// Schema file to drive typed operations
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: Option<PathBuf>,
     /// Existing index file to speed up operations
     #[arg(short = 'x', long = "index")]
     pub index: Option<PathBuf>,
@@ -160,9 +175,9 @@ pub struct AppendArgs {
     /// Destination CSV file (stdout if omitted)
     #[arg(short = 'o', long = "output")]
     pub output: Option<PathBuf>,
-    /// Metadata file to verify schema
-    #[arg(short, long)]
-    pub meta: Option<PathBuf>,
+    /// Schema file to verify against
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: Option<PathBuf>,
     /// CSV delimiter character
     #[arg(long, value_parser = parse_delimiter)]
     pub delimiter: Option<u8>,
@@ -176,9 +191,9 @@ pub struct AppendArgs {
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
-    /// Metadata file describing the expected schema
-    #[arg(short, long)]
-    pub meta: PathBuf,
+    /// Schema file describing the expected structure
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: PathBuf,
     /// One or more CSV files to verify
     #[arg(short = 'i', long = "input", required = true, action = clap::ArgAction::Append)]
     pub inputs: Vec<PathBuf>,
@@ -211,9 +226,9 @@ pub struct StatsArgs {
     /// Input CSV file to profile
     #[arg(short = 'i', long = "input")]
     pub input: PathBuf,
-    /// Metadata file to drive typed operations
-    #[arg(short, long)]
-    pub meta: Option<PathBuf>,
+    /// Schema file to drive typed operations
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: Option<PathBuf>,
     /// Columns to include (defaults to numeric columns)
     #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
     pub columns: Vec<String>,
@@ -233,9 +248,9 @@ pub struct FrequencyArgs {
     /// Input CSV file to analyze
     #[arg(short = 'i', long = "input")]
     pub input: PathBuf,
-    /// Metadata file to drive typed operations
-    #[arg(short, long)]
-    pub meta: Option<PathBuf>,
+    /// Schema file to drive typed operations
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: Option<PathBuf>,
     /// Columns to compute frequency counts for
     #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
     pub columns: Vec<String>,
@@ -279,12 +294,12 @@ pub struct JoinArgs {
     /// Join type (inner, left, right, full)
     #[arg(long = "type", value_enum, default_value = "inner")]
     pub kind: JoinKind,
-    /// Metadata for the left file
-    #[arg(long = "left-meta")]
-    pub left_meta: Option<PathBuf>,
-    /// Metadata for the right file
-    #[arg(long = "right-meta")]
-    pub right_meta: Option<PathBuf>,
+    /// Schema for the left file
+    #[arg(long = "left-schema", alias = "left-meta")]
+    pub left_schema: Option<PathBuf>,
+    /// Schema for the right file
+    #[arg(long = "right-schema", alias = "right-meta")]
+    pub right_schema: Option<PathBuf>,
     /// CSV delimiter character for inputs
     #[arg(long = "delimiter", value_parser = parse_delimiter)]
     pub delimiter: Option<u8>,

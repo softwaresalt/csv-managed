@@ -1,13 +1,14 @@
 # csv-managed
 
-`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via metadata (`.meta`) and index (`.idx`) files.
+`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema (`.schema`) and index (`.idx`) files.
 
 ## Implemented Features
 
 | Area | Description |
 |------|-------------|
 | Delimiters | Input/output: comma, tab (`tab`), pipe (\|), semicolon (`;`), or any single ASCII char; output delimiter can differ (`--output-delimiter`). |
-| Schema inference (`probe`) | Full scan or sampled (`--sample-rows`) inference: String, Integer, Float, Boolean, Date, DateTime → stored as JSON `.meta`. |
+| Schema inference (`probe`) | Full scan or sampled (`--sample-rows`) inference: String, Integer, Float, Boolean, Date, DateTime → stored as JSON `.schema`. |
+| Schema authoring (`schema`) | Manually declare columns with data types and optional output names, writing a `.schema` file without inferring from data. |
 | Typed parsing | Integer, float, boolean normalization (`true/false`, `t/f`, `yes/no`, `y/n`, `1/0`); multi-format dates & datetimes. |
 | Indexing (`index`) | B-Tree style composite key index (byte offsets) for fast ascending iteration. |
 | Indexed sorted reads | `process --sort` uses matching index for streaming ascending order. |
@@ -24,7 +25,7 @@ cmd.exe:
 ```batch
 ./target/release/csv-managed.exe process ^
   -i ./data/orders.csv ^
-  -m ./data/orders.meta ^
+  -m ./data/orders.schema ^
   -x ./data/orders.idx ^
   --index-variant default ^
   --sort order_date:asc,customer_id:asc ^
@@ -43,7 +44,7 @@ If `--index-variant` is omitted, `process` automatically chooses the variant tha
 4. Extended expression library (regex, date math, if/else, null coalescing, aggregates).
 5. Parallelism (rayon) for sort/filter phases.
 6. Configurable reader options (quote char, flexible header detection, escapes).
-7. Boolean token customization via metadata.
+7. Boolean token customization via schema.
 8. Index versioning & migration utilities.
 9. Cardinality & histogram statistics for planning.
 10. Feature flags to reduce binary size.
@@ -61,7 +62,13 @@ cargo build --release
 
 Binary (Windows): `target\release\csv-managed.exe`
 
-Install locally to Cargo bin:
+Install from crates.io:
+
+```bash
+cargo install csv-managed
+```
+
+Install locally from the workspace (useful when developing):
 
 ```bash
 cargo install --path .
@@ -75,11 +82,7 @@ After building, the CLI can re-run installation on the current machine:
 
 The helper wraps `cargo install csv-managed` and accepts `--version`, `--force`, `--locked`, and `--root` pass-through options.
 
-Future crates.io (planned):
-
-```bash
-cargo install csv-managed
-```
+> Release automation: push a tag like `v0.1.0` and provide a `CRATES_IO_TOKEN` repository secret; the GitHub Actions release workflow will build archives and execute `cargo publish --locked` automatically.
 
 Logging examples:
 
@@ -95,35 +98,37 @@ set RUST_LOG=info
 
 ```powershell
 # 1. Infer schema
-./target/release/csv-managed.exe probe -i ./data/orders.csv -m ./data/orders.meta --sample-rows 0
+./target/release/csv-managed.exe probe -i ./data/orders.csv -m ./data/orders.schema --sample-rows 0
 # 2. Build index (optional for sorted reads)
-./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --meta ./data/orders.meta
+./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders.schema
 # 3. Process with filters / derives / sort
-./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders.meta -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
+./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders.schema -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
 # 4. Summary statistics
-./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.meta
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema
 # 5. Frequency counts (top 10)
-./target/release/csv-managed.exe frequency -i ./data/orders.csv -m ./data/orders.meta --top 10
+./target/release/csv-managed.exe frequency -i ./data/orders.csv -m ./data/orders.schema --top 10
 # 6. Preview first 15 rows
 ./target/release/csv-managed.exe preview -i ./data/orders.csv --rows 15
 # 7. Join customers with orders
 ./target/release/csv-managed.exe join --left ./data/orders.csv --right ./data/customers.csv --left-key customer_id --right-key id --type inner -o joined.csv
 # 8. Append monthly extracts
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.meta -o q1.csv
+./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
 # 9. Verify integrity
-./target/release/csv-managed.exe verify -m orders.meta -i q1.csv
+./target/release/csv-managed.exe verify -m orders.schema -i q1.csv
 ```
 
 ## Command Reference
 
+Detailed `--help` output for every command is mirrored in `docs/cli-help.md` for quick reference.
+
 ### probe
 
-Infer column types and produce a `.meta` JSON file.
+Infer column types and produce a `.schema` JSON file.
 
 | Flag | Description |
 |------|-------------|
 | `-i, --input <FILE>` | Input CSV file. |
-| `-m, --meta <FILE>` | Output metadata file. |
+| `-m, --schema <FILE>` | Output schema file. |
 | `--sample-rows <N>` | Sample size (`0` = full scan). |
 | `--delimiter <VAL>` | Input delimiter. |
 
@@ -132,7 +137,7 @@ PowerShell:
 ```powershell
 ./target/release/csv-managed.exe probe `
   -i ./data/orders.csv `
-  -m ./data/orders.meta `
+  -m ./data/orders.schema `
   --delimiter tab `
   --sample-rows 0
 ```
@@ -142,9 +147,38 @@ cmd.exe:
 ```batch
 ./target/release/csv-managed.exe probe ^
   -i ./data/orders.csv ^
-  -m ./data/orders.meta ^
+  -m ./data/orders.schema ^
   --delimiter tab ^
   --sample-rows 0
+```
+
+Legacy flag note: all commands continue to accept the historical `--meta`/`--left-meta`/`--right-meta` aliases for compatibility, but new examples use the canonical `--schema` options.
+
+### schema
+
+Create a `.schema` JSON file from explicit column definitions.
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output <FILE>` | Destination schema file. |
+| `-c, --column <SPEC>` | Repeatable `name:type` definitions; commas allowed per flag. Append `->New Name` to assign an output name. |
+
+PowerShell:
+
+```powershell
+./target/release/csv-managed.exe schema `
+  -o ./schemas/orders.schema `
+  -c id:integer->Identifier `
+  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string
+```
+
+cmd.exe:
+
+```batch
+./target/release/csv-managed.exe schema ^
+  -o ./schemas/orders.schema ^
+  -c id:integer->Identifier ^
+  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string
 ```
 
 ### index
@@ -157,7 +191,8 @@ Build a B-Tree index for specified key columns (ascending order optimization).
 | `-o, --index <FILE>` | Output `.idx` file. |
 | `-C, --columns <LIST>` | Legacy single ascending index (comma list). Superseded by `--spec`. |
 | `--spec <SPEC>` | Repeatable: `name=col_a:asc,col_b:desc` or `col_a:asc`. Builds named variants per index file. |
-| `-m, --meta <FILE>` | Optional metadata file. |
+| `--combo <SPEC>` | Generate prefix combinations with optional direction branches using `\|`, e.g. `geo=date:asc\|desc,customer:asc`. |
+| `-m, --schema <FILE>` | Optional schema file. |
 | `--limit <N>` | Stop after N rows (partial index). |
 | `--delimiter <VAL>` | Input delimiter. |
 
@@ -169,7 +204,7 @@ PowerShell:
   -o ./data/orders.idx `
   --spec default=order_date:asc,customer_id:asc `
   --spec recent=order_date:desc `
-  -m ./data/orders.meta
+  -m ./data/orders.schema
 ```
 
 cmd.exe:
@@ -180,7 +215,7 @@ cmd.exe:
   -o ./data/orders.idx ^
   --spec default=order_date:asc,customer_id:asc ^
   --spec recent=order_date:desc ^
-  -m ./data/orders.meta
+  -m ./data/orders.schema
 ```
 
 `--spec` accepts comma-separated `column:direction` tokens. Prefix with `name=` to label the variant (e.g. `fast=col_a:asc,col_b:desc`). When omitted, the variant is anonymous but still usable for automatic matching.
@@ -193,7 +228,7 @@ Transform pipeline: sort, filter, derive, project, exclude, boolean formatting, 
 |------|-------------|
 | `-i, --input <FILE>` | Input CSV (required). |
 | `-o, --output <FILE>` | Output file (stdout if omitted). |
-| `-m, --meta <FILE>` | Metadata file. |
+| `-m, --schema <FILE>` | Schema file. |
 | `-x, --index <FILE>` | Index file for accelerated sort matching asc/desc directives. |
 | `--index-variant <NAME>` | Pin to a named variant stored in the index file (requires matching `--sort`). |
 | `--sort <SPEC>` | Repeatable: `column[:asc or :desc]`. Comma list or multiple uses. |
@@ -213,7 +248,7 @@ PowerShell:
 ```powershell
 ./target/release/csv-managed.exe process `
   -i ./data/orders.csv `
-  -m ./data/orders.meta `
+  -m ./data/orders.schema `
   -x ./data/orders.idx `
   --index-variant default `
   --sort order_date:asc,customer_id:asc `
@@ -233,7 +268,7 @@ cmd.exe:
 ```batch
 ./target/release/csv-managed.exe process ^
   -i ./data/orders.csv ^
-  -m ./data/orders.meta ^
+  -m ./data/orders.schema ^
   -x ./data/orders.idx ^
   --index-variant default ^
   --sort order_date:asc,customer_id:asc ^
@@ -252,28 +287,28 @@ If `--index-variant` is omitted, `process` automatically chooses the variant tha
 
 ### append
 
-Append multiple CSV files into a single output. Ensures consistent headers (baseline or metadata enforced).
+Append multiple CSV files into a single output. Ensures consistent headers (baseline or schema enforced).
 
 | Flag | Description |
 |------|-------------|
 | `-i, --input <FILE>` | Repeatable input files (first defines header). |
 | `-o, --output <FILE>` | Output file (stdout if omitted). |
-| `-m, --meta <FILE>` | Optional metadata schema for strict validation. |
+| `-m, --schema <FILE>` | Optional schema for strict validation. |
 | `--delimiter <VAL>` | Delimiter for all inputs. |
 
 Example:
 
 ```powershell
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.meta -o q1.csv
+./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
 ```
 
 ### verify
 
-Validate one or more CSV files against a metadata schema.
+Validate one or more CSV files against a schema definition.
 
 | Flag | Description |
 |------|-------------|
-| `-m, --meta <FILE>` | Metadata schema file. |
+| `-m, --schema <FILE>` | Schema file. |
 | `-i, --input <FILE>` | Repeatable input files. |
 | `--delimiter <VAL>` | Input delimiter. |
 
@@ -293,8 +328,8 @@ Summary statistics for numeric columns.
 
 | Flag | Description |
 |------|-------------|
-| `-i, --input <FILE or ->` | Input file or `-` (stdin; requires metadata). |
-| `-m, --meta <FILE>` | Metadata file (recommended). |
+| `-i, --input <FILE or ->` | Input file or `-` (stdin; requires schema). |
+| `-m, --schema <FILE>` | Schema file (recommended). |
 | `-C, --columns <LIST>` | Restrict to listed numeric columns. |
 | `--delimiter <VAL>` | Input delimiter. |
 | `--limit <N>` | Scan at most N rows (0 = all). |
@@ -305,8 +340,8 @@ Distinct value counts per column.
 
 | Flag | Description |
 |------|-------------|
-| `-i, --input <FILE or ->` | Input file or stdin (`-`; metadata required). |
-| `-m, --meta <FILE>` | Optional metadata. |
+| `-i, --input <FILE or ->` | Input file or stdin (`-`; schema required). |
+| `-m, --schema <FILE>` | Optional schema. |
 | `-C, --columns <LIST>` | Limit to listed columns. |
 | `--delimiter <VAL>` | Input delimiter. |
 | `--top <N>` | Limit to top N values (0 = all). |
@@ -317,14 +352,14 @@ Join two CSV files on one or more key columns.
 
 | Flag | Description |
 |------|-------------|
-| `--left <FILE or ->` | Left input file or stdin (`-`; requires left metadata). |
+| `--left <FILE or ->` | Left input file or stdin (`-`; requires left schema). |
 | `--right <FILE>` | Right input file (file path). |
 | `-o, --output <FILE>` | Output file (stdout if omitted). |
 | `--left-key <COLS>` | Comma-separated left key columns. |
 | `--right-key <COLS>` | Comma-separated right key columns. |
 | `--type <inner/left/right/full>` | Join type (default inner). |
-| `--left-meta <FILE>` | Left metadata (required if left is stdin). |
-| `--right-meta <FILE>` | Right metadata. |
+| `--left-schema <FILE>` | Left schema (required if left is stdin). |
+| `--right-schema <FILE>` | Right schema. |
 | `--delimiter <VAL>` | Input delimiter. |
 
 Example:
@@ -398,14 +433,14 @@ Pending: Decimal, Time-only.
 Use `-` for streaming input where supported. Example:
 
 ```powershell
-Get-Content orders.csv | ./target/release/csv-managed.exe stats -i - -m orders.meta
+Get-Content orders.csv | ./target/release/csv-managed.exe stats -i - -m orders.schema
 ```
 
 ### Boolean Formatting Examples
 
 ```powershell
-./target/release/csv-managed.exe process -i orders.csv -m orders.meta --boolean-format one-zero -C shipped_flag -o shipped.csv
-./target/release/csv-managed.exe process -i orders.csv -m orders.meta --boolean-format true-false --table -C shipped_flag
+./target/release/csv-managed.exe process -i orders.csv -m orders.schema --boolean-format one-zero -C shipped_flag -o shipped.csv
+./target/release/csv-managed.exe process -i orders.csv -m orders.schema --boolean-format true-false --table -C shipped_flag
 ```
 
 ### Table Output

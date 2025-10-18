@@ -8,14 +8,14 @@ use crate::{
     cli::StatsArgs,
     data::{Value, parse_typed_value},
     io_utils,
-    metadata::{ColumnType, Schema},
+    schema::{self, ColumnType, Schema},
     table,
 };
 
 pub fn execute(args: &StatsArgs) -> Result<()> {
-    if args.meta.is_none() && io_utils::is_dash(&args.input) {
+    if args.schema.is_none() && io_utils::is_dash(&args.input) {
         return Err(anyhow!(
-            "Reading from stdin requires --meta for typed statistics"
+            "Reading from stdin requires --schema (or --meta) for typed statistics"
         ));
     }
 
@@ -27,7 +27,7 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
     let columns = resolve_columns(&schema, &args.columns)?;
     if columns.is_empty() {
         return Err(anyhow!(
-            "No numeric columns available. Provide metadata or explicit column list."
+            "No numeric columns available. Provide a schema file or explicit column list."
         ));
     }
 
@@ -70,10 +70,10 @@ fn load_or_infer_schema(
     delimiter: u8,
     encoding: &'static Encoding,
 ) -> Result<Schema> {
-    if let Some(path) = &args.meta {
-        Schema::load(path).with_context(|| format!("Loading metadata from {:?}", path))
+    if let Some(path) = &args.schema {
+        Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))
     } else {
-        crate::metadata::infer_schema(&args.input, 0, delimiter, encoding)
+        schema::infer_schema(&args.input, 0, delimiter, encoding)
             .with_context(|| format!("Inferring schema from {:?}", args.input))
     }
 }
@@ -98,7 +98,7 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
                 if !matches!(column.data_type, ColumnType::Integer | ColumnType::Float) {
                     return Err(anyhow!(
                         "Column '{}' is type {:?} and cannot be profiled as numeric",
-                        column.name,
+                        column.output_name(),
                         column.data_type
                     ));
                 }
@@ -118,7 +118,7 @@ impl StatsAccumulator {
         let mut data = HashMap::new();
         for idx in columns {
             let mut stats = ColumnStats::default();
-            stats.name = schema.columns[*idx].name.clone();
+            stats.name = schema.columns[*idx].output_name().to_string();
             data.insert(*idx, stats);
         }
         Self {
@@ -135,7 +135,7 @@ impl StatsAccumulator {
                 continue;
             }
             if let Some(parsed) = parse_typed_value(value, &column.data_type)
-                .with_context(|| format!("Column '{}'", column.name))?
+                .with_context(|| format!("Column '{}'", column.output_name()))?
             {
                 let numeric = match parsed {
                     Value::Integer(i) => i as f64,
@@ -143,7 +143,7 @@ impl StatsAccumulator {
                     other => {
                         return Err(anyhow!(
                             "Column '{}' expected numeric type but encountered {:?}",
-                            column.name,
+                            column.output_name(),
                             other
                         ));
                     }
@@ -274,7 +274,7 @@ mod tests {
     fn accumulator_computes_stats_for_ipqs_subset() {
         let path = fixture_path();
         assert!(path.exists(), "fixture missing: {:?}", path);
-        let schema = crate::metadata::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
+        let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
         let columns = vec![
             schema
                 .column_index("ipqs_email_Fraud Score")

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::{ComparableValue, parse_typed_value},
     io_utils,
-    metadata::{ColumnType, Schema},
+    schema::{ColumnType, Schema},
 };
 
 use encoding_rs::Encoding;
@@ -114,6 +114,153 @@ impl IndexDefinition {
             name,
         })
     }
+
+    pub fn expand_combo_spec(spec: &str) -> Result<Vec<Self>> {
+        let (name_prefix, remainder) = if let Some((raw_name, rest)) = spec.split_once('=') {
+            let trimmed_name = raw_name.trim();
+            if trimmed_name.is_empty() {
+                return Err(anyhow!(
+                    "Combination specification is missing a name before '=': '{spec}'"
+                ));
+            }
+            let trimmed_rest = rest.trim();
+            if trimmed_rest.is_empty() {
+                return Err(anyhow!(
+                    "Combination specification '{spec}' is missing column definitions after '='"
+                ));
+            }
+            (Some(trimmed_name.to_string()), trimmed_rest)
+        } else {
+            (None, spec.trim())
+        };
+
+        let columns = remainder
+            .split(',')
+            .map(|token| token.trim())
+            .filter(|token| !token.is_empty())
+            .map(parse_combo_column)
+            .collect::<Result<Vec<_>>>()?;
+
+        if columns.is_empty() {
+            return Err(anyhow!(
+                "Combination specification did not contain any columns: '{spec}'"
+            ));
+        }
+
+        let mut definitions = Vec::new();
+        for prefix_len in 1..=columns.len() {
+            let prefix = &columns[..prefix_len];
+            let direction_sets = prefix
+                .iter()
+                .map(|column| column.directions.as_slice())
+                .collect::<Vec<_>>();
+            for directions in cartesian_product(&direction_sets) {
+                let column_names = prefix
+                    .iter()
+                    .map(|column| column.name.clone())
+                    .collect::<Vec<_>>();
+                let variant_name =
+                    build_combo_name(name_prefix.as_deref(), &column_names, &directions);
+                definitions.push(IndexDefinition {
+                    columns: column_names,
+                    directions,
+                    name: Some(variant_name),
+                });
+            }
+        }
+
+        Ok(definitions)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ComboColumn {
+    name: String,
+    directions: Vec<SortDirection>,
+}
+
+fn parse_combo_column(token: &str) -> Result<ComboColumn> {
+    let mut parts = token.split(':');
+    let name = parts
+        .next()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| anyhow!("Combination specification is missing a column name"))?;
+    let directions = if let Some(dir_part) = parts.next() {
+        let options = dir_part
+            .split('|')
+            .map(|raw| raw.trim().to_ascii_lowercase())
+            .filter(|s| !s.is_empty())
+            .map(|value| match value.as_str() {
+                "asc" => Ok(SortDirection::Asc),
+                "desc" => Ok(SortDirection::Desc),
+                other => Err(anyhow!("Unknown sort direction '{other}'")),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if options.is_empty() {
+            vec![SortDirection::Asc]
+        } else {
+            options
+        }
+    } else {
+        vec![SortDirection::Asc]
+    };
+
+    Ok(ComboColumn {
+        name: name.to_string(),
+        directions,
+    })
+}
+
+fn cartesian_product(options: &[&[SortDirection]]) -> Vec<Vec<SortDirection>> {
+    let mut acc = vec![Vec::new()];
+    for set in options {
+        let mut next = Vec::new();
+        for combination in &acc {
+            for direction in *set {
+                let mut updated = combination.clone();
+                updated.push(*direction);
+                next.push(updated);
+            }
+        }
+        acc = next;
+    }
+    acc
+}
+
+fn build_combo_name(
+    prefix: Option<&str>,
+    columns: &[String],
+    directions: &[SortDirection],
+) -> String {
+    let suffix = columns
+        .iter()
+        .zip(directions.iter())
+        .map(|(column, direction)| {
+            format!("{}-{}", sanitize_identifier(column), direction.as_str())
+        })
+        .collect::<Vec<_>>()
+        .join("_");
+    match prefix {
+        Some(p) => {
+            if suffix.is_empty() {
+                sanitize_identifier(p)
+            } else {
+                format!("{}_{}", sanitize_identifier(p), suffix)
+            }
+        }
+        None => suffix,
+    }
+}
+
+fn sanitize_identifier(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => ch,
+            _ => '_',
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -486,6 +633,45 @@ mod tests {
             spec.directions,
             vec![SortDirection::Desc, SortDirection::Asc]
         );
+    }
+
+    #[test]
+    fn expand_combo_spec_generates_prefix_variants() {
+        let variants = IndexDefinition::expand_combo_spec("col1:asc|desc,col2:asc").unwrap();
+        assert_eq!(variants.len(), 4);
+        let combos: Vec<(Vec<String>, Vec<SortDirection>, String)> = variants
+            .into_iter()
+            .map(|definition| {
+                (
+                    definition.columns,
+                    definition.directions,
+                    definition.name.unwrap(),
+                )
+            })
+            .collect();
+        assert!(combos.iter().any(|(cols, dirs, _)| {
+            cols == &vec!["col1".to_string()] && dirs == &vec![SortDirection::Asc]
+        }));
+        assert!(combos.iter().any(|(cols, dirs, _)| {
+            cols == &vec!["col1".to_string()] && dirs == &vec![SortDirection::Desc]
+        }));
+        assert!(combos.iter().any(|(cols, dirs, name)| {
+            cols == &vec!["col1".to_string(), "col2".to_string()]
+                && dirs == &vec![SortDirection::Asc, SortDirection::Asc]
+                && name.contains("col1-asc")
+        }));
+    }
+
+    #[test]
+    fn expand_combo_spec_honors_name_prefix() {
+        let variants =
+            IndexDefinition::expand_combo_spec("geo=country:asc|desc,region:asc|desc").unwrap();
+        assert!(variants.len() >= 4);
+        for definition in variants {
+            let name = definition.name.unwrap();
+            assert!(name.starts_with("geo_"));
+            assert_eq!(definition.columns[0], "country");
+        }
     }
 
     #[test]

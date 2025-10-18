@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 
 use crate::{
     data::{Value, parse_typed_value},
-    metadata::{ColumnType, Schema},
+    schema::{ColumnType, Schema},
 };
 
 #[derive(Debug, Clone, Copy)]

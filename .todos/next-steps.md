@@ -1,0 +1,25 @@
+# TODO
+
+- [x] Review current index storage format and limitations for multi-column/direction support.
+- [x] Design structure for storing multiple index variants keyed by column names and sort directions.
+- [x] Update index build logic to optionally create several variants in one file or multiple files.
+- [x] Extend index serialization format to capture direction metadata per column.
+- [x] Update CLI to allow naming/selecting specific index variants with direction info.
+- [x] Teach process command to pick best-matching index variant based on requested sorts, including mixed directions.
+- [x] Implement install command that shells out to `cargo install csv-managed` with options for version/force/local path.
+- [x] Document install command usage and multi-index support in README.
+- [x] Add tests covering install command argument plumbing and multi-index selection logic.
+- [x] Add GUID data type support.
+- [x] Refactor the solution to use .schema instead of .meta and rename metadata.rs to schema.rs.
+- [x] Add the ability to specify the column names along with the data types of a CSV file in the schema file.
+- [x] Add the ability to specify in the .schema file a mapping of existing column names to new column names to be used in all outputs from the file.
+- [x] Add GitHub pipeline build and deployment capability using build and deployment definitions or actions.
+- [x] Add deployment of the executable as a binary for easy access from the command line from the cargo package store.
+- [x] Add the ability to index a file on multiple combinations of columns and store multiple indexes for the same file and mixed sort directions (ascending/descending) per column.
+- [ ] [In progress] Add the ability to list column names and data types as a list to the console output.
+- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
+- [ ] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
+- [ ] Add the ability to index all of the files in a directory matching a single schema file.
+- [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
+- [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
+- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.

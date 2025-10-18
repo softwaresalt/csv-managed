@@ -12,7 +12,7 @@ use crate::{
     filter::{evaluate_conditions, parse_filters},
     index::{CsvIndex, IndexVariant, SortDirection},
     io_utils,
-    metadata::{ColumnType, Schema},
+    schema::{ColumnMeta, ColumnType, Schema},
 };
 
 use encoding_rs::Encoding;
@@ -58,13 +58,13 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
     let headers = io_utils::reader_headers(&mut reader, input_encoding)?;
 
-    let mut schema = if let Some(meta_path) = &args.meta {
-        Schema::load(meta_path)?
+    let mut schema = if let Some(schema_path) = &args.schema {
+        Schema::load(schema_path)?
     } else {
         Schema::from_headers(&headers)
     };
 
-    reconcile_schema_with_headers(&mut schema, &headers);
+    reconcile_schema_with_headers(&mut schema, &headers)?;
 
     let maybe_index = if let Some(index_path) = &args.index {
         Some(CsvIndex::load(index_path)?)
@@ -130,12 +130,13 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     let output_path = args.output.as_deref();
     let mut writer = io_utils::open_csv_writer(output_path, output_delimiter, output_encoding)?;
 
-    let column_map = build_column_map(&headers);
+    let column_map = build_column_map(&headers, &schema);
     let sort_plan = build_sort_plan(&sorts, &schema, &column_map)?;
     let filter_conditions = filters;
 
     let output_plan = OutputPlan::new(
         &headers,
+        &schema,
         &selected_columns,
         &derived_columns,
         args.row_numbers,
@@ -199,25 +200,39 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     writer.flush().context("Flushing output")
 }
 
-fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) {
-    if schema.columns.len() == headers.len() {
-        return;
+fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) -> Result<()> {
+    if schema.columns.is_empty() {
+        schema.columns = headers
+            .iter()
+            .map(|name| ColumnMeta {
+                name: name.clone(),
+                data_type: ColumnType::String,
+                rename: None,
+            })
+            .collect();
+        return Ok(());
     }
-    schema.columns = headers
-        .iter()
-        .map(|name| crate::metadata::ColumnMeta {
-            name: name.clone(),
-            data_type: ColumnType::String,
-        })
-        .collect();
+
+    schema.validate_headers(headers)?;
+    Ok(())
 }
 
-fn build_column_map(headers: &[String]) -> std::collections::HashMap<String, usize> {
-    headers
-        .iter()
-        .enumerate()
-        .map(|(idx, header)| (header.clone(), idx))
-        .collect()
+fn build_column_map(
+    headers: &[String],
+    schema: &Schema,
+) -> std::collections::HashMap<String, usize> {
+    let mut map = std::collections::HashMap::new();
+    for (idx, header) in headers.iter().enumerate() {
+        map.insert(header.clone(), idx);
+        if let Some(column) = schema.columns.get(idx) {
+            if let Some(rename) = column.rename.as_ref() {
+                if !rename.is_empty() {
+                    map.insert(rename.clone(), idx);
+                }
+            }
+        }
+    }
+    map
 }
 
 fn build_sort_plan(
@@ -580,6 +595,7 @@ struct OutputPlan {
 impl OutputPlan {
     fn new(
         headers: &[String],
+        schema: &Schema,
         selected_columns: &[String],
         derived: &[DerivedColumn],
         row_numbers: bool,
@@ -591,7 +607,7 @@ impl OutputPlan {
             fields.push(OutputField::RowNumber);
             output_headers.push("row_number".to_string());
         }
-        let column_map = build_column_map(headers);
+        let column_map = build_column_map(headers, schema);
         let columns_to_use = if selected_columns.is_empty() {
             headers.to_vec()
         } else {
@@ -603,7 +619,7 @@ impl OutputPlan {
                 .copied()
                 .ok_or_else(|| anyhow!("Requested column '{column}' not found"))?;
             fields.push(OutputField::ExistingColumn(idx));
-            output_headers.push(headers[idx].clone());
+            output_headers.push(schema.columns[idx].output_name().to_string());
         }
         for (idx, derived_column) in derived.iter().enumerate() {
             fields.push(OutputField::Derived(idx));

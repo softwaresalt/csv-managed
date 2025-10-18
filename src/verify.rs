@@ -7,13 +7,13 @@ use crate::{
     cli::VerifyArgs,
     data::parse_typed_value,
     io_utils,
-    metadata::{ColumnType, Schema},
+    schema::{ColumnType, Schema},
 };
 
 pub fn execute(args: &VerifyArgs) -> Result<()> {
     let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
-    let schema = Schema::load(&args.meta)
-        .with_context(|| format!("Loading metadata from {:?}", args.meta))?;
+    let schema = Schema::load(&args.schema)
+        .with_context(|| format!("Loading schema from {:?}", args.schema))?;
     for input in &args.inputs {
         let delimiter = io_utils::resolve_input_delimiter(input, args.delimiter);
         validate_file_against_schema(&schema, input, delimiter, input_encoding)?;
@@ -40,8 +40,9 @@ pub fn validate_file_against_schema(
         let decoded = io_utils::decode_record(&record, encoding)?;
         for (col_idx, column) in schema.columns.iter().enumerate() {
             let value = decoded.get(col_idx).map(|s| s.as_str()).unwrap_or("");
-            validate_value(value, &column.data_type)
-                .with_context(|| format!("Row {} column '{}'", row_idx + 2, column.name))?;
+            validate_value(value, &column.data_type).with_context(|| {
+                format!("Row {} column '{}'", row_idx + 2, column.output_name())
+            })?;
         }
     }
     Ok(())
