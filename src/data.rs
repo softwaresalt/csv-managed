@@ -170,3 +170,78 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
         Value::DateTime(dt) => evalexpr::Value::String(dt.format("%Y-%m-%d %H:%M:%S").to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{NaiveDate, NaiveDateTime};
+    use evalexpr::Value as EvalValue;
+
+    #[test]
+    fn normalize_column_name_replaces_non_alphanumeric() {
+        assert_eq!(normalize_column_name("Order ID"), "order_id");
+        assert_eq!(normalize_column_name("$Percent%"), "_percent_");
+    }
+
+    #[test]
+    fn parse_naive_date_supports_multiple_formats() {
+        let expected = NaiveDate::from_ymd_opt(2024, 5, 6).unwrap();
+        assert_eq!(parse_naive_date("2024-05-06").unwrap(), expected);
+        assert_eq!(parse_naive_date("06/05/2024").unwrap(), expected);
+        assert_eq!(parse_naive_date("2024/05/06").unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_naive_datetime_supports_multiple_formats() {
+        let expected =
+            NaiveDateTime::parse_from_str("2024-05-06 14:30:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        assert_eq!(
+            parse_naive_datetime("2024-05-06T14:30:00").unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_naive_datetime("06/05/2024 14:30:00").unwrap(),
+            expected
+        );
+        assert_eq!(parse_naive_datetime("2024-05-06 14:30").unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_typed_value_handles_empty_and_boolean_inputs() {
+        assert_eq!(parse_typed_value("", &ColumnType::Integer).unwrap(), None);
+
+        let truthy = parse_typed_value("Yes", &ColumnType::Boolean)
+            .unwrap()
+            .unwrap();
+        assert_eq!(truthy, Value::Boolean(true));
+
+        let falsy = parse_typed_value("0", &ColumnType::Boolean)
+            .unwrap()
+            .unwrap();
+        assert_eq!(falsy, Value::Boolean(false));
+
+        assert!(parse_typed_value("maybe", &ColumnType::Boolean).is_err());
+    }
+
+    #[test]
+    fn value_to_evalexpr_preserves_variants() {
+        assert_eq!(value_to_evalexpr(&Value::Integer(42)), EvalValue::Int(42));
+        assert_eq!(
+            value_to_evalexpr(&Value::Boolean(false)),
+            EvalValue::Boolean(false)
+        );
+
+        let date = NaiveDate::from_ymd_opt(2024, 5, 6).unwrap();
+        assert_eq!(
+            value_to_evalexpr(&Value::Date(date)),
+            EvalValue::String("2024-05-06".to_string())
+        );
+    }
+
+    #[test]
+    fn comparable_value_orders_none_before_some() {
+        let none = ComparableValue(None);
+        let some = ComparableValue(Some(Value::Integer(0)));
+        assert!(none < some);
+    }
+}

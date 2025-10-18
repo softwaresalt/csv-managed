@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about = "Manage CSV files efficiently", long_about = None)]
@@ -17,6 +17,20 @@ pub enum Commands {
     Index(IndexArgs),
     /// Transform a CSV file using sorting, filtering, projection, and derivations
     Process(ProcessArgs),
+    /// Append multiple CSV files into a single output
+    Append(AppendArgs),
+    /// Verify one or more CSV files against a metadata definition
+    Verify(VerifyArgs),
+    /// Preview the first few rows of a CSV file in a formatted table
+    Preview(PreviewArgs),
+    /// Produce summary statistics for numeric columns
+    Stats(StatsArgs),
+    /// Produce frequency counts for categorical columns
+    Frequency(FrequencyArgs),
+    /// Join two CSV files on common columns
+    Join(JoinArgs),
+    /// Install the csv-managed binary via cargo install
+    Install(InstallArgs),
 }
 
 #[derive(Debug, Args)]
@@ -31,8 +45,11 @@ pub struct ProbeArgs {
     #[arg(long, default_value_t = 2000)]
     pub sample_rows: usize,
     /// CSV delimiter character (supports ',', 'tab', ';', '|')
-    #[arg(long, default_value = ",", value_parser = parse_delimiter)]
-    pub delimiter: u8,
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding of the input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -43,9 +60,12 @@ pub struct IndexArgs {
     /// Output index file (.idx)
     #[arg(short = 'o', long = "index")]
     pub index: PathBuf,
-    /// Columns to include in the index, in order of preference
-    #[arg(short = 'C', long = "columns", required = true, value_delimiter = ',')]
+    /// Columns to include in a single ascending index (deprecated when --spec is used)
+    #[arg(short = 'C', long = "columns", value_delimiter = ',')]
     pub columns: Vec<String>,
+    /// Repeatable index specifications such as `col_a:asc,col_b:desc` or `fast=col_a:asc`
+    #[arg(long = "spec", action = clap::ArgAction::Append)]
+    pub specs: Vec<String>,
     /// Optional metadata file describing column types
     #[arg(short, long)]
     pub meta: Option<PathBuf>,
@@ -53,8 +73,11 @@ pub struct IndexArgs {
     #[arg(long)]
     pub limit: Option<usize>,
     /// CSV delimiter character (supports ',', 'tab', ';', '|')
-    #[arg(long, default_value = ",", value_parser = parse_delimiter)]
-    pub delimiter: u8,
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding of the input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -71,12 +94,18 @@ pub struct ProcessArgs {
     /// Existing index file to speed up operations
     #[arg(short = 'x', long = "index")]
     pub index: Option<PathBuf>,
+    /// Specific index variant name to use from the selected index file
+    #[arg(long = "index-variant")]
+    pub index_variant: Option<String>,
     /// Sort directives of the form `column[:asc|desc]`
     #[arg(long = "sort", action = clap::ArgAction::Append)]
     pub sort: Vec<String>,
     /// Restrict output to this comma-separated list of columns
     #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
     pub columns: Vec<String>,
+    /// Exclude this comma-separated list of columns from output
+    #[arg(long = "exclude-columns", action = clap::ArgAction::Append)]
+    pub exclude_columns: Vec<String>,
     /// Additional derived columns using `name=expression`
     #[arg(long = "derive", action = clap::ArgAction::Append)]
     pub derives: Vec<String>,
@@ -90,11 +119,200 @@ pub struct ProcessArgs {
     #[arg(long)]
     pub limit: Option<usize>,
     /// CSV delimiter character for reading input
-    #[arg(long, default_value = ",", value_parser = parse_delimiter)]
-    pub delimiter: u8,
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
     /// Delimiter to use for output (defaults to input delimiter)
     #[arg(long = "output-delimiter", value_parser = parse_delimiter)]
     pub output_delimiter: Option<u8>,
+    /// Character encoding of the input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Character encoding for the output file/stdout (defaults to utf-8)
+    #[arg(long = "output-encoding")]
+    pub output_encoding: Option<String>,
+    /// Normalize boolean columns in output
+    #[arg(long = "boolean-format", default_value = "original")]
+    pub boolean_format: BooleanFormat,
+    /// Render output as an elastic table to stdout
+    #[arg(long = "table")]
+    pub table: bool,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[value(rename_all = "kebab-case")]
+pub enum BooleanFormat {
+    Original,
+    TrueFalse,
+    OneZero,
+}
+
+impl Default for BooleanFormat {
+    fn default() -> Self {
+        BooleanFormat::Original
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct AppendArgs {
+    /// One or more CSV files to append
+    #[arg(short = 'i', long = "input", required = true, action = clap::ArgAction::Append)]
+    pub inputs: Vec<PathBuf>,
+    /// Destination CSV file (stdout if omitted)
+    #[arg(short = 'o', long = "output")]
+    pub output: Option<PathBuf>,
+    /// Metadata file to verify schema
+    #[arg(short, long)]
+    pub meta: Option<PathBuf>,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input files (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Character encoding for the output file/stdout (defaults to utf-8)
+    #[arg(long = "output-encoding")]
+    pub output_encoding: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct VerifyArgs {
+    /// Metadata file describing the expected schema
+    #[arg(short, long)]
+    pub meta: PathBuf,
+    /// One or more CSV files to verify
+    #[arg(short = 'i', long = "input", required = true, action = clap::ArgAction::Append)]
+    pub inputs: Vec<PathBuf>,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input files (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PreviewArgs {
+    /// Input CSV file to preview
+    #[arg(short = 'i', long = "input")]
+    pub input: PathBuf,
+    /// Number of rows to display
+    #[arg(long, default_value_t = 10)]
+    pub rows: usize,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct StatsArgs {
+    /// Input CSV file to profile
+    #[arg(short = 'i', long = "input")]
+    pub input: PathBuf,
+    /// Metadata file to drive typed operations
+    #[arg(short, long)]
+    pub meta: Option<PathBuf>,
+    /// Columns to include (defaults to numeric columns)
+    #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
+    pub columns: Vec<String>,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Maximum rows to scan (0 = all)
+    #[arg(long, default_value_t = 0)]
+    pub limit: usize,
+}
+
+#[derive(Debug, Args)]
+pub struct FrequencyArgs {
+    /// Input CSV file to analyze
+    #[arg(short = 'i', long = "input")]
+    pub input: PathBuf,
+    /// Metadata file to drive typed operations
+    #[arg(short, long)]
+    pub meta: Option<PathBuf>,
+    /// Columns to compute frequency counts for
+    #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
+    pub columns: Vec<String>,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Maximum distinct values to display per column (0 = all)
+    #[arg(long, default_value_t = 0)]
+    pub top: usize,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum JoinKind {
+    Inner,
+    Left,
+    Right,
+    Full,
+}
+
+#[derive(Debug, Args)]
+pub struct JoinArgs {
+    /// Left CSV input
+    #[arg(long = "left")]
+    pub left: PathBuf,
+    /// Right CSV input
+    #[arg(long = "right")]
+    pub right: PathBuf,
+    /// Output CSV file (stdout if omitted)
+    #[arg(short = 'o', long = "output")]
+    pub output: Option<PathBuf>,
+    /// Comma-separated key columns from the left file
+    #[arg(long = "left-key")]
+    pub left_key: String,
+    /// Comma-separated key columns from the right file
+    #[arg(long = "right-key")]
+    pub right_key: String,
+    /// Join type (inner, left, right, full)
+    #[arg(long = "type", value_enum, default_value = "inner")]
+    pub kind: JoinKind,
+    /// Metadata for the left file
+    #[arg(long = "left-meta")]
+    pub left_meta: Option<PathBuf>,
+    /// Metadata for the right file
+    #[arg(long = "right-meta")]
+    pub right_meta: Option<PathBuf>,
+    /// CSV delimiter character for inputs
+    #[arg(long = "delimiter", value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for the left input file (defaults to utf-8)
+    #[arg(long = "left-encoding")]
+    pub left_encoding: Option<String>,
+    /// Character encoding for the right input file (defaults to utf-8)
+    #[arg(long = "right-encoding")]
+    pub right_encoding: Option<String>,
+    /// Character encoding for the output file/stdout (defaults to utf-8)
+    #[arg(long = "output-encoding")]
+    pub output_encoding: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct InstallArgs {
+    /// Install a specific published version
+    #[arg(long)]
+    pub version: Option<String>,
+    /// Force reinstallation even if already installed
+    #[arg(long)]
+    pub force: bool,
+    /// Use --locked to honour Cargo.lock for dependencies
+    #[arg(long)]
+    pub locked: bool,
+    /// Install into an alternate root directory
+    #[arg(long)]
+    pub root: Option<PathBuf>,
 }
 
 pub fn parse_delimiter(value: &str) -> Result<u8, String> {

@@ -9,6 +9,8 @@ bincode = "1"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "serde"] }
 clap = { version = "4", features = ["derive"] }
 csv = "1"
+encoding_rs = "0.8"
+encoding_rs_io = "0.1"
 evalexpr = "11"
 itertools = "0.13"
 log = "0.4"

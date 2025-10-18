@@ -1,10 +1,13 @@
 use std::{fs::File, io::BufReader, path::Path};
 
-use anyhow::{Context, Result};
-use csv::StringRecord;
+use anyhow::{Context, Result, anyhow};
+use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 
-use crate::data::{parse_naive_date, parse_naive_datetime};
+use crate::{
+    data::{parse_naive_date, parse_naive_datetime},
+    io_utils,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ColumnType {
@@ -28,11 +31,11 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn from_headers(headers: &StringRecord) -> Self {
+    pub fn from_headers(headers: &[String]) -> Self {
         let columns = headers
             .iter()
             .map(|name| ColumnMeta {
-                name: name.to_string(),
+                name: name.clone(),
                 data_type: ColumnType::String,
             })
             .collect();
@@ -41,6 +44,32 @@ impl Schema {
 
     pub fn column_index(&self, name: &str) -> Option<usize> {
         self.columns.iter().position(|c| c.name == name)
+    }
+
+    pub fn headers(&self) -> Vec<String> {
+        self.columns.iter().map(|c| c.name.clone()).collect()
+    }
+
+    pub fn validate_headers(&self, headers: &[String]) -> Result<()> {
+        if headers.len() != self.columns.len() {
+            return Err(anyhow!(
+                "Header length mismatch: metadata expects {} column(s) but file contains {}",
+                self.columns.len(),
+                headers.len()
+            ));
+        }
+        for (idx, column) in self.columns.iter().enumerate() {
+            let name = headers.get(idx).map(|s| s.as_str()).unwrap_or_default();
+            if name != column.name {
+                return Err(anyhow!(
+                    "Header mismatch at position {}: expected '{}' but found '{}'",
+                    idx + 1,
+                    column.name,
+                    name
+                ));
+            }
+        }
+        Ok(())
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -76,6 +105,28 @@ impl TypeCandidate {
         }
     }
 
+    fn update(&mut self, value: &str) {
+        if self.possible_boolean
+            && !matches!(
+                value.to_ascii_lowercase().as_str(),
+                "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n"
+            )
+        {
+            self.possible_boolean = false;
+        }
+        if self.possible_integer && value.parse::<i64>().is_err() {
+            self.possible_integer = false;
+        }
+        if self.possible_float && value.parse::<f64>().is_err() {
+            self.possible_float = false;
+        }
+        if self.possible_date && parse_naive_date(value).is_err() {
+            self.possible_date = false;
+        }
+        if self.possible_datetime && parse_naive_datetime(value).is_err() {
+            self.possible_datetime = false;
+        }
+    }
     fn decide(&self) -> ColumnType {
         if self.possible_boolean {
             ColumnType::Boolean
@@ -93,13 +144,15 @@ impl TypeCandidate {
     }
 }
 
-pub fn infer_schema(path: &Path, sample_rows: usize, delimiter: u8) -> Result<Schema> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .delimiter(delimiter)
-        .from_path(path)
-        .with_context(|| format!("Opening CSV file {path:?}"))?;
-    let headers = reader.headers()?.clone();
+pub fn infer_schema(
+    path: &Path,
+    sample_rows: usize,
+    delimiter: u8,
+    encoding: &'static Encoding,
+) -> Result<Schema> {
+    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
+    let header_record = reader.byte_headers()?.clone();
+    let headers = io_utils::decode_headers(&header_record, encoding)?;
     let mut candidates = vec![TypeCandidate::new(); headers.len()];
 
     let mut record = csv::ByteRecord::new();
@@ -112,28 +165,8 @@ pub fn infer_schema(path: &Path, sample_rows: usize, delimiter: u8) -> Result<Sc
             if field.is_empty() {
                 continue;
             }
-            let as_str = std::str::from_utf8(field)?;
-            let candidate = &mut candidates[idx];
-            if candidate.possible_boolean
-                && !matches!(
-                    as_str.to_ascii_lowercase().as_str(),
-                    "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n"
-                )
-            {
-                candidate.possible_boolean = false;
-            }
-            if candidate.possible_integer && as_str.parse::<i64>().is_err() {
-                candidate.possible_integer = false;
-            }
-            if candidate.possible_float && as_str.parse::<f64>().is_err() {
-                candidate.possible_float = false;
-            }
-            if candidate.possible_date && parse_naive_date(as_str).is_err() {
-                candidate.possible_date = false;
-            }
-            if candidate.possible_datetime && parse_naive_datetime(as_str).is_err() {
-                candidate.possible_datetime = false;
-            }
+            let decoded = io_utils::decode_bytes(field, encoding)?;
+            candidates[idx].update(&decoded);
         }
         processed += 1;
     }
@@ -142,7 +175,7 @@ pub fn infer_schema(path: &Path, sample_rows: usize, delimiter: u8) -> Result<Sc
         .iter()
         .enumerate()
         .map(|(idx, header)| ColumnMeta {
-            name: header.to_string(),
+            name: header.clone(),
             data_type: candidates[idx].decide(),
         })
         .collect();

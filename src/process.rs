@@ -1,21 +1,31 @@
-use std::{fs::File, io::BufWriter, path::Path};
+use std::fs::File;
 
 use anyhow::{Context, Result, anyhow};
-use csv::{ByteRecord, Position, ReaderBuilder, WriterBuilder};
+use csv::{ByteRecord, Position};
 use itertools::Itertools;
 use log::{debug, info};
 
 use crate::{
-    cli::ProcessArgs,
+    cli::{BooleanFormat, ProcessArgs},
     data::{ComparableValue, Value, parse_typed_value},
     derive::{DerivedColumn, parse_derived_columns},
     filter::{evaluate_conditions, parse_filters},
-    index::CsvIndex,
+    index::{CsvIndex, IndexVariant, SortDirection},
+    io_utils,
     metadata::{ColumnType, Schema},
 };
 
+use encoding_rs::Encoding;
+
 pub fn execute(args: &ProcessArgs) -> Result<()> {
-    let output_delimiter = args.output_delimiter.unwrap_or(args.delimiter);
+    let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
+    let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
+    let output_delimiter = io_utils::resolve_output_delimiter(
+        args.output.as_deref(),
+        args.output_delimiter,
+        delimiter,
+    );
+    let output_encoding = io_utils::resolve_encoding(args.output_encoding.as_deref())?;
     info!(
         "Processing '{}' -> {:?} (delimiter '{}', output '{}')",
         args.input.display(),
@@ -23,7 +33,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "stdout".into()),
-        crate::printable_delimiter(args.delimiter),
+        crate::printable_delimiter(delimiter),
         crate::printable_delimiter(output_delimiter)
     );
     let sorts = args
@@ -45,18 +55,13 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     let derived_columns = parse_derived_columns(&args.derives)?;
     let filters = parse_filters(&args.filters)?;
 
-    let mut reader = ReaderBuilder::new()
-        .has_headers(true)
-        .delimiter(args.delimiter)
-        .from_path(&args.input)
-        .with_context(|| format!("Opening CSV file {:?}", args.input))?;
-    let headers_record = reader.headers()?.clone();
-    let headers: Vec<String> = headers_record.iter().map(|s| s.to_string()).collect();
+    let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
+    let headers = io_utils::reader_headers(&mut reader, input_encoding)?;
 
     let mut schema = if let Some(meta_path) = &args.meta {
         Schema::load(meta_path)?
     } else {
-        Schema::from_headers(&headers_record)
+        Schema::from_headers(&headers)
     };
 
     reconcile_schema_with_headers(&mut schema, &headers);
@@ -67,17 +72,63 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         None
     };
 
+    let requested_variant = args
+        .index_variant
+        .as_ref()
+        .map(|name| name.trim())
+        .filter(|name| !name.is_empty())
+        .map(|name| name.to_string());
+
+    if requested_variant.is_some() && maybe_index.is_none() {
+        return Err(anyhow!(
+            "An index variant was specified but no index file was provided"
+        ));
+    }
+
     let sort_signature = sorts
         .iter()
-        .map(|s| (s.column.clone(), s.ascending))
+        .map(|s| {
+            (
+                s.column.clone(),
+                if s.ascending {
+                    SortDirection::Asc
+                } else {
+                    SortDirection::Desc
+                },
+            )
+        })
         .collect_vec();
-    let supports_index = maybe_index
-        .as_ref()
-        .map(|index| index.supports_sort(&sort_signature))
-        .unwrap_or(false);
 
-    let output_path = args.output.as_ref().map(|p| p.as_path());
-    let mut writer = create_writer(output_path, output_delimiter)?;
+    let matching_variant: Option<&IndexVariant> = if let Some(index) = maybe_index.as_ref() {
+        if let Some(name) = requested_variant.as_deref() {
+            if sort_signature.is_empty() {
+                return Err(anyhow!(
+                    "Selecting an index variant requires at least one --sort directive"
+                ));
+            }
+            let variant = index.variant_by_name(name).ok_or_else(|| {
+                anyhow!(
+                    "Index variant '{name}' not found in {:?}",
+                    args.index.as_ref().map(|p| p.display().to_string())
+                )
+            })?;
+            if !variant.matches(&sort_signature) {
+                return Err(anyhow!(
+                    "Index variant '{name}' does not match the requested sort order"
+                ));
+            }
+            Some(variant)
+        } else if sort_signature.is_empty() {
+            None
+        } else {
+            index.best_match(&sort_signature)
+        }
+    } else {
+        None
+    };
+
+    let output_path = args.output.as_deref();
+    let mut writer = io_utils::open_csv_writer(output_path, output_delimiter, output_encoding)?;
 
     let column_map = build_column_map(&headers);
     let sort_plan = build_sort_plan(&sorts, &schema, &column_map)?;
@@ -88,15 +139,38 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         &selected_columns,
         &derived_columns,
         args.row_numbers,
+        args.boolean_format,
     )?;
 
     write_headers(&mut writer, &output_plan)?;
 
-    if supports_index && !sorts.is_empty() {
-        info!("Using index {:?} to accelerate sort", args.index);
+    if let Some(variant) = matching_variant {
+        if io_utils::is_dash(&args.input) {
+            return Err(anyhow!(
+                "Index accelerated processing requires a regular file input"
+            ));
+        }
+        let mut seek_reader = io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
+        // Read and discard headers to align reader position with data start.
+        seek_reader.byte_headers()?;
+        let covered = variant.columns().len();
+        let total = sort_signature.len();
+        info!(
+            "Using index {:?} variant '{}' to accelerate sort",
+            args.index,
+            variant.describe()
+        );
+        if covered < total {
+            debug!(
+                "Index covers {}/{} sort columns; remaining columns will be sorted in-memory",
+                covered, total
+            );
+        }
         process_with_index(
-            &mut reader,
-            maybe_index.as_ref().unwrap(),
+            &mut seek_reader,
+            input_encoding,
+            variant,
+            &sort_plan,
             &schema,
             &headers,
             &filter_conditions,
@@ -111,6 +185,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         }
         process_in_memory(
             reader,
+            input_encoding,
             &schema,
             &headers,
             &filter_conditions,
@@ -122,21 +197,6 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         )?
     };
     writer.flush().context("Flushing output")
-}
-
-fn create_writer(
-    path: Option<&Path>,
-    delimiter: u8,
-) -> Result<csv::Writer<Box<dyn std::io::Write>>> {
-    let writer: Box<dyn std::io::Write> = match path {
-        Some(path) => Box::new(BufWriter::new(
-            File::create(path).with_context(|| format!("Creating output file {path:?}"))?,
-        )),
-        None => Box::new(std::io::stdout()),
-    };
-    Ok(WriterBuilder::new()
-        .delimiter(delimiter)
-        .from_writer(writer))
 }
 
 fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) {
@@ -191,7 +251,8 @@ fn write_headers(
 }
 
 fn process_in_memory(
-    mut reader: csv::Reader<std::fs::File>,
+    reader: csv::Reader<Box<dyn std::io::Read>>,
+    encoding: &'static Encoding,
     schema: &Schema,
     headers: &[String],
     filters: &[crate::filter::FilterCondition],
@@ -201,12 +262,11 @@ fn process_in_memory(
     writer: &mut csv::Writer<Box<dyn std::io::Write>>,
     limit: Option<usize>,
 ) -> Result<()> {
-    let mut record = ByteRecord::new();
     let mut rows: Vec<RowData> = Vec::new();
-    let mut ordinal = 0usize;
 
-    while reader.read_byte_record(&mut record)? {
-        let raw = byte_record_to_strings(&record)?;
+    for (ordinal, result) in reader.into_byte_records().enumerate() {
+        let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
+        let raw = io_utils::decode_record(&record, encoding)?;
         let typed = parse_row(&raw, schema)?;
 
         if !filters.is_empty() && !evaluate_conditions(filters, schema, headers, &raw, &typed)? {
@@ -218,7 +278,6 @@ fn process_in_memory(
             typed,
             ordinal,
         });
-        ordinal += 1;
     }
 
     if !sort_plan.is_empty() {
@@ -236,8 +295,10 @@ fn process_in_memory(
 }
 
 fn process_with_index(
-    reader: &mut csv::Reader<std::fs::File>,
-    index: &CsvIndex,
+    reader: &mut csv::Reader<std::io::BufReader<File>>,
+    encoding: &'static Encoding,
+    variant: &IndexVariant,
+    sort_plan: &[SortInstruction],
     schema: &Schema,
     headers: &[String],
     filters: &[crate::filter::FilterCondition],
@@ -248,8 +309,12 @@ fn process_with_index(
 ) -> Result<()> {
     let mut record = ByteRecord::new();
     let mut emitted = 0usize;
+    let mut ordinal = 0usize;
+    let prefix_len = variant.columns().len();
+    let mut current_prefix: Option<Vec<Option<Value>>> = None;
+    let mut bucket: Vec<RowData> = Vec::new();
 
-    for offset in index.ordered_offsets() {
+    for offset in variant.ordered_offsets() {
         if let Some(limit) = limit {
             if emitted >= limit {
                 break;
@@ -261,23 +326,116 @@ fn process_with_index(
         if !reader.read_byte_record(&mut record)? {
             break;
         }
-        let raw = byte_record_to_strings(&record)?;
+        let raw = io_utils::decode_record(&record, encoding)?;
         let typed = parse_row(&raw, schema)?;
         if !filters.is_empty() && !evaluate_conditions(filters, schema, headers, &raw, &typed)? {
             continue;
         }
+
+        let prefix_key = build_prefix_key(&typed, sort_plan, prefix_len);
+        match current_prefix.as_ref() {
+            Some(existing) if *existing == prefix_key => {}
+            Some(_) => {
+                if flush_bucket(
+                    &mut bucket,
+                    headers,
+                    derived_columns,
+                    output_plan,
+                    writer,
+                    limit,
+                    &mut emitted,
+                    sort_plan,
+                    prefix_len,
+                )? {
+                    return Ok(());
+                }
+                current_prefix = Some(prefix_key.clone());
+            }
+            None => {
+                current_prefix = Some(prefix_key.clone());
+            }
+        }
+
+        bucket.push(RowData {
+            raw,
+            typed,
+            ordinal,
+        });
+        ordinal += 1;
+    }
+
+    flush_bucket(
+        &mut bucket,
+        headers,
+        derived_columns,
+        output_plan,
+        writer,
+        limit,
+        &mut emitted,
+        sort_plan,
+        prefix_len,
+    )?;
+
+    Ok(())
+}
+
+fn build_prefix_key(
+    typed: &[Option<Value>],
+    sort_plan: &[SortInstruction],
+    prefix_len: usize,
+) -> Vec<Option<Value>> {
+    let take = prefix_len.min(sort_plan.len());
+    sort_plan
+        .iter()
+        .take(take)
+        .map(|directive| typed[directive.index].clone())
+        .collect()
+}
+
+fn flush_bucket(
+    bucket: &mut Vec<RowData>,
+    headers: &[String],
+    derived_columns: &[DerivedColumn],
+    output_plan: &OutputPlan,
+    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
+    limit: Option<usize>,
+    emitted: &mut usize,
+    sort_plan: &[SortInstruction],
+    prefix_len: usize,
+) -> Result<bool> {
+    if bucket.is_empty() {
+        return Ok(false);
+    }
+
+    let remainder_plan = if prefix_len >= sort_plan.len() {
+        &[][..]
+    } else {
+        &sort_plan[prefix_len..]
+    };
+
+    if !remainder_plan.is_empty() {
+        bucket.sort_by(|a, b| compare_rows(a, b, remainder_plan));
+    }
+
+    for row in bucket.drain(..) {
+        if let Some(limit) = limit {
+            if *emitted >= limit {
+                return Ok(true);
+            }
+        }
         emit_single_row(
-            &raw,
-            &typed,
-            emitted + 1,
+            &row.raw,
+            &row.typed,
+            *emitted + 1,
             headers,
             derived_columns,
             output_plan,
             writer,
         )?;
-        emitted += 1;
+        *emitted += 1;
     }
-    Ok(())
+
+    Ok(false)
 }
 
 fn emit_rows<I>(
@@ -326,8 +484,10 @@ fn emit_single_row(
         match field {
             OutputField::RowNumber => record.push(row_number.to_string()),
             OutputField::ExistingColumn(idx) => {
-                let value = raw.get(*idx).cloned().unwrap_or_default();
-                record.push(value);
+                let raw_value = raw.get(*idx).map(String::as_str).unwrap_or("");
+                let typed_value = typed.get(*idx).and_then(|v| v.as_ref());
+                let formatted = output_plan.format_existing_value(raw_value, typed_value);
+                record.push(formatted);
             }
             OutputField::Derived(idx) => {
                 let derived =
@@ -349,17 +509,6 @@ fn parse_row(raw: &[String], schema: &Schema) -> Result<Vec<Option<Value>>> {
         .map(|(idx, column)| {
             let value = raw.get(idx).map(|s| s.as_str()).unwrap_or("");
             parse_typed_value(value, &column.data_type)
-        })
-        .collect()
-}
-
-fn byte_record_to_strings(record: &ByteRecord) -> Result<Vec<String>> {
-    record
-        .iter()
-        .map(|bytes| {
-            std::str::from_utf8(bytes)
-                .map(|s| s.to_string())
-                .map_err(|err| anyhow!("Invalid UTF-8 in CSV record: {err}"))
         })
         .collect()
 }
@@ -425,6 +574,7 @@ impl SortDirective {
 struct OutputPlan {
     headers: Vec<String>,
     fields: Vec<OutputField>,
+    boolean_format: BooleanFormat,
 }
 
 impl OutputPlan {
@@ -433,6 +583,7 @@ impl OutputPlan {
         selected_columns: &[String],
         derived: &[DerivedColumn],
         row_numbers: bool,
+        boolean_format: BooleanFormat,
     ) -> Result<Self> {
         let mut fields = Vec::new();
         let mut output_headers = Vec::new();
@@ -461,7 +612,19 @@ impl OutputPlan {
         Ok(OutputPlan {
             headers: output_headers,
             fields,
+            boolean_format,
         })
+    }
+
+    fn format_existing_value(&self, raw: &str, typed: Option<&Value>) -> String {
+        match (self.boolean_format, typed) {
+            (BooleanFormat::Original, _) => raw.to_string(),
+            (BooleanFormat::TrueFalse, Some(Value::Boolean(true))) => "true".to_string(),
+            (BooleanFormat::TrueFalse, Some(Value::Boolean(false))) => "false".to_string(),
+            (BooleanFormat::OneZero, Some(Value::Boolean(true))) => "1".to_string(),
+            (BooleanFormat::OneZero, Some(Value::Boolean(false))) => "0".to_string(),
+            _ => raw.to_string(),
+        }
     }
 }
 

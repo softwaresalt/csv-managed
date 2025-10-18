@@ -1,10 +1,19 @@
+pub mod append;
 pub mod cli;
 pub mod data;
 pub mod derive;
 pub mod filter;
+pub mod frequency;
 pub mod index;
+pub mod install;
+pub mod io_utils;
+pub mod join;
 pub mod metadata;
+pub mod preview;
 pub mod process;
+pub mod stats;
+pub mod table;
+pub mod verify;
 
 use std::{env, sync::OnceLock};
 
@@ -33,16 +42,25 @@ pub fn run() -> Result<()> {
         Commands::Probe(args) => handle_probe(&args),
         Commands::Index(args) => handle_index(&args),
         Commands::Process(args) => process::execute(&args),
+        Commands::Append(args) => append::execute(&args),
+        Commands::Verify(args) => verify::execute(&args),
+        Commands::Preview(args) => preview::execute(&args),
+        Commands::Stats(args) => stats::execute(&args),
+        Commands::Frequency(args) => frequency::execute(&args),
+        Commands::Join(args) => join::execute(&args),
+        Commands::Install(args) => install::execute(&args),
     }
 }
 
 fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
+    let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
+    let encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
     info!(
         "Probing '{}' with delimiter '{}'",
         args.input.display(),
-        printable_delimiter(args.delimiter)
+        printable_delimiter(delimiter)
     );
-    let schema = metadata::infer_schema(&args.input, args.sample_rows, args.delimiter)
+    let schema = metadata::infer_schema(&args.input, args.sample_rows, delimiter, encoding)
         .with_context(|| format!("Inferring schema from {:?}", args.input))?;
     schema
         .save(&args.meta)
@@ -56,10 +74,12 @@ fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
 }
 
 fn handle_index(args: &cli::IndexArgs) -> Result<()> {
+    let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
+    let encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
     info!(
         "Building index for '{}' using delimiter '{}'",
         args.input.display(),
-        printable_delimiter(args.delimiter)
+        printable_delimiter(delimiter)
     );
     let schema = match &args.meta {
         Some(path) => Some(
@@ -68,20 +88,32 @@ fn handle_index(args: &cli::IndexArgs) -> Result<()> {
         ),
         None => None,
     };
-    let columns = args
-        .columns
-        .iter()
-        .map(|c| c.trim())
-        .filter(|c| !c.is_empty())
-        .map(|c| c.to_string())
-        .collect::<Vec<_>>();
-    debug!("Index columns: {:?}", columns);
+    let mut definitions = Vec::new();
+    for spec in &args.specs {
+        let definition = index::IndexDefinition::parse(spec)
+            .with_context(|| format!("Parsing index specification '{spec}'"))?;
+        definitions.push(definition);
+    }
+    if definitions.is_empty() {
+        let columns = args
+            .columns
+            .iter()
+            .map(|c| c.trim())
+            .filter(|c| !c.is_empty())
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>();
+        let definition = index::IndexDefinition::from_columns(columns)
+            .context("Parsing --columns for index build")?;
+        definitions.push(definition);
+    }
+    debug!("Index definitions: {:?}", definitions.len());
     let index = index::CsvIndex::build(
         &args.input,
-        &columns,
+        &definitions,
         schema.as_ref(),
         args.limit,
-        args.delimiter,
+        delimiter,
+        encoding,
     )
     .with_context(|| format!("Building index for {:?}", args.input))?;
     let row_count = index.row_count();
@@ -89,11 +121,14 @@ fn handle_index(args: &cli::IndexArgs) -> Result<()> {
         .save(&args.index)
         .with_context(|| format!("Writing index to {:?}", args.index))?;
     info!(
-        "Index for {} row(s) across {} column(s) written to {:?}",
+        "Index with {} variant(s) for {} row(s) written to {:?}",
+        index.variants().len(),
         row_count,
-        columns.len(),
         args.index
     );
+    for variant in index.variants() {
+        info!("  • {}", variant.describe());
+    }
     Ok(())
 }
 
