@@ -298,10 +298,8 @@ impl CsvIndex {
         let mut processed = 0usize;
 
         loop {
-            if let Some(limit) = limit {
-                if processed >= limit {
-                    break;
-                }
+            if limit.is_some_and(|limit| processed >= limit) {
+                break;
             }
             let start_offset = reader.position().byte();
             if !reader.read_byte_record(&mut record)? {

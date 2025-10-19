@@ -211,12 +211,13 @@ fn build_column_map(
     let mut map = std::collections::HashMap::new();
     for (idx, header) in headers.iter().enumerate() {
         map.insert(header.clone(), idx);
-        if let Some(column) = schema.columns.get(idx) {
-            if let Some(rename) = column.rename.as_ref() {
-                if !rename.is_empty() {
-                    map.insert(rename.clone(), idx);
-                }
-            }
+        if let Some(rename) = schema
+            .columns
+            .get(idx)
+            .and_then(|column| column.rename.as_ref())
+            .filter(|rename| !rename.is_empty())
+        {
+            map.insert(rename.clone(), idx);
         }
     }
     map
@@ -318,10 +319,8 @@ impl<'a> ProcessEngine<'a> {
         let mut bucket: Vec<RowData> = Vec::new();
 
         for offset in variant.ordered_offsets() {
-            if let Some(limit) = self.limit {
-                if emitted >= limit {
-                    break;
-                }
+            if self.limit.is_some_and(|limit| emitted >= limit) {
+                break;
             }
             let mut position = Position::new();
             position.set_byte(offset);
@@ -386,10 +385,8 @@ impl<'a> ProcessEngine<'a> {
         }
 
         for row in bucket.drain(..) {
-            if let Some(limit) = self.limit {
-                if *emitted >= limit {
-                    return Ok(true);
-                }
+            if self.limit.is_some_and(|limit| *emitted >= limit) {
+                return Ok(true);
             }
             emit_single_row(
                 &row.raw,
@@ -432,10 +429,8 @@ where
     I: Iterator<Item = RowData>,
 {
     for (written, row) in rows.enumerate() {
-        if let Some(limit) = limit {
-            if written >= limit {
-                break;
-            }
+        if limit.is_some_and(|limit| written >= limit) {
+            break;
         }
         emit_single_row(
             &row.raw,
