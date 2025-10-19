@@ -43,23 +43,23 @@ impl DerivedColumn {
             let key_by_index = format!("c{idx}");
             if let Some(value) = typed_row.get(idx).and_then(|v| v.as_ref()) {
                 context
-                    .set_value(canon.clone().into(), value_to_evalexpr(value))
+                    .set_value(canon.clone(), value_to_evalexpr(value))
                     .with_context(|| format!("Binding column '{header}'"))?;
                 context
-                    .set_value(key_by_index.clone().into(), value_to_evalexpr(value))
+                    .set_value(key_by_index.clone(), value_to_evalexpr(value))
                     .with_context(|| format!("Binding column index {idx}"))?;
             } else if let Some(raw) = raw_row.get(idx) {
                 context
-                    .set_value(canon.clone().into(), EvalValue::String(raw.clone()))
+                    .set_value(canon.clone(), EvalValue::String(raw.clone()))
                     .with_context(|| format!("Binding raw column '{header}'"))?;
                 context
-                    .set_value(key_by_index.clone().into(), EvalValue::String(raw.clone()))
+                    .set_value(key_by_index.clone(), EvalValue::String(raw.clone()))
                     .with_context(|| format!("Binding raw column index {idx}"))?;
             }
         }
         if let Some(row_number) = row_number {
             context
-                .set_value("row_number".into(), EvalValue::Int(row_number as i64))
+                .set_value("row_number".to_string(), EvalValue::Int(row_number as i64))
                 .context("Binding row_number")?;
         }
 

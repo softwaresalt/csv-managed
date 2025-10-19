@@ -34,7 +34,7 @@ pub fn execute(args: &FrequencyArgs) -> Result<()> {
     let headers = io_utils::reader_headers(&mut reader, encoding)?;
     schema
         .validate_headers(&headers)
-        .with_context(|| format!("Validating headers for {:?}", args.input))?;
+        .with_context(|| format!("Validating headers for {input:?}", input = args.input))?;
 
     let mut stats = FrequencyAccumulator::new(&columns, &schema);
 
@@ -68,10 +68,10 @@ fn load_or_infer_schema(
     encoding: &'static Encoding,
 ) -> Result<Schema> {
     if let Some(path) = &args.schema {
-        Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))
+        Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))
     } else {
         schema::infer_schema(&args.input, 0, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {:?}", args.input))
+            .with_context(|| format!("Inferring schema from {input:?}", input = args.input))
     }
 }
 
@@ -185,9 +185,9 @@ impl FrequencyAccumulator {
 
 fn format_number(value: f64) -> String {
     if value.fract() == 0.0 {
-        format!("{:.0}", value)
+        format!("{value:.0}")
     } else {
-        format!("{:.4}", value)
+        format!("{value:.4}")
     }
 }
 
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn accumulator_counts_ipqs_boolean_values() {
         let path = fixture_path();
-        assert!(path.exists(), "fixture missing: {:?}", path);
+        assert!(path.exists(), "fixture missing: {path:?}");
         let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
         let column_index = schema
             .column_index("ipqs_email_Valid")

@@ -153,18 +153,13 @@ pub struct ProcessArgs {
     pub table: bool,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 #[value(rename_all = "kebab-case")]
 pub enum BooleanFormat {
+    #[default]
     Original,
     TrueFalse,
     OneZero,
-}
-
-impl Default for BooleanFormat {
-    fn default() -> Self {
-        BooleanFormat::Original
-    }
 }
 
 #[derive(Debug, Args)]

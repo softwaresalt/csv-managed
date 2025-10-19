@@ -158,10 +158,7 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
     }
 
     writer.flush().context("Flushing join output")?;
-    info!(
-        "Join complete: {} output row(s), {} matched row(s)",
-        output_rows, matched_rows
-    );
+    info!("Join complete: {output_rows} output row(s), {matched_rows} matched row(s)");
     Ok(())
 }
 
@@ -186,10 +183,10 @@ fn load_schema(
     encoding: &'static Encoding,
 ) -> Result<Schema> {
     if let Some(schema_path) = schema_path {
-        Schema::load(schema_path).with_context(|| format!("Loading schema from {:?}", schema_path))
+        Schema::load(schema_path).with_context(|| format!("Loading schema from {schema_path:?}"))
     } else {
         schema::infer_schema(path, 0, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {:?}", path))
+            .with_context(|| format!("Inferring schema from {path:?}"))
     }
 }
 
@@ -215,9 +212,7 @@ fn validate_key_types(
         let right_type = &right_schema.columns[*r_idx].data_type;
         if !same_type(left_type, right_type) {
             return Err(anyhow!(
-                "Type mismatch for join keys: left {:?} vs right {:?}",
-                left_type,
-                right_type
+                "Type mismatch for join keys: left {left_type:?} vs right {right_type:?}"
             ));
         }
     }

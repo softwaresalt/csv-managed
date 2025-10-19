@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{Context, Result, anyhow};
 use log::info;
@@ -17,7 +17,7 @@ pub fn execute(args: &AppendArgs) -> Result<()> {
     let output_encoding = io_utils::resolve_encoding(args.output_encoding.as_deref())?;
 
     let schema = if let Some(path) = &args.schema {
-        Some(Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))?)
+        Some(Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))?)
     } else {
         None
     };
@@ -26,43 +26,55 @@ pub fn execute(args: &AppendArgs) -> Result<()> {
     let mut writer =
         io_utils::open_csv_writer(args.output.as_deref(), output_delimiter, output_encoding)?;
     let mut total_rows = 0usize;
+    let context = AppendContext {
+        delimiter,
+        encoding: input_encoding,
+        schema: schema.as_ref(),
+    };
 
-    for (idx, input) in args.inputs.iter().enumerate() {
-        append_single(
-            input,
-            delimiter,
-            input_encoding,
-            idx == 0,
-            &mut writer,
-            &mut baseline_headers,
-            schema.as_ref(),
-            &mut total_rows,
-        )?;
-        info!("✓ Appended {:?}", input);
+    {
+        let mut state = AppendState {
+            writer: &mut writer,
+            baseline_headers: &mut baseline_headers,
+            total_rows: &mut total_rows,
+        };
+
+        for (idx, input) in args.inputs.iter().enumerate() {
+            append_single(input.as_path(), idx == 0, &context, &mut state)?;
+            info!("✓ Appended {input:?}");
+        }
     }
 
     info!("Wrote {total_rows} data row(s) to output");
     Ok(())
 }
 
-fn append_single(
-    path: &PathBuf,
+struct AppendContext<'schema> {
     delimiter: u8,
     encoding: &'static encoding_rs::Encoding,
-    write_header: bool,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
-    baseline_headers: &mut Option<Vec<String>>,
-    schema: Option<&Schema>,
-    total_rows: &mut usize,
-) -> Result<()> {
-    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, encoding)?;
+    schema: Option<&'schema Schema>,
+}
 
-    if let Some(schema) = schema {
+struct AppendState<'writer> {
+    writer: &'writer mut csv::Writer<Box<dyn std::io::Write>>,
+    baseline_headers: &'writer mut Option<Vec<String>>,
+    total_rows: &'writer mut usize,
+}
+
+fn append_single(
+    path: &Path,
+    write_header: bool,
+    context: &AppendContext<'_>,
+    state: &mut AppendState<'_>,
+) -> Result<()> {
+    let mut reader = io_utils::open_csv_reader_from_path(path, context.delimiter, true)?;
+    let headers = io_utils::reader_headers(&mut reader, context.encoding)?;
+
+    if let Some(schema) = context.schema {
         schema
             .validate_headers(&headers)
-            .with_context(|| format!("Validating headers for {:?}", path))?;
-    } else if let Some(baseline) = baseline_headers {
+            .with_context(|| format!("Validating headers for {path:?}"))?;
+    } else if let Some(baseline) = state.baseline_headers {
         if headers.len() != baseline.len()
             || !headers
                 .iter()
@@ -70,39 +82,39 @@ fn append_single(
                 .all(|(left, right)| left == right)
         {
             return Err(anyhow!(
-                "Header mismatch between {:?} and baseline ({:?})",
-                path,
-                baseline
+                "Header mismatch between {path:?} and baseline ({baseline:?})"
             ));
         }
     } else {
-        *baseline_headers = Some(headers.clone());
+        *state.baseline_headers = Some(headers.clone());
     }
 
     if write_header {
-        if let Some(schema) = schema {
+        if let Some(schema) = context.schema {
             let output_headers = schema.output_headers();
-            writer
+            state
+                .writer
                 .write_record(output_headers.iter())
                 .with_context(|| "Writing output headers")?;
         } else {
-            writer
+            state
+                .writer
                 .write_record(headers.iter())
                 .with_context(|| "Writing output headers")?;
         }
     }
 
     for (row_idx, record) in reader.byte_records().enumerate() {
-        let record =
-            record.with_context(|| format!("Reading row {} in {:?}", row_idx + 2, path))?;
-        let decoded = io_utils::decode_record(&record, encoding)?;
-        if let Some(schema) = schema {
+        let record = record.with_context(|| format!("Reading row {} in {path:?}", row_idx + 2))?;
+        let decoded = io_utils::decode_record(&record, context.encoding)?;
+        if let Some(schema) = context.schema {
             validate_record(schema, &decoded, row_idx + 2)?;
         }
-        writer
+        state
+            .writer
             .write_record(decoded.iter())
-            .with_context(|| format!("Writing row {} from {:?}", row_idx + 2, path))?;
-        *total_rows += 1;
+            .with_context(|| format!("Writing row {} from {path:?}", row_idx + 2))?;
+        *state.total_rows += 1;
     }
 
     Ok(())

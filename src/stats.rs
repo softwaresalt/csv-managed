@@ -71,10 +71,10 @@ fn load_or_infer_schema(
     encoding: &'static Encoding,
 ) -> Result<Schema> {
     if let Some(path) = &args.schema {
-        Schema::load(path).with_context(|| format!("Loading schema from {:?}", path))
+        Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))
     } else {
         schema::infer_schema(&args.input, 0, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {:?}", args.input))
+            .with_context(|| format!("Inferring schema from {input:?}", input = args.input))
     }
 }
 
@@ -117,8 +117,7 @@ impl StatsAccumulator {
     fn new(columns: &[usize], schema: &Schema) -> Self {
         let mut data = HashMap::new();
         for idx in columns {
-            let mut stats = ColumnStats::default();
-            stats.name = schema.columns[*idx].output_name().to_string();
+            let stats = ColumnStats::with_name(schema.columns[*idx].output_name().to_string());
             data.insert(*idx, stats);
         }
         Self {
@@ -202,6 +201,13 @@ struct ColumnStats {
 }
 
 impl ColumnStats {
+    fn with_name(name: String) -> Self {
+        Self {
+            name,
+            ..Self::default()
+        }
+    }
+
     fn add(&mut self, value: f64) {
         self.count += 1;
         self.sum += value;
@@ -232,7 +238,7 @@ impl ColumnStats {
         let mut sorted = self.values.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let mid = sorted.len() / 2;
-        if sorted.len() % 2 == 0 {
+        if sorted.len().is_multiple_of(2) {
             Some((sorted[mid - 1] + sorted[mid]) / 2.0)
         } else {
             Some(sorted[mid])
@@ -252,9 +258,9 @@ impl ColumnStats {
 
 fn format_number(value: f64) -> String {
     if value.fract() == 0.0 {
-        format!("{:.0}", value)
+        format!("{value:.0}")
     } else {
-        format!("{:.4}", value)
+        format!("{value:.4}")
     }
 }
 
@@ -273,7 +279,7 @@ mod tests {
     #[test]
     fn accumulator_computes_stats_for_ipqs_subset() {
         let path = fixture_path();
-        assert!(path.exists(), "fixture missing: {:?}", path);
+        assert!(path.exists(), "fixture missing: {path:?}");
         let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
         let columns = vec![
             schema

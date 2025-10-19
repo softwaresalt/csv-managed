@@ -175,10 +175,7 @@ impl<W: Write> TranscodingWriter<W> {
                     if let Some(error_len) = err.error_len() {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidData,
-                            format!(
-                                "Invalid UTF-8 sequence in output stream ({} bytes)",
-                                error_len
-                            ),
+                            format!("Invalid UTF-8 sequence in output stream ({error_len} bytes)"),
                         ));
                     }
                     let valid_up_to = err.valid_up_to();

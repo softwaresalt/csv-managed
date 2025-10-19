@@ -13,11 +13,11 @@ use crate::{
 pub fn execute(args: &VerifyArgs) -> Result<()> {
     let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
     let schema = Schema::load(&args.schema)
-        .with_context(|| format!("Loading schema from {:?}", args.schema))?;
+        .with_context(|| format!("Loading schema from {schema:?}", schema = args.schema))?;
     for input in &args.inputs {
         let delimiter = io_utils::resolve_input_delimiter(input, args.delimiter);
         validate_file_against_schema(&schema, input, delimiter, input_encoding)?;
-        info!("✓ {:?} matches schema", input);
+        info!("✓ {input:?} matches schema");
     }
     Ok(())
 }
@@ -32,11 +32,10 @@ pub fn validate_file_against_schema(
     let headers = io_utils::reader_headers(&mut reader, encoding)?;
     schema
         .validate_headers(&headers)
-        .with_context(|| format!("Validating headers for {:?}", path))?;
+        .with_context(|| format!("Validating headers for {path:?}"))?;
 
     for (row_idx, record) in reader.byte_records().enumerate() {
-        let record =
-            record.with_context(|| format!("Reading row {} in {:?}", row_idx + 2, path))?;
+        let record = record.with_context(|| format!("Reading row {} in {path:?}", row_idx + 2))?;
         let decoded = io_utils::decode_record(&record, encoding)?;
         for (col_idx, column) in schema.columns.iter().enumerate() {
             let value = decoded.get(col_idx).map(|s| s.as_str()).unwrap_or("");

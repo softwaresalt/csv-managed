@@ -144,59 +144,46 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     )?;
 
     write_headers(&mut writer, &output_plan)?;
+    {
+        let mut engine = ProcessEngine {
+            schema: &schema,
+            headers: &headers,
+            filters: &filter_conditions,
+            derived_columns: &derived_columns,
+            output_plan: &output_plan,
+            writer: &mut writer,
+            limit: args.limit,
+        };
 
-    if let Some(variant) = matching_variant {
-        if io_utils::is_dash(&args.input) {
-            return Err(anyhow!(
-                "Index accelerated processing requires a regular file input"
-            ));
-        }
-        let mut seek_reader = io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
-        // Read and discard headers to align reader position with data start.
-        seek_reader.byte_headers()?;
-        let covered = variant.columns().len();
-        let total = sort_signature.len();
-        info!(
-            "Using index {:?} variant '{}' to accelerate sort",
-            args.index,
-            variant.describe()
-        );
-        if covered < total {
-            debug!(
-                "Index covers {}/{} sort columns; remaining columns will be sorted in-memory",
-                covered, total
+        if let Some(variant) = matching_variant {
+            if io_utils::is_dash(&args.input) {
+                return Err(anyhow!(
+                    "Index accelerated processing requires a regular file input"
+                ));
+            }
+            let mut seek_reader = io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
+            // Read and discard headers to align reader position with data start.
+            seek_reader.byte_headers()?;
+            let covered = variant.columns().len();
+            let total = sort_signature.len();
+            info!(
+                "Using index {:?} variant '{}' to accelerate sort",
+                args.index,
+                variant.describe()
             );
+            if covered < total {
+                debug!(
+                    "Index covers {covered}/{total} sort columns; remaining columns will be sorted in-memory"
+                );
+            }
+            engine.process_with_index(&mut seek_reader, input_encoding, variant, &sort_plan)?;
+        } else {
+            if maybe_index.is_some() {
+                debug!("Index present but not used due to incompatible sort signature");
+            }
+            engine.process_in_memory(reader, input_encoding, sort_plan)?;
         }
-        process_with_index(
-            &mut seek_reader,
-            input_encoding,
-            variant,
-            &sort_plan,
-            &schema,
-            &headers,
-            &filter_conditions,
-            &derived_columns,
-            &output_plan,
-            &mut writer,
-            args.limit,
-        )?
-    } else {
-        if maybe_index.is_some() {
-            debug!("Index present but not used due to incompatible sort signature");
-        }
-        process_in_memory(
-            reader,
-            input_encoding,
-            &schema,
-            &headers,
-            &filter_conditions,
-            sort_plan,
-            &derived_columns,
-            &output_plan,
-            &mut writer,
-            args.limit,
-        )?
-    };
+    }
     writer.flush().context("Flushing output")
 }
 
@@ -265,133 +252,159 @@ fn write_headers(
         .context("Writing output headers")
 }
 
-fn process_in_memory(
-    reader: csv::Reader<Box<dyn std::io::Read>>,
-    encoding: &'static Encoding,
-    schema: &Schema,
-    headers: &[String],
-    filters: &[crate::filter::FilterCondition],
-    sort_plan: Vec<SortInstruction>,
-    derived_columns: &[DerivedColumn],
-    output_plan: &OutputPlan,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
+struct ProcessEngine<'a> {
+    schema: &'a Schema,
+    headers: &'a [String],
+    filters: &'a [crate::filter::FilterCondition],
+    derived_columns: &'a [DerivedColumn],
+    output_plan: &'a OutputPlan,
+    writer: &'a mut csv::Writer<Box<dyn std::io::Write>>,
     limit: Option<usize>,
-) -> Result<()> {
-    let mut rows: Vec<RowData> = Vec::new();
-
-    for (ordinal, result) in reader.into_byte_records().enumerate() {
-        let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
-        let raw = io_utils::decode_record(&record, encoding)?;
-        let typed = parse_row(&raw, schema)?;
-
-        if !filters.is_empty() && !evaluate_conditions(filters, schema, headers, &raw, &typed)? {
-            continue;
-        }
-
-        rows.push(RowData {
-            raw,
-            typed,
-            ordinal,
-        });
-    }
-
-    if !sort_plan.is_empty() {
-        rows.sort_by(|a, b| compare_rows(a, b, &sort_plan));
-    }
-
-    emit_rows(
-        rows.into_iter(),
-        headers,
-        derived_columns,
-        output_plan,
-        writer,
-        limit,
-    )
 }
 
-fn process_with_index(
-    reader: &mut csv::Reader<std::io::BufReader<File>>,
-    encoding: &'static Encoding,
-    variant: &IndexVariant,
-    sort_plan: &[SortInstruction],
-    schema: &Schema,
-    headers: &[String],
-    filters: &[crate::filter::FilterCondition],
-    derived_columns: &[DerivedColumn],
-    output_plan: &OutputPlan,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
-    limit: Option<usize>,
-) -> Result<()> {
-    let mut record = ByteRecord::new();
-    let mut emitted = 0usize;
-    let mut ordinal = 0usize;
-    let prefix_len = variant.columns().len();
-    let mut current_prefix: Option<Vec<Option<Value>>> = None;
-    let mut bucket: Vec<RowData> = Vec::new();
+impl<'a> ProcessEngine<'a> {
+    fn process_in_memory(
+        &mut self,
+        reader: csv::Reader<Box<dyn std::io::Read>>,
+        encoding: &'static Encoding,
+        sort_plan: Vec<SortInstruction>,
+    ) -> Result<()> {
+        let mut rows: Vec<RowData> = Vec::new();
 
-    for offset in variant.ordered_offsets() {
-        if let Some(limit) = limit {
-            if emitted >= limit {
-                break;
+        for (ordinal, result) in reader.into_byte_records().enumerate() {
+            let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
+            let raw = io_utils::decode_record(&record, encoding)?;
+            let typed = parse_row(&raw, self.schema)?;
+
+            if !self.filters.is_empty()
+                && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
+            {
+                continue;
             }
-        }
-        let mut position = Position::new();
-        position.set_byte(offset);
-        reader.seek(position)?;
-        if !reader.read_byte_record(&mut record)? {
-            break;
-        }
-        let raw = io_utils::decode_record(&record, encoding)?;
-        let typed = parse_row(&raw, schema)?;
-        if !filters.is_empty() && !evaluate_conditions(filters, schema, headers, &raw, &typed)? {
-            continue;
+
+            rows.push(RowData {
+                raw,
+                typed,
+                ordinal,
+            });
         }
 
-        let prefix_key = build_prefix_key(&typed, sort_plan, prefix_len);
-        match current_prefix.as_ref() {
-            Some(existing) if *existing == prefix_key => {}
-            Some(_) => {
-                if flush_bucket(
-                    &mut bucket,
-                    headers,
-                    derived_columns,
-                    output_plan,
-                    writer,
-                    limit,
-                    &mut emitted,
-                    sort_plan,
-                    prefix_len,
-                )? {
-                    return Ok(());
-                }
-                current_prefix = Some(prefix_key.clone());
-            }
-            None => {
-                current_prefix = Some(prefix_key.clone());
-            }
+        if !sort_plan.is_empty() {
+            rows.sort_by(|a, b| compare_rows(a, b, &sort_plan));
         }
 
-        bucket.push(RowData {
-            raw,
-            typed,
-            ordinal,
-        });
-        ordinal += 1;
+        emit_rows(
+            rows.into_iter(),
+            self.headers,
+            self.derived_columns,
+            self.output_plan,
+            self.writer,
+            self.limit,
+        )
     }
 
-    flush_bucket(
-        &mut bucket,
-        headers,
-        derived_columns,
-        output_plan,
-        writer,
-        limit,
-        &mut emitted,
-        sort_plan,
-        prefix_len,
-    )?;
+    fn process_with_index(
+        &mut self,
+        reader: &mut csv::Reader<std::io::BufReader<File>>,
+        encoding: &'static Encoding,
+        variant: &IndexVariant,
+        sort_plan: &[SortInstruction],
+    ) -> Result<()> {
+        let mut record = ByteRecord::new();
+        let mut emitted = 0usize;
+        let mut ordinal = 0usize;
+        let prefix_len = variant.columns().len();
+        let mut current_prefix: Option<Vec<Option<Value>>> = None;
+        let mut bucket: Vec<RowData> = Vec::new();
 
-    Ok(())
+        for offset in variant.ordered_offsets() {
+            if let Some(limit) = self.limit {
+                if emitted >= limit {
+                    break;
+                }
+            }
+            let mut position = Position::new();
+            position.set_byte(offset);
+            reader.seek(position)?;
+            if !reader.read_byte_record(&mut record)? {
+                break;
+            }
+            let raw = io_utils::decode_record(&record, encoding)?;
+            let typed = parse_row(&raw, self.schema)?;
+            if !self.filters.is_empty()
+                && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
+            {
+                continue;
+            }
+
+            let prefix_key = build_prefix_key(&typed, sort_plan, prefix_len);
+            match current_prefix.as_ref() {
+                Some(existing) if *existing == prefix_key => {}
+                Some(_) => {
+                    if self.flush_bucket(&mut bucket, sort_plan, prefix_len, &mut emitted)? {
+                        return Ok(());
+                    }
+                    current_prefix = Some(prefix_key.clone());
+                }
+                None => {
+                    current_prefix = Some(prefix_key.clone());
+                }
+            }
+
+            bucket.push(RowData {
+                raw,
+                typed,
+                ordinal,
+            });
+            ordinal += 1;
+        }
+
+        self.flush_bucket(&mut bucket, sort_plan, prefix_len, &mut emitted)?;
+
+        Ok(())
+    }
+
+    fn flush_bucket(
+        &mut self,
+        bucket: &mut Vec<RowData>,
+        sort_plan: &[SortInstruction],
+        prefix_len: usize,
+        emitted: &mut usize,
+    ) -> Result<bool> {
+        if bucket.is_empty() {
+            return Ok(false);
+        }
+
+        let remainder_plan = if prefix_len >= sort_plan.len() {
+            &[][..]
+        } else {
+            &sort_plan[prefix_len..]
+        };
+
+        if !remainder_plan.is_empty() {
+            bucket.sort_by(|a, b| compare_rows(a, b, remainder_plan));
+        }
+
+        for row in bucket.drain(..) {
+            if let Some(limit) = self.limit {
+                if *emitted >= limit {
+                    return Ok(true);
+                }
+            }
+            emit_single_row(
+                &row.raw,
+                &row.typed,
+                *emitted + 1,
+                self.headers,
+                self.derived_columns,
+                self.output_plan,
+                self.writer,
+            )?;
+            *emitted += 1;
+        }
+
+        Ok(false)
+    }
 }
 
 fn build_prefix_key(
@@ -407,52 +420,6 @@ fn build_prefix_key(
         .collect()
 }
 
-fn flush_bucket(
-    bucket: &mut Vec<RowData>,
-    headers: &[String],
-    derived_columns: &[DerivedColumn],
-    output_plan: &OutputPlan,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
-    limit: Option<usize>,
-    emitted: &mut usize,
-    sort_plan: &[SortInstruction],
-    prefix_len: usize,
-) -> Result<bool> {
-    if bucket.is_empty() {
-        return Ok(false);
-    }
-
-    let remainder_plan = if prefix_len >= sort_plan.len() {
-        &[][..]
-    } else {
-        &sort_plan[prefix_len..]
-    };
-
-    if !remainder_plan.is_empty() {
-        bucket.sort_by(|a, b| compare_rows(a, b, remainder_plan));
-    }
-
-    for row in bucket.drain(..) {
-        if let Some(limit) = limit {
-            if *emitted >= limit {
-                return Ok(true);
-            }
-        }
-        emit_single_row(
-            &row.raw,
-            &row.typed,
-            *emitted + 1,
-            headers,
-            derived_columns,
-            output_plan,
-            writer,
-        )?;
-        *emitted += 1;
-    }
-
-    Ok(false)
-}
-
 fn emit_rows<I>(
     rows: I,
     headers: &[String],
@@ -464,8 +431,7 @@ fn emit_rows<I>(
 where
     I: Iterator<Item = RowData>,
 {
-    let mut written = 0usize;
-    for row in rows {
+    for (written, row) in rows.enumerate() {
         if let Some(limit) = limit {
             if written >= limit {
                 break;
@@ -480,7 +446,6 @@ where
             output_plan,
             writer,
         )?;
-        written += 1;
     }
     Ok(())
 }

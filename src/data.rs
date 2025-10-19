@@ -163,7 +163,7 @@ pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> 
         ColumnType::Guid => {
             let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
             let parsed = Uuid::parse_str(trimmed)
-                .with_context(|| format!("Failed to parse '{{value}}' as GUID"))?;
+                .with_context(|| format!("Failed to parse '{value}' as GUID"))?;
             Value::Guid(parsed)
         }
     };

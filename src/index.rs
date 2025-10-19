@@ -436,7 +436,7 @@ impl IndexVariant {
             .columns
             .iter()
             .zip(self.directions.iter())
-            .map(|(column, direction)| format!("{column}:{}", direction))
+            .map(|(column, direction)| format!("{column}:{direction}"))
             .collect::<Vec<_>>()
             .join(", ");
         match &self.name {
@@ -538,10 +538,7 @@ impl IndexVariantBuilder {
                 self.directions[idx],
             ));
         }
-        self.map
-            .entry(key_components)
-            .or_insert_with(Vec::new)
-            .push(offset);
+        self.map.entry(key_components).or_default().push(offset);
         Ok(())
     }
 
@@ -690,7 +687,7 @@ mod tests {
         assert_eq!(index.variants().len(), 2);
 
         let asc_match = index
-            .best_match(&vec![("a".to_string(), SortDirection::Asc)])
+            .best_match(&[("a".to_string(), SortDirection::Asc)])
             .unwrap();
         assert_eq!(
             asc_match
@@ -702,7 +699,7 @@ mod tests {
         );
 
         let desc_match = index
-            .best_match(&vec![
+            .best_match(&[
                 ("a".to_string(), SortDirection::Desc),
                 ("b".to_string(), SortDirection::Asc),
             ])

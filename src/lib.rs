@@ -63,7 +63,7 @@ fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
         printable_delimiter(delimiter)
     );
     let schema = schema::infer_schema(&args.input, args.sample_rows, delimiter, encoding)
-        .with_context(|| format!("Inferring schema from {:?}", args.input))?;
+        .with_context(|| format!("Inferring schema from {input:?}", input = args.input))?;
     schema
         .save(&args.schema)
         .with_context(|| format!("Writing schema to {:?}", args.schema))?;
