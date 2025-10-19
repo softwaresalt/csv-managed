@@ -193,8 +193,9 @@ fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) -> Res
             .iter()
             .map(|name| ColumnMeta {
                 name: name.clone(),
-                data_type: ColumnType::String,
+                datatype: ColumnType::String,
                 rename: None,
+                value_replacements: Vec::new(),
             })
             .collect();
         return Ok(());
@@ -274,7 +275,8 @@ impl<'a> ProcessEngine<'a> {
 
         for (ordinal, result) in reader.into_byte_records().enumerate() {
             let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
-            let raw = io_utils::decode_record(&record, encoding)?;
+            let mut raw = io_utils::decode_record(&record, encoding)?;
+            self.schema.apply_replacements_to_row(&mut raw);
             let typed = parse_row(&raw, self.schema)?;
 
             if !self.filters.is_empty()
@@ -328,7 +330,8 @@ impl<'a> ProcessEngine<'a> {
             if !reader.read_byte_record(&mut record)? {
                 break;
             }
-            let raw = io_utils::decode_record(&record, encoding)?;
+            let mut raw = io_utils::decode_record(&record, encoding)?;
+            self.schema.apply_replacements_to_row(&mut raw);
             let typed = parse_row(&raw, self.schema)?;
             if !self.filters.is_empty()
                 && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
@@ -483,7 +486,8 @@ fn parse_row(raw: &[String], schema: &Schema) -> Result<Vec<Option<Value>>> {
         .enumerate()
         .map(|(idx, column)| {
             let value = raw.get(idx).map(|s| s.as_str()).unwrap_or("");
-            parse_typed_value(value, &column.data_type)
+            let normalized = column.normalize_value(value);
+            parse_typed_value(normalized.as_ref(), &column.datatype)
         })
         .collect()
 }

@@ -106,8 +106,9 @@ fn append_single(
 
     for (row_idx, record) in reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading row {} in {path:?}", row_idx + 2))?;
-        let decoded = io_utils::decode_record(&record, context.encoding)?;
+        let mut decoded = io_utils::decode_record(&record, context.encoding)?;
         if let Some(schema) = context.schema {
+            schema.apply_replacements_to_row(&mut decoded);
             validate_record(schema, &decoded, row_idx + 2)?;
         }
         state
@@ -123,10 +124,11 @@ fn append_single(
 fn validate_record(schema: &Schema, record: &[String], row_index: usize) -> Result<()> {
     for (idx, column) in schema.columns.iter().enumerate() {
         let value = record.get(idx).map(|s| s.as_str()).unwrap_or("");
-        if value.is_empty() {
+        let normalized = column.normalize_value(value);
+        if normalized.is_empty() {
             continue;
         }
-        parse_typed_value(value, &column.data_type)
+        parse_typed_value(normalized.as_ref(), &column.datatype)
             .with_context(|| format!("Row {row_index} column '{}'", column.output_name()))?;
     }
     Ok(())

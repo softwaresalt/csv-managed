@@ -101,7 +101,8 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
 
     for (row_idx, record) in left_reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading left row {}", row_idx + 2))?;
-        let decoded = io_utils::decode_record(&record, left_encoding)?;
+        let mut decoded = io_utils::decode_record(&record, left_encoding)?;
+        left_schema.apply_replacements_to_row(&mut decoded);
         let key = build_key(&decoded, &left_schema, &left_indices)?;
         let mut matched_any = false;
         if let Some(bucket) = right_lookup.get_mut(&key) {
@@ -208,8 +209,8 @@ fn validate_key_types(
     right_indices: &[usize],
 ) -> Result<()> {
     for (l_idx, r_idx) in left_indices.iter().zip(right_indices.iter()) {
-        let left_type = &left_schema.columns[*l_idx].data_type;
-        let right_type = &right_schema.columns[*r_idx].data_type;
+        let left_type = &left_schema.columns[*l_idx].datatype;
+        let right_type = &right_schema.columns[*r_idx].datatype;
         if !same_type(left_type, right_type) {
             return Err(anyhow!(
                 "Type mismatch for join keys: left {left_type:?} vs right {right_type:?}"
@@ -240,7 +241,8 @@ fn build_right_lookup(
     let mut map: HashMap<String, Vec<RightRow>> = HashMap::new();
     for (row_idx, record) in reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading right row {}", row_idx + 2))?;
-        let decoded = io_utils::decode_record(&record, encoding)?;
+        let mut decoded = io_utils::decode_record(&record, encoding)?;
+        schema.apply_replacements_to_row(&mut decoded);
         let key = build_key(&decoded, schema, key_indices)?;
         map.entry(key).or_default().push(RightRow {
             record: decoded,
@@ -255,7 +257,8 @@ fn build_key(record: &[String], schema: &Schema, key_indices: &[usize]) -> Resul
     for idx in key_indices {
         let column = &schema.columns[*idx];
         let raw = record.get(*idx).map(|s| s.as_str()).unwrap_or("");
-        let parsed = parse_typed_value(raw, &column.data_type)
+        let normalized = column.normalize_value(raw);
+        let parsed = parse_typed_value(normalized.as_ref(), &column.datatype)
             .with_context(|| format!("Parsing join key for column '{}'", column.name))?;
         if let Some(value) = parsed {
             parts.push(value.as_display());

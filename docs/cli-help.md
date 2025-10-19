@@ -11,9 +11,10 @@ Usage: csv-managed.exe <COMMAND>
 
 Commands:
   probe      Probe a CSV file and infer column data types into a .schema file
-    schema     Create a .schema file from explicit column definitions
+  schema     Create a .schema file from explicit column definitions
   index      Create a B-Tree index (.idx) for one or more columns
   process    Transform a CSV file using sorting, filtering, projection, and derivations
+  fix        Apply schema-defined value replacements to a CSV file
   append     Append multiple CSV files into a single output
   verify     Verify one or more CSV files against a schema definition
   preview    Preview the first few rows of a CSV file in a formatted table
@@ -21,6 +22,7 @@ Commands:
   frequency  Produce frequency counts for categorical columns
   join       Join two CSV files on common columns
   install    Install the csv-managed binary via cargo install
+  columns    List column names and data types from a schema file
   help       Print this message or the help of the given subcommand(s)
 
 Options:
@@ -46,6 +48,10 @@ Options:
           CSV delimiter character (supports ',', 'tab', ';', '|')
       --input-encoding <INPUT_ENCODING>
           Character encoding of the input file (defaults to utf-8)
+      --mapping
+          Emit column mapping templates to stdout after probing
+      --replace
+          Inject empty replace arrays into the generated schema as a template
   -h, --help
           Print help
 ```
@@ -55,15 +61,16 @@ Options:
 ```text
 Create a .schema file from explicit column definitions
 
-Usage: csv-managed.exe schema --output <OUTPUT> --column <COLUMNS>
+Usage: csv-managed.exe schema [OPTIONS] --output <OUTPUT> --column <COLUMNS>
 
 Options:
-    -o, --output <OUTPUT>   Destination .schema file path
-    -c, --column <COLUMNS>  Column definitions using `name:type` syntax (comma-separated or repeatable)
-    -h, --help              Print help
+  -o, --output <OUTPUT>         Destination .schema file path
+  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
+      --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
+  -h, --help                    Print help
 ```
 
-Note: append `->New Name` to any `name:type` entry to assign a different output column name.
+Note: append `->New Name` to any `name:type` entry to assign a different output column name. Repeat `--replace` for each legacy token you want to normalize before validation.
 
 ## index
 
@@ -81,6 +88,8 @@ Options:
           Columns to include in a single ascending index (deprecated when --spec is used)
       --spec <SPECS>
           Repeatable index specifications such as `col_a:asc,col_b:desc` or `fast=col_a:asc`
+      --combo <COMBOS>
+          Generate index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
   -m, --schema <SCHEMA>
           Optional schema file describing column types
       --limit <LIMIT>
@@ -137,6 +146,32 @@ Options:
           Normalize boolean columns in output [default: original] [possible values: original, true-false, one-zero]
       --table
           Render output as an elastic table to stdout
+  -h, --help
+          Print help
+```
+
+## fix
+
+```text
+Apply schema-defined value replacements to a CSV file
+
+Usage: csv-managed.exe fix [OPTIONS] --input <INPUT> --schema <SCHEMA>
+
+Options:
+  -i, --input <INPUT>
+          Input CSV file to transform
+  -o, --output <OUTPUT>
+          Output CSV file (stdout if omitted)
+  -m, --schema <SCHEMA>
+          Schema file supplying replacement mappings
+      --delimiter <DELIMITER>
+          CSV delimiter character for reading input
+      --output-delimiter <OUTPUT_DELIMITER>
+          Delimiter to use for output (defaults to input delimiter)
+      --input-encoding <INPUT_ENCODING>
+          Character encoding of the input file (defaults to utf-8)
+      --output-encoding <OUTPUT_ENCODING>
+          Character encoding for the output file/stdout (defaults to utf-8)
   -h, --help
           Print help
 ```
@@ -285,4 +320,16 @@ Options:
       --locked             Use --locked to honour Cargo.lock for dependencies
       --root <ROOT>        Install into an alternate root directory
   -h, --help               Print help
+```
+
+## columns
+
+```text
+List column names and data types from a schema file
+
+Usage: csv-managed.exe columns --schema <SCHEMA>
+
+Options:
+  -m, --schema <SCHEMA>  Schema file describing the columns to list
+  -h, --help             Print help
 ```

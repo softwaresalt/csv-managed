@@ -3,9 +3,10 @@ use std::{env, fs, io::Write, process::Command as StdCommand};
 use assert_cmd::Command;
 use csv_managed::{
     index::CsvIndex,
-    schema::{ColumnType, Schema},
+    schema::{ColumnType, Schema, ValueReplacement},
 };
-use predicates::str::contains;
+use predicates::{prelude::PredicateBooleanExt, str::contains};
+use serde_json::Value;
 use tempfile::tempdir;
 
 fn write_sample_csv(delimiter: u8) -> (tempfile::TempDir, std::path::PathBuf) {
@@ -52,6 +53,9 @@ fn probe_creates_schema_with_custom_delimiter() {
         .success();
 
     let contents = fs::read_to_string(&schema_path).expect("read schema");
+    let json: Value = serde_json::from_str(&contents).expect("parse schema json");
+    let columns = json["columns"].as_array().expect("columns array");
+    assert!(columns.iter().all(|column| column.get("replace").is_none()));
     let schema: Schema = serde_json::from_str(&contents).expect("parse schema");
     assert_eq!(schema.columns.len(), 5);
     assert_eq!(schema.columns[0].name, "id");
@@ -77,15 +81,111 @@ fn schema_command_writes_manual_schema() {
         .success();
 
     let contents = fs::read_to_string(&schema_path).expect("read manual schema");
+    let json: Value = serde_json::from_str(&contents).expect("parse manual schema json");
+    let columns = json["columns"].as_array().expect("columns array");
+    assert!(columns.iter().all(|column| column.get("replace").is_none()));
     let schema: Schema = serde_json::from_str(&contents).expect("parse manual schema");
     assert_eq!(schema.columns.len(), 4);
     assert_eq!(schema.columns[0].name, "id");
     assert_eq!(schema.columns[0].rename.as_deref(), Some("Identifier"));
     assert_eq!(schema.columns[1].rename.as_deref(), Some("Customer Name"));
-    assert_eq!(schema.columns[0].data_type, ColumnType::Integer);
-    assert_eq!(schema.columns[1].data_type, ColumnType::String);
-    assert_eq!(schema.columns[2].data_type, ColumnType::Float);
-    assert_eq!(schema.columns[3].data_type, ColumnType::Guid);
+    assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
+    assert_eq!(schema.columns[1].datatype, ColumnType::String);
+    assert_eq!(schema.columns[2].datatype, ColumnType::Float);
+    assert_eq!(schema.columns[3].datatype, ColumnType::Guid);
+}
+
+#[test]
+fn probe_includes_replace_template_when_requested() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--replace",
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&schema_path).expect("read schema");
+    let json: Value = serde_json::from_str(&contents).expect("parse schema json");
+    let columns = json["columns"].as_array().expect("columns array");
+    assert!(columns.iter().all(|column| {
+        column["replace"]
+            .as_array()
+            .map(|arr| arr.is_empty())
+            .unwrap_or(false)
+    }));
+}
+
+#[test]
+fn columns_command_prints_schema_listing() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["columns", "--schema", schema_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(
+            contains("name")
+                .and(contains("type"))
+                .and(contains("amount")),
+        );
+}
+
+#[test]
+fn probe_emits_mappings_into_schema_and_stdout() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--mapping",
+        ])
+        .assert()
+        .success()
+        .stdout(
+            contains("mapping")
+                .and(contains("id:integer->"))
+                .and(contains("name:string->")),
+        );
+
+    let contents = fs::read_to_string(&schema_path).expect("schema output");
+    let schema: Schema = serde_json::from_str(&contents).expect("parse schema");
+    let mapping_values: Vec<Option<String>> = schema
+        .columns
+        .iter()
+        .map(|col| col.rename.clone())
+        .collect();
+    assert_eq!(mapping_values[0].as_deref(), Some("id"));
+    assert_eq!(mapping_values[1].as_deref(), Some("name"));
+    assert_eq!(mapping_values[2].as_deref(), Some("amount"));
+    assert_eq!(mapping_values[3].as_deref(), Some("status"));
+    assert_eq!(mapping_values[4].as_deref(), Some("ordered_at"));
 }
 
 #[test]
@@ -129,6 +229,151 @@ fn process_sorts_filters_and_derives_output() {
     assert!(output.contains("total_with_tax"));
     assert!(output.lines().any(|line| line.contains("Alice")));
     assert!(!output.lines().any(|line| line.contains("Bob")));
+}
+
+#[test]
+fn process_applies_value_replacements_from_schema() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let mut schema = Schema::load(&schema_path).expect("load probed schema");
+    let status_column = schema
+        .columns
+        .iter_mut()
+        .find(|col| col.name == "status")
+        .expect("status column");
+    status_column.value_replacements.push(ValueReplacement {
+        from: "processing".to_string(),
+        to: "pending".to_string(),
+    });
+    schema
+        .save(&schema_path)
+        .expect("save schema with replacements");
+
+    let output_path = dir.path().join("replaced.csv");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(&output_path).expect("read replaced output");
+    assert!(output.contains("pending"));
+    assert!(!output.contains(",processing"));
+}
+
+#[test]
+fn fix_command_applies_schema_replacements() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let mut schema = Schema::load(&schema_path).expect("load probed schema");
+    let status_column = schema
+        .columns
+        .iter_mut()
+        .find(|col| col.name == "status")
+        .expect("status column");
+    status_column.value_replacements.push(ValueReplacement {
+        from: "processing".to_string(),
+        to: "pending".to_string(),
+    });
+    schema
+        .save(&schema_path)
+        .expect("save schema with replacements");
+
+    let output_path = dir.path().join("fixed.csv");
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "fix",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(&output_path).expect("read fixed output");
+    assert!(output.contains("pending"));
+    assert!(!output.contains(",processing"));
+}
+
+#[test]
+fn verify_reports_header_mismatch_detail() {
+    let (dir, csv_path) = write_sample_csv(b',');
+    let schema_path = dir.path().join("schema.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let bad_path = dir.path().join("bad.csv");
+    fs::write(
+        &bad_path,
+        "id,wrong,amount,status,ordered_at\n1,Alice,42.5,shipped,2024-01-01\n2,Bob,13.37,processing,2024-01-03\n",
+    )
+    .expect("write bad csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            bad_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(
+            contains("Validating headers for")
+                .and(contains("Header mismatch"))
+                .and(contains("expected 'name'"))
+                .and(contains("wrong")),
+        );
 }
 
 #[test]

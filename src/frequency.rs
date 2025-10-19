@@ -40,7 +40,8 @@ pub fn execute(args: &FrequencyArgs) -> Result<()> {
 
     for (row_idx, record) in reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
-        let decoded = io_utils::decode_record(&record, encoding)?;
+        let mut decoded = io_utils::decode_record(&record, encoding)?;
+        schema.apply_replacements_to_row(&mut decoded);
         stats
             .ingest(&schema, &decoded)
             .with_context(|| format!("Processing row {}", row_idx + 2))?;
@@ -119,10 +120,11 @@ impl FrequencyAccumulator {
         for column_index in &self.columns {
             let column = &schema.columns[*column_index];
             let raw = record.get(*column_index).map(|s| s.as_str()).unwrap_or("");
-            let value = if raw.is_empty() {
+            let normalized = column.normalize_value(raw);
+            let value = if normalized.is_empty() {
                 String::from("<empty>")
             } else {
-                match parse_typed_value(raw, &column.data_type)
+                match parse_typed_value(normalized.as_ref(), &column.datatype)
                     .with_context(|| format!("Column '{}'", column.output_name()))?
                 {
                     Some(Value::String(s)) => s,

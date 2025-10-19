@@ -1,8 +1,9 @@
-use std::{fmt, fs::File, io::BufReader, path::Path};
+use std::{borrow::Cow, fmt, fs::File, io::BufReader, path::Path};
 
 use anyhow::{Context, Result, anyhow};
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
@@ -68,12 +69,29 @@ impl std::str::FromStr for ColumnType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValueReplacement {
+    pub from: String,
+    pub to: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
-    pub data_type: ColumnType,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub datatype: ColumnType,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "name_mapping"
+    )]
     pub rename: Option<String>,
+    #[serde(
+        default,
+        rename = "replace",
+        alias = "value_replacements",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub value_replacements: Vec<ValueReplacement>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,8 +105,9 @@ impl Schema {
             .iter()
             .map(|name| ColumnMeta {
                 name: name.clone(),
-                data_type: ColumnType::String,
+                datatype: ColumnType::String,
                 rename: None,
+                value_replacements: Vec::new(),
             })
             .collect();
         Schema { columns }
@@ -134,8 +153,11 @@ impl Schema {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
-        let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
-        serde_json::to_writer_pretty(file, self).context("Writing schema JSON")
+        self.save_internal(path, false)
+    }
+
+    pub fn save_with_replace_template(&self, path: &Path) -> Result<()> {
+        self.save_internal(path, true)
     }
 
     pub fn load(path: &Path) -> Result<Self> {
@@ -143,6 +165,31 @@ impl Schema {
         let reader = BufReader::new(file);
         let schema = serde_json::from_reader(reader).context("Parsing schema JSON")?;
         Ok(schema)
+    }
+
+    fn save_internal(&self, path: &Path, include_replace_template: bool) -> Result<()> {
+        let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
+        if !include_replace_template {
+            serde_json::to_writer_pretty(file, self).context("Writing schema JSON")
+        } else {
+            let mut value =
+                serde_json::to_value(self).context("Serializing schema to JSON value")?;
+            if let Some(columns) = value
+                .get_mut("columns")
+                .and_then(|columns| columns.as_array_mut())
+            {
+                for column in columns {
+                    if let Some(obj) = column.as_object_mut() {
+                        if let Some(existing) = obj.remove("value_replacements") {
+                            obj.insert("replace".to_string(), existing);
+                        }
+                        obj.entry("replace".to_string())
+                            .or_insert_with(|| Value::Array(Vec::new()));
+                    }
+                }
+            }
+            serde_json::to_writer_pretty(file, &value).context("Writing schema JSON")
+        }
     }
 }
 
@@ -248,8 +295,9 @@ pub fn infer_schema(
         .enumerate()
         .map(|(idx, header)| ColumnMeta {
             name: header.clone(),
-            data_type: candidates[idx].decide(),
+            datatype: candidates[idx].decide(),
             rename: None,
+            value_replacements: Vec::new(),
         })
         .collect();
 
@@ -262,5 +310,26 @@ impl ColumnMeta {
             .as_deref()
             .filter(|value| !value.is_empty())
             .unwrap_or(&self.name)
+    }
+
+    pub fn normalize_value<'a>(&self, value: &'a str) -> Cow<'a, str> {
+        for replacement in &self.value_replacements {
+            if value == replacement.from {
+                return Cow::Owned(replacement.to.clone());
+            }
+        }
+        Cow::Borrowed(value)
+    }
+}
+
+impl Schema {
+    pub fn apply_replacements_to_row(&self, row: &mut [String]) {
+        for (idx, column) in self.columns.iter().enumerate() {
+            if let Some(value) = row.get_mut(idx) {
+                if let Cow::Owned(normalized) = column.normalize_value(value) {
+                    *value = normalized;
+                }
+            }
+        }
     }
 }

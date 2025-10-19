@@ -19,6 +19,8 @@ pub enum Commands {
     Index(IndexArgs),
     /// Transform a CSV file using sorting, filtering, projection, and derivations
     Process(ProcessArgs),
+    /// Apply schema-defined value replacements to a CSV file
+    Fix(FixArgs),
     /// Append multiple CSV files into a single output
     Append(AppendArgs),
     /// Verify one or more CSV files against a schema definition
@@ -33,6 +35,8 @@ pub enum Commands {
     Join(JoinArgs),
     /// Install the csv-managed binary via cargo install
     Install(InstallArgs),
+    /// List column names and data types from a schema file
+    Columns(ColumnsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -52,6 +56,12 @@ pub struct ProbeArgs {
     /// Character encoding of the input file (defaults to utf-8)
     #[arg(long = "input-encoding")]
     pub input_encoding: Option<String>,
+    /// Emit column mapping templates to stdout after probing
+    #[arg(long = "mapping")]
+    pub mapping: bool,
+    /// Inject empty replace arrays into the generated schema as a template
+    #[arg(long = "replace")]
+    pub replace_template: bool,
 }
 
 #[derive(Debug, Args)]
@@ -62,6 +72,9 @@ pub struct SchemaArgs {
     /// Column definitions using `name:type` syntax (comma-separated or repeatable)
     #[arg(short = 'c', long = "column", action = clap::ArgAction::Append, required = true)]
     pub columns: Vec<String>,
+    /// Value replacement directives using `column=value->replacement`
+    #[arg(long = "replace", action = clap::ArgAction::Append)]
+    pub replacements: Vec<String>,
 }
 
 #[derive(Debug, Args)]
@@ -151,6 +164,31 @@ pub struct ProcessArgs {
     /// Render output as an elastic table to stdout
     #[arg(long = "table")]
     pub table: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct FixArgs {
+    /// Input CSV file to transform
+    #[arg(short = 'i', long = "input")]
+    pub input: PathBuf,
+    /// Output CSV file (stdout if omitted)
+    #[arg(short = 'o', long = "output")]
+    pub output: Option<PathBuf>,
+    /// Schema file supplying replacement mappings
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: PathBuf,
+    /// CSV delimiter character for reading input
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Delimiter to use for output (defaults to input delimiter)
+    #[arg(long = "output-delimiter", value_parser = parse_delimiter)]
+    pub output_delimiter: Option<u8>,
+    /// Character encoding of the input file (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Character encoding for the output file/stdout (defaults to utf-8)
+    #[arg(long = "output-encoding")]
+    pub output_encoding: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
@@ -258,6 +296,13 @@ pub struct FrequencyArgs {
     /// Maximum distinct values to display per column (0 = all)
     #[arg(long, default_value_t = 0)]
     pub top: usize,
+}
+
+#[derive(Debug, Args)]
+pub struct ColumnsArgs {
+    /// Schema file describing the columns to list
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

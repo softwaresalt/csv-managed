@@ -8,7 +8,11 @@
 |------|-------------|
 | Delimiters | Input/output: comma, tab (`tab`), pipe (\|), semicolon (`;`), or any single ASCII char; output delimiter can differ (`--output-delimiter`). |
 | Schema inference (`probe`) | Full scan or sampled (`--sample-rows`) inference: String, Integer, Float, Boolean, Date, DateTime → stored as JSON `.schema`. |
+| Probe mappings | Optional `--mapping` flag prints schema mapping templates and injects default `name_mapping` entries (lowercase_snake_case) into the generated schema. |
 | Schema authoring (`schema`) | Manually declare columns with data types and optional output names, writing a `.schema` file without inferring from data. |
+| Value normalization | Schema-level `replace` arrays (value/replacement pairs) convert legacy tokens (e.g. `Y/N`, `Pending`) into canonical values before parsing, filtering, stats, or verification. Generate empty templates during probing with `--replace`. |
+| Replacement command (`fix`) | Stream existing files through schema-defined replacements to materialize cleaned outputs while preserving column order and delimiter/encoding choices. |
+| Schema listing (`columns`) | Print a table of column positions, names, types, and optional output names from a schema file. |
 | Typed parsing | Integer, float, boolean normalization (`true/false`, `t/f`, `yes/no`, `y/n`, `1/0`); multi-format dates & datetimes. |
 | Indexing (`index`) | B-Tree style composite key index (byte offsets) for fast ascending iteration. |
 | Indexed sorted reads | `process --sort` uses matching index for streaming ascending order. |
@@ -103,17 +107,19 @@ set RUST_LOG=info
 ./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders.schema
 # 3. Process with filters / derives / sort
 ./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders.schema -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
-# 4. Summary statistics
+# 4. Normalize legacy tokens via schema replacements
+./target/release/csv-managed.exe fix -i ./data/orders.csv -o ./data/orders_clean.csv --schema ./data/orders.schema
+# 5. Summary statistics
 ./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema
-# 5. Frequency counts (top 10)
+# 6. Frequency counts (top 10)
 ./target/release/csv-managed.exe frequency -i ./data/orders.csv -m ./data/orders.schema --top 10
-# 6. Preview first 15 rows
+# 7. Preview first 15 rows
 ./target/release/csv-managed.exe preview -i ./data/orders.csv --rows 15
-# 7. Join customers with orders
+# 8. Join customers with orders
 ./target/release/csv-managed.exe join --left ./data/orders.csv --right ./data/customers.csv --left-key customer_id --right-key id --type inner -o joined.csv
-# 8. Append monthly extracts
+# 9. Append monthly extracts
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
-# 9. Verify integrity
+# 10. Verify integrity
 ./target/release/csv-managed.exe verify -m orders.schema -i q1.csv
 ```
 
@@ -131,6 +137,8 @@ Infer column types and produce a `.schema` JSON file.
 | `-m, --schema <FILE>` | Output schema file. |
 | `--sample-rows <N>` | Sample size (`0` = full scan). |
 | `--delimiter <VAL>` | Input delimiter. |
+| `--mapping` | Insert default lowercase_with_underscores `name_mapping` aliases into the `.schema` file and print templates to stdout. |
+| `--replace` | Emit empty `replace` arrays for each column as a template for future value substitutions. |
 
 PowerShell:
 
@@ -139,7 +147,8 @@ PowerShell:
   -i ./data/orders.csv `
   -m ./data/orders.schema `
   --delimiter tab `
-  --sample-rows 0
+  --sample-rows 0 `
+  --replace
 ```
 
 cmd.exe:
@@ -149,8 +158,11 @@ cmd.exe:
   -i ./data/orders.csv ^
   -m ./data/orders.schema ^
   --delimiter tab ^
-  --sample-rows 0
+  --sample-rows 0 ^
+  --replace
 ```
+
+Omit `--replace` if you prefer to keep the generated schema free of placeholder `replace` arrays.
 
 Legacy flag note: all commands continue to accept the historical `--meta`/`--left-meta`/`--right-meta` aliases for compatibility, but new examples use the canonical `--schema` options.
 
@@ -162,6 +174,7 @@ Create a `.schema` JSON file from explicit column definitions.
 |------|-------------|
 | `-o, --output <FILE>` | Destination schema file. |
 | `-c, --column <SPEC>` | Repeatable `name:type` definitions; commas allowed per flag. Append `->New Name` to assign an output name. |
+| `--replace <COLUMN=FROM->TO>` | Repeatable value replacement directives applied before type parsing (e.g. `--replace status=Pending->Open`). |
 
 PowerShell:
 
@@ -169,10 +182,13 @@ PowerShell:
 ./target/release/csv-managed.exe schema `
   -o ./schemas/orders.schema `
   -c id:integer->Identifier `
-  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string
+  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string ^
+  --replace status=Pending->Open ^
+  --replace status=Closed (Legacy)->Closed
 ```
 
 cmd.exe:
+Use `--replace` to normalize legacy tokens or synonyms before validation and processing; each entry populates the column's `replace` array in the schema file.
 
 ```batch
 ./target/release/csv-managed.exe schema ^
@@ -285,6 +301,38 @@ cmd.exe:
 
 If `--index-variant` is omitted, `process` automatically chooses the variant that covers the longest prefix of the requested `--sort` columns and directions.
 
+### fix
+
+Apply schema-defined replacements to a CSV file, streaming the result to a new file or stdout.
+
+| Flag | Description |
+|------|-------------|
+| `-i, --input <FILE>` | Input CSV file to transform. |
+| `-o, --output <FILE>` | Destination CSV file (stdout if omitted). |
+| `-m, --schema <FILE>` | Schema file containing `replace` mappings. |
+| `--delimiter <VAL>` | Input delimiter. |
+| `--output-delimiter <VAL>` | Output delimiter (defaults to input delimiter). |
+| `--input-encoding <ENC>` | Character encoding of the input file (defaults to utf-8). |
+| `--output-encoding <ENC>` | Character encoding for the output file/stdout (defaults to utf-8). |
+
+PowerShell:
+
+```powershell
+./target/release/csv-managed.exe fix `
+  -i ./data/orders.csv `
+  -o ./data/orders_clean.csv `
+  --schema ./data/orders.schema
+```
+
+cmd.exe:
+
+```batch
+./target/release/csv-managed.exe fix ^
+  -i ./data/orders.csv ^
+  -o ./data/orders_clean.csv ^
+  --schema ./data/orders.schema
+```
+
 ### append
 
 Append multiple CSV files into a single output. Ensures consistent headers (baseline or schema enforced).
@@ -375,6 +423,28 @@ Example:
 ```
 
 ### install
+
+### columns
+
+List schema columns and their data types in a formatted table.
+
+| Flag | Description |
+|------|-------------|
+| `-m, --schema <FILE>` | Schema file describing the columns to list. |
+
+PowerShell:
+
+```powershell
+./target/release/csv-managed.exe columns `
+  --schema ./data/orders.schema
+```
+
+cmd.exe:
+
+```batch
+./target/release/csv-managed.exe columns ^
+  --schema ./data/orders.schema
+```
 
 Wrapper around `cargo install csv-managed` with a friendlier interface.
 

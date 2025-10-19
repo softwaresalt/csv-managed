@@ -109,7 +109,7 @@ pub fn evaluate_conditions(
         let column_type = schema
             .columns
             .get(col_index)
-            .map(|c| c.data_type.clone())
+            .map(|c| c.datatype.clone())
             .unwrap_or(ColumnType::String);
         if !evaluate_condition(
             condition,

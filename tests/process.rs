@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use assert_cmd::Command;
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use csv_managed::data::parse_typed_value;
-use csv_managed::schema::{ColumnType, Schema};
+use csv_managed::schema::{ColumnType, Schema, ValueReplacement};
+use predicates::{prelude::PredicateBooleanExt, str::contains};
 use tempfile::tempdir;
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -52,7 +53,7 @@ fn create_schema_internal(
         let mut schema_doc = Schema::load(&schema).expect("load schema for overrides");
         for (name, ty) in overrides {
             if let Some(column) = schema_doc.columns.iter_mut().find(|col| col.name == *name) {
-                column.data_type = ty.clone();
+                column.datatype = ty.clone();
             }
         }
         schema_doc
@@ -175,7 +176,7 @@ fn probe_infers_expected_types_for_ipqs() {
             .columns
             .iter()
             .find(|column| column.name == name)
-            .map(|column| column.data_type.clone())
+            .map(|column| column.datatype.clone())
             .expect("column present")
     };
 
@@ -184,13 +185,13 @@ fn probe_infers_expected_types_for_ipqs() {
     let boolean_columns = schema
         .columns
         .iter()
-        .filter(|column| matches!(column.data_type, ColumnType::Boolean))
+        .filter(|column| matches!(column.datatype, ColumnType::Boolean))
         .count();
     assert!(boolean_columns > 0);
     let numeric_columns = schema
         .columns
         .iter()
-        .filter(|column| matches!(column.data_type, ColumnType::Integer | ColumnType::Float))
+        .filter(|column| matches!(column.datatype, ColumnType::Integer | ColumnType::Float))
         .count();
     assert!(numeric_columns > 0);
 }
@@ -522,7 +523,80 @@ fn verify_rejects_invalid_numeric_value() {
             "tab",
         ])
         .assert()
-        .failure();
+        .failure()
+        .stderr(
+            contains("value \"not_a_number\"")
+                .and(contains("Failed to parse 'not_a_number' as integer")),
+        );
+}
+
+#[test]
+fn verify_accepts_value_after_replacement() {
+    let temp = tempdir().expect("tempdir");
+    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
+    let data = create_subset_with_checks(
+        &temp,
+        &input,
+        &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
+        5000,
+    );
+    let schema_path = create_schema_with_overrides(
+        &temp,
+        &data,
+        &[("ipqs_email_Fraud Score", ColumnType::Integer)],
+    );
+    let broken = temp.path().join("broken.tsv");
+
+    let mut reader = ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_path(&data)
+        .expect("open fixture");
+    let headers = reader.headers().expect("headers").clone();
+    let fraud_idx = headers
+        .iter()
+        .position(|h| h == "ipqs_email_Fraud Score")
+        .expect("fraud score index");
+    let mut writer = WriterBuilder::new()
+        .delimiter(b'\t')
+        .from_path(&broken)
+        .expect("writer");
+    writer.write_record(headers.iter()).expect("write headers");
+    for (row_idx, record) in reader.records().enumerate().take(50) {
+        let record = record.expect("record");
+        let mut values: Vec<String> = record.iter().map(|v| v.to_string()).collect();
+        if row_idx == 0 {
+            values[fraud_idx] = "not_a_number".to_string();
+        }
+        writer.write_record(&values).expect("write mutated row");
+    }
+    writer.flush().expect("flush broken");
+
+    let mut schema_doc = Schema::load(&schema_path).expect("load schema");
+    let column = schema_doc
+        .columns
+        .iter_mut()
+        .find(|col| col.name == "ipqs_email_Fraud Score")
+        .expect("fraud column");
+    column.value_replacements.push(ValueReplacement {
+        from: "not_a_number".to_string(),
+        to: "0".to_string(),
+    });
+    schema_doc.save(&schema_path).expect("save schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            broken.to_str().unwrap(),
+            "--delimiter",
+            "tab",
+        ])
+        .assert()
+        .success();
 }
 
 #[test]

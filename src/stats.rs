@@ -44,7 +44,8 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
             break;
         }
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
-        let decoded = io_utils::decode_record(&record, encoding)?;
+        let mut decoded = io_utils::decode_record(&record, encoding)?;
+        schema.apply_replacements_to_row(&mut decoded);
         stats
             .ingest(&schema, &decoded)
             .with_context(|| format!("Processing row {}", row_idx + 2))?;
@@ -84,7 +85,7 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
             .columns
             .iter()
             .enumerate()
-            .filter(|(_, col)| matches!(col.data_type, ColumnType::Integer | ColumnType::Float))
+            .filter(|(_, col)| matches!(col.datatype, ColumnType::Integer | ColumnType::Float))
             .map(|(idx, _)| idx)
             .collect())
     } else {
@@ -95,11 +96,11 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
                     .column_index(name)
                     .ok_or_else(|| anyhow!("Column '{name}' not found in schema"))?;
                 let column = &schema.columns[idx];
-                if !matches!(column.data_type, ColumnType::Integer | ColumnType::Float) {
+                if !matches!(column.datatype, ColumnType::Integer | ColumnType::Float) {
                     return Err(anyhow!(
                         "Column '{}' is type {:?} and cannot be profiled as numeric",
                         column.output_name(),
-                        column.data_type
+                        column.datatype
                     ));
                 }
                 Ok(idx)
@@ -130,10 +131,11 @@ impl StatsAccumulator {
         for column_index in &self.columns {
             let column = &schema.columns[*column_index];
             let value = record.get(*column_index).map(|s| s.as_str()).unwrap_or("");
-            if value.is_empty() {
+            let normalized = column.normalize_value(value);
+            if normalized.is_empty() {
                 continue;
             }
-            if let Some(parsed) = parse_typed_value(value, &column.data_type)
+            if let Some(parsed) = parse_typed_value(normalized.as_ref(), &column.datatype)
                 .with_context(|| format!("Column '{}'", column.output_name()))?
             {
                 let numeric = match parsed {

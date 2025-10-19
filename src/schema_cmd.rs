@@ -5,11 +5,13 @@ use anyhow::{Context, Result, anyhow};
 use log::info;
 
 use crate::cli::SchemaArgs;
-use crate::schema::{ColumnMeta, ColumnType, Schema};
+use crate::schema::{ColumnMeta, ColumnType, Schema, ValueReplacement};
 
 pub fn execute(args: &SchemaArgs) -> Result<()> {
-    let columns = parse_columns(&args.columns)
+    let mut columns = parse_columns(&args.columns)
         .with_context(|| "Parsing --column definitions for schema creation".to_string())?;
+    apply_replacements(&mut columns, &args.replacements)
+        .with_context(|| "Parsing --replace definitions for schema creation".to_string())?;
 
     let schema = Schema { columns };
     schema
@@ -81,8 +83,9 @@ fn parse_columns(specs: &[String]) -> Result<Vec<ColumnMeta>> {
 
             columns.push(ColumnMeta {
                 name: name.to_string(),
-                data_type: column_type,
+                datatype: column_type,
                 rename,
+                value_replacements: Vec::new(),
             });
         }
     }
@@ -92,6 +95,58 @@ fn parse_columns(specs: &[String]) -> Result<Vec<ColumnMeta>> {
     }
 
     Ok(columns)
+}
+
+fn apply_replacements(columns: &mut [ColumnMeta], specs: &[String]) -> Result<()> {
+    if specs.is_empty() {
+        return Ok(());
+    }
+    let mut lookup = HashSet::new();
+    for column in columns.iter() {
+        lookup.insert(column.name.clone());
+    }
+
+    for raw in specs {
+        let spec = raw.trim();
+        if spec.is_empty() {
+            continue;
+        }
+        let (column_name, mapping) = spec.split_once('=').ok_or_else(|| {
+            anyhow!("Replacement '{spec}' must use the form column=value->new_value")
+        })?;
+        let column_name = column_name.trim();
+        if column_name.is_empty() {
+            return Err(anyhow!("Replacement '{spec}' is missing a column name"));
+        }
+        if !lookup.contains(column_name) {
+            return Err(anyhow!(
+                "Replacement references unknown column '{column_name}'"
+            ));
+        }
+        let (from_raw, to_raw) = mapping.split_once("->").ok_or_else(|| {
+            anyhow!(
+                "Replacement '{spec}' must include '->' to separate original and replacement values"
+            )
+        })?;
+        let from = from_raw.trim().to_string();
+        let to = to_raw.trim().to_string();
+        let column = columns
+            .iter_mut()
+            .find(|c| c.name == column_name)
+            .expect("column should exist");
+        if let Some(existing) = column
+            .value_replacements
+            .iter()
+            .position(|r| r.from == from)
+        {
+            column.value_replacements.remove(existing);
+        }
+        column
+            .value_replacements
+            .push(ValueReplacement { from, to });
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -109,9 +164,9 @@ mod tests {
         assert_eq!(columns[0].name, "id");
         assert_eq!(columns[1].name, "name");
         assert_eq!(columns[2].name, "amount");
-        assert_eq!(columns[0].data_type, ColumnType::Integer);
-        assert_eq!(columns[1].data_type, ColumnType::String);
-        assert_eq!(columns[2].data_type, ColumnType::Float);
+        assert_eq!(columns[0].datatype, ColumnType::Integer);
+        assert_eq!(columns[1].datatype, ColumnType::String);
+        assert_eq!(columns[2].datatype, ColumnType::Float);
     }
 
     #[test]
@@ -145,5 +200,25 @@ mod tests {
         ];
         let err = parse_columns(&specs).unwrap_err();
         assert!(err.to_string().contains("Duplicate output column name"));
+    }
+
+    #[test]
+    fn replacements_apply_to_columns() {
+        let specs = vec!["status:string".to_string()];
+        let mut columns = parse_columns(&specs).expect("parsed");
+        let replacements = vec!["status=pending->shipped".to_string()];
+        apply_replacements(&mut columns, &replacements).expect("applied");
+        assert_eq!(columns[0].value_replacements.len(), 1);
+        assert_eq!(columns[0].value_replacements[0].from, "pending");
+        assert_eq!(columns[0].value_replacements[0].to, "shipped");
+    }
+
+    #[test]
+    fn replacements_validate_column_names() {
+        let specs = vec!["status:string".to_string()];
+        let mut columns = parse_columns(&specs).expect("parsed");
+        let replacements = vec!["missing=pending->shipped".to_string()];
+        let err = apply_replacements(&mut columns, &replacements).unwrap_err();
+        assert!(err.to_string().contains("unknown column"));
     }
 }

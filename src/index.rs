@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::{ComparableValue, parse_typed_value},
     io_utils,
-    schema::{ColumnType, Schema},
+    schema::{ColumnMeta, ColumnType, Schema},
 };
 
 use encoding_rs::Encoding;
@@ -477,6 +477,7 @@ struct IndexVariantBuilder {
     directions: Vec<SortDirection>,
     column_indices: Vec<usize>,
     column_types: Vec<ColumnType>,
+    column_meta: Vec<Option<ColumnMeta>>,
     map: BTreeMap<Vec<DirectionalComparableValue>, Vec<u64>>,
     encoding: &'static Encoding,
     name: Option<String>,
@@ -495,13 +496,20 @@ impl IndexVariantBuilder {
             ));
         }
         let column_indices = lookup_indices(headers, &definition.columns)?;
-        let column_types = definition
+        let column_meta = definition
             .columns
             .iter()
             .map(|name| {
                 schema
                     .and_then(|s| s.columns.iter().find(|c| c.name == *name))
-                    .map(|c| c.data_type.clone())
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
+        let column_types = column_meta
+            .iter()
+            .map(|meta| {
+                meta.as_ref()
+                    .map(|c| c.datatype.clone())
                     .unwrap_or(ColumnType::String)
             })
             .collect();
@@ -510,6 +518,7 @@ impl IndexVariantBuilder {
             directions: definition.directions.clone(),
             column_indices,
             column_types,
+            column_meta,
             map: BTreeMap::new(),
             encoding,
             name: definition.name.clone(),
@@ -526,7 +535,13 @@ impl IndexVariantBuilder {
             let comparable = match raw {
                 Some(value) => {
                     let ty = &self.column_types[idx];
-                    let parsed = parse_typed_value(&value, ty)?;
+                    let normalized = self
+                        .column_meta
+                        .get(idx)
+                        .and_then(|meta| meta.as_ref())
+                        .map(|meta| meta.normalize_value(&value))
+                        .unwrap_or_else(|| std::borrow::Cow::Borrowed(value.as_str()));
+                    let parsed = parse_typed_value(normalized.as_ref(), ty)?;
                     ComparableValue(parsed)
                 }
                 None => ComparableValue(None),
