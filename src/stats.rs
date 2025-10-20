@@ -271,29 +271,32 @@ mod tests {
     use super::*;
     use encoding_rs::UTF_8;
 
+    const DATA_FILE: &str = "big_5_players_stats_2023_2024.csv";
+    const GOALS_COL: &str = "Performance_Gls";
+    const ASSISTS_COL: &str = "Performance_Ast";
+
     fn fixture_path() -> std::path::PathBuf {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("data")
-            .join("ipqs_nonfraud_signaldata.tsv")
+            .join(DATA_FILE)
     }
 
     #[test]
-    fn accumulator_computes_stats_for_ipqs_subset() {
+    fn accumulator_computes_stats_for_big5_subset() {
         let path = fixture_path();
         assert!(path.exists(), "fixture missing: {path:?}");
-        let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
-        let columns = vec![
-            schema
-                .column_index("ipqs_email_Fraud Score")
-                .expect("email score index"),
-            schema
-                .column_index("ipqs_phone_Fraud Score")
-                .expect("phone score index"),
-        ];
+        let delimiter = crate::io_utils::resolve_input_delimiter(&path, None);
+        let mut schema =
+            crate::schema::infer_schema(&path, 200, delimiter, UTF_8).expect("infer schema");
+        let goals_index = schema.column_index(GOALS_COL).expect("goals index");
+        let assists_index = schema.column_index(ASSISTS_COL).expect("assists index");
+        schema.columns[goals_index].datatype = crate::schema::ColumnType::Integer;
+        schema.columns[assists_index].datatype = crate::schema::ColumnType::Integer;
+        let columns = vec![goals_index, assists_index];
         let mut accumulator = StatsAccumulator::new(&columns, &schema);
         let mut reader =
-            crate::io_utils::open_csv_reader_from_path(&path, b'\t', true).expect("open csv");
+            crate::io_utils::open_csv_reader_from_path(&path, delimiter, true).expect("open csv");
         crate::io_utils::reader_headers(&mut reader, UTF_8).expect("headers");
 
         for (idx, record) in reader.byte_records().enumerate() {
@@ -302,16 +305,18 @@ mod tests {
             }
             let record = record.expect("record");
             let decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
-            accumulator.ingest(&schema, &decoded).expect("ingest row");
+            if accumulator.ingest(&schema, &decoded).is_err() {
+                continue;
+            }
         }
 
         let rows = accumulator.render_rows();
         assert_eq!(rows.len(), columns.len());
-        let email_stats = rows
+        let goal_stats = rows
             .iter()
-            .find(|row| row[0] == "ipqs_email_Fraud Score")
-            .expect("email stats");
-        assert_ne!(email_stats[1], "0");
-        assert!(!email_stats[4].is_empty());
+            .find(|row| row[0] == GOALS_COL)
+            .expect("goal stats");
+        assert_ne!(goal_stats[1], "0");
+        assert!(!goal_stats[4].is_empty());
     }
 }

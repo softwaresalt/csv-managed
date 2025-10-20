@@ -198,24 +198,27 @@ mod tests {
     use super::*;
     use encoding_rs::UTF_8;
 
+    const DATA_FILE: &str = "big_5_players_stats_2023_2024.csv";
+    const GOALS_COL: &str = "Performance_Gls";
+
     fn fixture_path() -> std::path::PathBuf {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("data")
-            .join("ipqs_nonfraud_signaldata.tsv")
+            .join(DATA_FILE)
     }
 
     #[test]
-    fn accumulator_counts_ipqs_boolean_values() {
+    fn accumulator_counts_goal_totals() {
         let path = fixture_path();
         assert!(path.exists(), "fixture missing: {path:?}");
-        let schema = crate::schema::infer_schema(&path, 200, b'\t', UTF_8).expect("infer schema");
-        let column_index = schema
-            .column_index("ipqs_email_Valid")
-            .expect("column index");
+        let delimiter = crate::io_utils::resolve_input_delimiter(&path, None);
+        let schema =
+            crate::schema::infer_schema(&path, 200, delimiter, UTF_8).expect("infer schema");
+        let column_index = schema.column_index(GOALS_COL).expect("column index");
         let mut accumulator = FrequencyAccumulator::new(&[column_index], &schema);
         let mut reader =
-            crate::io_utils::open_csv_reader_from_path(&path, b'\t', true).expect("open csv");
+            crate::io_utils::open_csv_reader_from_path(&path, delimiter, true).expect("open csv");
         crate::io_utils::reader_headers(&mut reader, UTF_8).expect("headers");
 
         for (idx, record) in reader.byte_records().enumerate() {
@@ -229,6 +232,6 @@ mod tests {
 
         let rows = accumulator.render_rows(column_index, 3);
         assert!(!rows.is_empty());
-        assert_eq!(rows[0][0], "ipqs_email_Valid");
+        assert_eq!(rows[0][0], GOALS_COL);
     }
 }

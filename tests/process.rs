@@ -2,16 +2,43 @@ use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
-use csv_managed::data::parse_typed_value;
-use csv_managed::schema::{ColumnType, Schema, ValueReplacement};
+use csv_managed::{
+    data::parse_typed_value,
+    io_utils,
+    schema::{ColumnMeta, ColumnType, Schema, ValueReplacement},
+};
 use predicates::{prelude::PredicateBooleanExt, str::contains};
 use tempfile::tempdir;
+
+const DATA_FILE: &str = "big_5_players_stats_2023_2024.csv";
+const PLAYER_COL: &str = "Player";
+const GOALS_COL: &str = "Performance_Gls";
+const ASSISTS_COL: &str = "Performance_Ast";
+const MINUTES_COL: &str = "Playing Time_Min";
+const BOOLEAN_COL: &str = "Has_Goals";
+const FIRST_PLAYER: &str = "Max Aarons";
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("data")
         .join(name)
+}
+
+fn primary_dataset() -> PathBuf {
+    fixture_path(DATA_FILE)
+}
+
+fn delimiter_for(path: &Path) -> u8 {
+    io_utils::resolve_input_delimiter(path, None)
+}
+
+fn delimiter_arg(delimiter: u8) -> Option<String> {
+    match delimiter {
+        b',' => None,
+        b'\t' => Some("tab".to_string()),
+        other => Some((other as char).to_string()),
+    }
 }
 
 fn create_schema(dir: &tempfile::TempDir, input: &Path) -> PathBuf {
@@ -34,19 +61,23 @@ fn create_schema_internal(
     let schema = dir.path().join("schema.schema");
     let input_str = input.to_str().expect("input path utf-8");
     let schema_str = schema.to_str().expect("schema path utf-8");
+    let delimiter = delimiter_for(input);
+    let mut args = vec![
+        "probe".to_string(),
+        "-i".to_string(),
+        input_str.to_string(),
+        "-m".to_string(),
+        schema_str.to_string(),
+        "--sample-rows".to_string(),
+        "0".to_string(),
+    ];
+    if let Some(value) = delimiter_arg(delimiter) {
+        args.push("--delimiter".to_string());
+        args.push(value);
+    }
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args([
-            "probe",
-            "-i",
-            input_str,
-            "-m",
-            schema_str,
-            "--delimiter",
-            "tab",
-            "--sample-rows",
-            "0",
-        ])
+        .args(&args)
         .assert()
         .success();
     if !overrides.is_empty() {
@@ -66,14 +97,12 @@ fn create_schema_internal(
 #[derive(Clone, Copy)]
 enum ColumnCheck {
     Integer,
-    Boolean,
 }
 
 impl ColumnCheck {
     fn as_column_type(self) -> ColumnType {
         match self {
             ColumnCheck::Integer => ColumnType::Integer,
-            ColumnCheck::Boolean => ColumnType::Boolean,
         }
     }
 }
@@ -84,15 +113,20 @@ fn create_subset_with_checks(
     checks: &[(&str, ColumnCheck)],
     limit: usize,
 ) -> PathBuf {
-    let subset = dir.path().join("subset.tsv");
+    let delimiter = delimiter_for(input);
+    let subset = dir.path().join(if delimiter == b'\t' {
+        "subset.tsv"
+    } else {
+        "subset.csv"
+    });
     let mut reader = ReaderBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .has_headers(true)
         .from_path(input)
         .expect("open source for subset");
     let headers = reader.headers().expect("headers").clone();
     let mut writer = WriterBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .from_path(&subset)
         .expect("subset writer");
 
@@ -142,8 +176,9 @@ fn create_subset_with_checks(
 }
 
 fn count_rows(path: &Path) -> usize {
+    let delimiter = delimiter_for(path);
     let mut reader = ReaderBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .has_headers(true)
         .from_path(path)
         .expect("open csv for counting");
@@ -151,8 +186,9 @@ fn count_rows(path: &Path) -> usize {
 }
 
 fn read_csv(path: &Path) -> (StringRecord, Vec<StringRecord>) {
+    let delimiter = delimiter_for(path);
     let mut reader = ReaderBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .has_headers(true)
         .from_path(path)
         .expect("open csv for reading");
@@ -164,11 +200,96 @@ fn read_csv(path: &Path) -> (StringRecord, Vec<StringRecord>) {
     (headers, rows)
 }
 
+fn create_boolean_subset(
+    dir: &tempfile::TempDir,
+    input: &Path,
+    limit: usize,
+) -> (PathBuf, PathBuf) {
+    let path = dir.path().join("boolean_subset.csv");
+    let schema_path = dir.path().join("boolean_subset.schema");
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(input)
+        .expect("open source for boolean subset");
+    let headers = reader.headers().expect("headers").clone();
+    let player_idx = headers
+        .iter()
+        .position(|h| h == PLAYER_COL)
+        .expect("player column");
+    let goals_idx = headers
+        .iter()
+        .position(|h| h == GOALS_COL)
+        .expect("goals column");
+    let mut writer = WriterBuilder::new()
+        .from_path(&path)
+        .expect("create boolean subset");
+    writer
+        .write_record([PLAYER_COL, GOALS_COL, BOOLEAN_COL])
+        .expect("write boolean headers");
+
+    let mut written = 0usize;
+    for result in reader.records() {
+        let record = result.expect("record");
+        let player = record.get(player_idx).unwrap_or("");
+        if player.is_empty() {
+            continue;
+        }
+        let goals_raw = record.get(goals_idx).unwrap_or("0");
+        let goals_value = match goals_raw.parse::<f64>() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let has_goals = if goals_value > 0.0 { "true" } else { "false" };
+        writer
+            .write_record([
+                player.to_string(),
+                goals_raw.to_string(),
+                has_goals.to_string(),
+            ])
+            .expect("write boolean row");
+        written += 1;
+        if written >= limit {
+            break;
+        }
+    }
+
+    writer.flush().expect("flush boolean subset");
+    assert!(written > 0, "boolean subset had zero rows");
+
+    let schema = Schema {
+        columns: vec![
+            ColumnMeta {
+                name: PLAYER_COL.to_string(),
+                datatype: ColumnType::String,
+                rename: None,
+                value_replacements: Vec::new(),
+            },
+            ColumnMeta {
+                name: GOALS_COL.to_string(),
+                datatype: ColumnType::Integer,
+                rename: None,
+                value_replacements: Vec::new(),
+            },
+            ColumnMeta {
+                name: BOOLEAN_COL.to_string(),
+                datatype: ColumnType::Boolean,
+                rename: None,
+                value_replacements: Vec::new(),
+            },
+        ],
+    };
+    schema.save(&schema_path).expect("write boolean schema");
+
+    (path, schema_path)
+}
+
 #[test]
-fn probe_infers_expected_types_for_ipqs() {
+fn probe_infers_expected_types_for_big5() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let schema_path = create_schema(&temp, &input);
+    let input = primary_dataset();
+    let cleaned =
+        create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 1000);
+    let schema_path = create_schema(&temp, &cleaned);
 
     let schema = Schema::load(&schema_path).expect("load schema");
     let find_type = |name: &str| -> ColumnType {
@@ -180,46 +301,43 @@ fn probe_infers_expected_types_for_ipqs() {
             .expect("column present")
     };
 
-    assert_eq!(find_type("emailName"), ColumnType::String);
-    assert!(schema.columns.len() > 80);
-    let boolean_columns = schema
+    assert_eq!(find_type(PLAYER_COL), ColumnType::String);
+    assert_eq!(find_type(GOALS_COL), ColumnType::Integer);
+    assert_eq!(find_type("Per 90 Minutes_Gls"), ColumnType::Float);
+    assert!(schema.columns.len() > 30);
+    let float_columns = schema
         .columns
         .iter()
-        .filter(|column| matches!(column.datatype, ColumnType::Boolean))
+        .filter(|column| matches!(column.datatype, ColumnType::Float))
         .count();
-    assert!(boolean_columns > 0);
-    let numeric_columns = schema
-        .columns
-        .iter()
-        .filter(|column| matches!(column.datatype, ColumnType::Integer | ColumnType::Float))
-        .count();
-    assert!(numeric_columns > 0);
+    assert!(float_columns > 0);
 }
 
 #[test]
 fn process_with_index_respects_sort_order() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
+    let input = primary_dataset();
     let data = create_subset_with_checks(
         &temp,
         &input,
         &[
-            ("ipqs_email_Fraud Score", ColumnCheck::Integer),
-            ("ipqs_phone_Fraud Score", ColumnCheck::Integer),
+            (GOALS_COL, ColumnCheck::Integer),
+            (ASSISTS_COL, ColumnCheck::Integer),
         ],
-        5000,
+        500,
     );
     let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
-            ("ipqs_email_Fraud Score", ColumnType::Integer),
-            ("ipqs_phone_Fraud Score", ColumnType::Integer),
+            (GOALS_COL, ColumnType::Integer),
+            (ASSISTS_COL, ColumnType::Integer),
         ],
     );
     let index_path = temp.path().join("data.idx");
-    let output_path = temp.path().join("sorted.tsv");
+    let output_path = temp.path().join("sorted.csv");
 
+    let spec = format!("{GOALS_COL}:desc,{ASSISTS_COL}:asc");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -230,14 +348,14 @@ fn process_with_index_respects_sort_order() {
             index_path.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "--spec",
-            "ipqs_email_Fraud Score:desc,ipqs_phone_Fraud Score:asc",
+            spec.as_str(),
         ])
         .assert()
         .success();
 
+    let sort_primary = format!("{GOALS_COL}:desc");
+    let sort_secondary = format!("{ASSISTS_COL}:asc");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -250,23 +368,19 @@ fn process_with_index_respects_sort_order() {
             schema_path.to_str().unwrap(),
             "--index",
             index_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "--sort",
-            "ipqs_email_Fraud Score:desc",
+            sort_primary.as_str(),
             "--sort",
-            "ipqs_phone_Fraud Score:asc",
+            sort_secondary.as_str(),
             "--columns",
-            "GUID",
+            PLAYER_COL,
             "--columns",
-            "ipqs_email_Fraud Score",
+            GOALS_COL,
             "--columns",
-            "ipqs_phone_Fraud Score",
+            ASSISTS_COL,
             "--row-numbers",
             "--limit",
             "25",
-            "--output-delimiter",
-            "tab",
         ])
         .assert()
         .success();
@@ -276,12 +390,12 @@ fn process_with_index_respects_sort_order() {
         .iter()
         .position(|h| h == "row_number")
         .expect("row number header");
-    let email_idx = headers
+    let goals_idx = headers
         .iter()
-        .position(|h| h == "ipqs_email_Fraud Score")
-        .expect("email fraud score header");
+        .position(|h| h == GOALS_COL)
+        .expect("goals header");
 
-    let mut email_scores = Vec::new();
+    let mut goal_totals = Vec::new();
     for (idx, record) in rows.iter().enumerate() {
         let row_number: usize = record
             .get(row_number_idx)
@@ -289,36 +403,33 @@ fn process_with_index_respects_sort_order() {
             .parse()
             .expect("row number parse");
         assert_eq!(row_number, idx + 1);
-        let email_score: i64 = record
-            .get(email_idx)
-            .expect("email score value")
+        let goals: i64 = record
+            .get(goals_idx)
+            .expect("goal value")
             .parse()
-            .expect("email score parse");
-        email_scores.push(email_score);
+            .expect("goals parse");
+        goal_totals.push(goals);
     }
-    assert!(email_scores.windows(2).all(|pair| pair[0] >= pair[1]));
+    assert!(goal_totals.windows(2).all(|pair| pair[0] >= pair[1]));
 }
 
 #[test]
-fn process_filters_and_derives_high_risk_segment() {
+fn process_filters_and_derives_top_scorers() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
-        5000,
-    );
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 500);
     let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
-            ("ipqs_email_Fraud Score", ColumnType::Integer),
-            ("ipqs_phone_Fraud Score", ColumnType::Integer),
+            (GOALS_COL, ColumnType::Integer),
+            (MINUTES_COL, ColumnType::Integer),
         ],
     );
-    let output_path = temp.path().join("filtered.tsv");
+    let output_path = temp.path().join("filtered.csv");
 
+    let filter_expr = format!("{GOALS_COL} >= 10");
+    let derive_expr = "top_scorer=performance_gls >= 10";
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -329,66 +440,60 @@ fn process_filters_and_derives_high_risk_segment() {
             output_path.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "--filter",
-            "ipqs_email_Fraud Score >= 90",
+            filter_expr.as_str(),
             "--derive",
-            "risk_flag=ipqs_email_fraud_score >= 90",
+            derive_expr,
             "--columns",
-            "GUID",
+            PLAYER_COL,
             "--columns",
-            "ipqs_email_Fraud Score",
+            GOALS_COL,
             "--limit",
             "10",
-            "--output-delimiter",
-            "tab",
         ])
         .assert()
         .success();
 
     let (headers, rows) = read_csv(&output_path);
-    let email_idx = headers
+    let goals_idx = headers
         .iter()
-        .position(|h| h == "ipqs_email_Fraud Score")
-        .expect("email fraud header");
-    let risk_idx = headers
+        .position(|h| h == GOALS_COL)
+        .expect("goals header");
+    let flag_idx = headers
         .iter()
-        .position(|h| h == "risk_flag")
-        .expect("risk flag header");
+        .position(|h| h == "top_scorer")
+        .expect("flag header");
 
     assert!(!rows.is_empty());
     for record in rows {
-        let score: i64 = record
-            .get(email_idx)
-            .expect("score value")
+        let goals: i64 = record
+            .get(goals_idx)
+            .expect("goal value")
             .parse()
-            .expect("score parse");
-        assert!(score >= 90);
-        assert_eq!(record.get(risk_idx).expect("risk"), "true");
+            .expect("goals parse");
+        assert!(goals >= 10);
+        assert_eq!(record.get(flag_idx).expect("flag value"), "true");
     }
 }
 
 #[test]
-fn append_merges_ipqs_datasets() {
+fn append_merges_player_datasets() {
     let temp = tempdir().expect("tempdir");
-    let input_a = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let output_path = temp.path().join("appended.tsv");
+    let input = primary_dataset();
+    let output_path = temp.path().join("appended.csv");
 
-    let subset_path = temp.path().join("subset.tsv");
+    let subset_path = temp.path().join("subset.csv");
     {
         let mut reader = ReaderBuilder::new()
-            .delimiter(b'\t')
             .has_headers(true)
-            .from_path(&input_a)
+            .from_path(&input)
             .expect("open source for subset");
         let headers = reader.headers().expect("headers").clone();
         let mut writer = WriterBuilder::new()
-            .delimiter(b'\t')
             .from_path(&subset_path)
             .expect("subset writer");
         writer.write_record(headers.iter()).expect("subset headers");
-        for record in reader.records().take(500) {
+        for record in reader.records().take(200) {
             let record = record.expect("record");
             let values: Vec<String> = record.iter().map(|v| v.to_string()).collect();
             writer.write_record(&values).expect("subset row");
@@ -396,20 +501,18 @@ fn append_merges_ipqs_datasets() {
         writer.flush().expect("flush subset");
     }
 
-    let expected_rows = count_rows(&input_a) + count_rows(&subset_path);
+    let expected_rows = count_rows(&input) + count_rows(&subset_path);
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
             "append",
             "-i",
-            input_a.to_str().unwrap(),
+            input.to_str().unwrap(),
             "-i",
             subset_path.to_str().unwrap(),
             "-o",
             output_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
         ])
         .assert()
         .success();
@@ -420,8 +523,31 @@ fn append_merges_ipqs_datasets() {
 
 #[test]
 fn append_rejects_mismatched_headers() {
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let second = fixture_path("ipqs_fraud_signaldata.tsv");
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let mismatch_path = temp.path().join("mismatch.csv");
+
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(&input)
+        .expect("open source for mismatch");
+    let mut headers: Vec<String> = reader
+        .headers()
+        .expect("headers")
+        .iter()
+        .map(|h| h.to_string())
+        .collect();
+    headers[0] = "DifferentRank".to_string();
+    let mut writer = WriterBuilder::new()
+        .from_path(&mismatch_path)
+        .expect("mismatch writer");
+    writer.write_record(&headers).expect("write headers");
+    for record in reader.records().take(50) {
+        let record = record.expect("record");
+        let values: Vec<String> = record.iter().map(|v| v.to_string()).collect();
+        writer.write_record(&values).expect("write row");
+    }
+    writer.flush().expect("flush mismatch");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -430,29 +556,19 @@ fn append_rejects_mismatched_headers() {
             "-i",
             input.to_str().unwrap(),
             "-i",
-            second.to_str().unwrap(),
-            "--delimiter",
-            "tab",
+            mismatch_path.to_str().unwrap(),
         ])
         .assert()
         .failure();
 }
 
 #[test]
-fn verify_accepts_valid_ipqs_files() {
+fn verify_accepts_valid_big5_subset() {
     let temp = tempdir().expect("tempdir");
-    let input_a = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input_a,
-        &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
-        5000,
-    );
-    let schema_path = create_schema_with_overrides(
-        &temp,
-        &data,
-        &[("ipqs_email_Fraud Score", ColumnType::Integer)],
-    );
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 500);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -462,8 +578,6 @@ fn verify_accepts_valid_ipqs_files() {
             schema_path.to_str().unwrap(),
             "-i",
             data.to_str().unwrap(),
-            "--delimiter",
-            "tab",
         ])
         .assert()
         .success();
@@ -472,40 +586,28 @@ fn verify_accepts_valid_ipqs_files() {
 #[test]
 fn verify_rejects_invalid_numeric_value() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
-        5000,
-    );
-    let schema_path = create_schema_with_overrides(
-        &temp,
-        &data,
-        &[("ipqs_email_Fraud Score", ColumnType::Integer)],
-    );
-    let broken = temp.path().join("broken.tsv");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 500);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let broken = temp.path().join("broken.csv");
 
     let mut reader = ReaderBuilder::new()
-        .delimiter(b'\t')
         .has_headers(true)
         .from_path(&data)
         .expect("open fixture");
     let headers = reader.headers().expect("headers").clone();
-    let fraud_idx = headers
+    let goals_idx = headers
         .iter()
-        .position(|h| h == "ipqs_email_Fraud Score")
-        .expect("fraud score index");
-    let mut writer = WriterBuilder::new()
-        .delimiter(b'\t')
-        .from_path(&broken)
-        .expect("writer");
+        .position(|h| h == GOALS_COL)
+        .expect("goals index");
+    let mut writer = WriterBuilder::new().from_path(&broken).expect("writer");
     writer.write_record(headers.iter()).expect("write headers");
     for (row_idx, record) in reader.records().enumerate().take(50) {
         let record = record.expect("record");
         let mut values: Vec<String> = record.iter().map(|v| v.to_string()).collect();
         if row_idx == 0 {
-            values[fraud_idx] = "not_a_number".to_string();
+            values[goals_idx] = "not_a_number".to_string();
         }
         writer.write_record(&values).expect("write mutated row");
     }
@@ -519,8 +621,6 @@ fn verify_rejects_invalid_numeric_value() {
             schema_path.to_str().unwrap(),
             "-i",
             broken.to_str().unwrap(),
-            "--delimiter",
-            "tab",
         ])
         .assert()
         .failure()
@@ -533,40 +633,28 @@ fn verify_rejects_invalid_numeric_value() {
 #[test]
 fn verify_accepts_value_after_replacement() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Fraud Score", ColumnCheck::Integer)],
-        5000,
-    );
-    let schema_path = create_schema_with_overrides(
-        &temp,
-        &data,
-        &[("ipqs_email_Fraud Score", ColumnType::Integer)],
-    );
-    let broken = temp.path().join("broken.tsv");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 500);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let broken = temp.path().join("broken.csv");
 
     let mut reader = ReaderBuilder::new()
-        .delimiter(b'\t')
         .has_headers(true)
         .from_path(&data)
         .expect("open fixture");
     let headers = reader.headers().expect("headers").clone();
-    let fraud_idx = headers
+    let goals_idx = headers
         .iter()
-        .position(|h| h == "ipqs_email_Fraud Score")
-        .expect("fraud score index");
-    let mut writer = WriterBuilder::new()
-        .delimiter(b'\t')
-        .from_path(&broken)
-        .expect("writer");
+        .position(|h| h == GOALS_COL)
+        .expect("goals index");
+    let mut writer = WriterBuilder::new().from_path(&broken).expect("writer");
     writer.write_record(headers.iter()).expect("write headers");
     for (row_idx, record) in reader.records().enumerate().take(50) {
         let record = record.expect("record");
         let mut values: Vec<String> = record.iter().map(|v| v.to_string()).collect();
         if row_idx == 0 {
-            values[fraud_idx] = "not_a_number".to_string();
+            values[goals_idx] = "not_a_number".to_string();
         }
         writer.write_record(&values).expect("write mutated row");
     }
@@ -576,8 +664,8 @@ fn verify_accepts_value_after_replacement() {
     let column = schema_doc
         .columns
         .iter_mut()
-        .find(|col| col.name == "ipqs_email_Fraud Score")
-        .expect("fraud column");
+        .find(|col| col.name == GOALS_COL)
+        .expect("goals column");
     column.value_replacements.push(ValueReplacement {
         from: "not_a_number".to_string(),
         to: "0".to_string(),
@@ -592,8 +680,6 @@ fn verify_accepts_value_after_replacement() {
             schema_path.to_str().unwrap(),
             "-i",
             broken.to_str().unwrap(),
-            "--delimiter",
-            "tab",
         ])
         .assert()
         .success();
@@ -602,22 +688,22 @@ fn verify_accepts_value_after_replacement() {
 #[test]
 fn stats_outputs_summary_for_selected_columns() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
+    let input = primary_dataset();
     let data = create_subset_with_checks(
         &temp,
         &input,
         &[
-            ("ipqs_email_Fraud Score", ColumnCheck::Integer),
-            ("ipqs_phone_Fraud Score", ColumnCheck::Integer),
+            (GOALS_COL, ColumnCheck::Integer),
+            (ASSISTS_COL, ColumnCheck::Integer),
         ],
-        5000,
+        500,
     );
     let schema_path = create_schema_with_overrides(
         &temp,
         &data,
         &[
-            ("ipqs_email_Fraud Score", ColumnType::Integer),
-            ("ipqs_phone_Fraud Score", ColumnType::Integer),
+            (GOALS_COL, ColumnType::Integer),
+            (ASSISTS_COL, ColumnType::Integer),
         ],
     );
 
@@ -629,12 +715,10 @@ fn stats_outputs_summary_for_selected_columns() {
             data.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "-C",
-            "ipqs_email_Fraud Score",
+            GOALS_COL,
             "-C",
-            "ipqs_phone_Fraud Score",
+            ASSISTS_COL,
             "--limit",
             "200",
         ])
@@ -642,23 +726,16 @@ fn stats_outputs_summary_for_selected_columns() {
         .success();
 
     let output = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout");
-    assert!(output.contains("ipqs_email_Fraud Score"));
-    assert!(output.contains("ipqs_phone_Fraud Score"));
+    assert!(output.contains(GOALS_COL));
+    assert!(output.contains(ASSISTS_COL));
     assert!(output.contains("count"));
 }
 
 #[test]
 fn frequency_outputs_top_values_for_boolean_column() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Valid", ColumnCheck::Boolean)],
-        5000,
-    );
-    let schema_path =
-        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
+    let input = primary_dataset();
+    let (data, schema_path) = create_boolean_subset(&temp, &input, 500);
 
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -668,10 +745,8 @@ fn frequency_outputs_top_values_for_boolean_column() {
             data.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "-C",
-            "ipqs_email_Valid",
+            BOOLEAN_COL,
             "--top",
             "3",
         ])
@@ -679,23 +754,16 @@ fn frequency_outputs_top_values_for_boolean_column() {
         .success();
 
     let output = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout");
-    assert!(output.contains("ipqs_email_Valid"));
+    assert!(output.contains(BOOLEAN_COL));
     assert!(output.contains("true"));
 }
 
 #[test]
 fn process_boolean_format_true_false_outputs_normalized_values() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Valid", ColumnCheck::Boolean)],
-        2000,
-    );
-    let schema_path =
-        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
-    let output_path = temp.path().join("booleans_true_false.tsv");
+    let input = primary_dataset();
+    let (data, schema_path) = create_boolean_subset(&temp, &input, 200);
+    let output_path = temp.path().join("booleans_true_false.csv");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -707,22 +775,18 @@ fn process_boolean_format_true_false_outputs_normalized_values() {
             output_path.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "--columns",
-            "ipqs_email_Valid",
+            BOOLEAN_COL,
             "--limit",
             "25",
             "--boolean-format",
             "true-false",
-            "--output-delimiter",
-            "tab",
         ])
         .assert()
         .success();
 
     let (headers, rows) = read_csv(&output_path);
-    assert_eq!(headers.iter().collect::<Vec<_>>(), vec!["ipqs_email_Valid"]);
+    assert_eq!(headers.iter().collect::<Vec<_>>(), vec![BOOLEAN_COL]);
     assert!(!rows.is_empty());
     for record in rows {
         let value = record.get(0).expect("boolean value");
@@ -733,16 +797,9 @@ fn process_boolean_format_true_false_outputs_normalized_values() {
 #[test]
 fn process_boolean_format_one_zero_outputs_digits() {
     let temp = tempdir().expect("tempdir");
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
-    let data = create_subset_with_checks(
-        &temp,
-        &input,
-        &[("ipqs_email_Valid", ColumnCheck::Boolean)],
-        2000,
-    );
-    let schema_path =
-        create_schema_with_overrides(&temp, &data, &[("ipqs_email_Valid", ColumnType::Boolean)]);
-    let output_path = temp.path().join("booleans_one_zero.tsv");
+    let input = primary_dataset();
+    let (data, schema_path) = create_boolean_subset(&temp, &input, 200);
+    let output_path = temp.path().join("booleans_one_zero.csv");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -754,22 +811,18 @@ fn process_boolean_format_one_zero_outputs_digits() {
             output_path.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
-            "--delimiter",
-            "tab",
             "--columns",
-            "ipqs_email_Valid",
+            BOOLEAN_COL,
             "--limit",
             "25",
             "--boolean-format",
             "one-zero",
-            "--output-delimiter",
-            "tab",
         ])
         .assert()
         .success();
 
     let (headers, rows) = read_csv(&output_path);
-    assert_eq!(headers.iter().collect::<Vec<_>>(), vec!["ipqs_email_Valid"]);
+    assert_eq!(headers.iter().collect::<Vec<_>>(), vec![BOOLEAN_COL]);
     assert!(!rows.is_empty());
     for record in rows {
         let value = record.get(0).expect("boolean value");
@@ -779,22 +832,14 @@ fn process_boolean_format_one_zero_outputs_digits() {
 
 #[test]
 fn preview_renders_requested_rows() {
-    let input = fixture_path("ipqs_nonfraud_signaldata.tsv");
+    let input = primary_dataset();
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args([
-            "preview",
-            "-i",
-            input.to_str().unwrap(),
-            "--delimiter",
-            "tab",
-            "--rows",
-            "3",
-        ])
+        .args(["preview", "-i", input.to_str().unwrap(), "--rows", "3"])
         .assert()
         .success();
 
     let output = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout");
-    assert!(output.contains("GUID"));
-    assert!(output.contains("dyanash"));
+    assert!(output.contains(PLAYER_COL));
+    assert!(output.contains(FIRST_PLAYER));
 }

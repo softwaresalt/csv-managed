@@ -19,9 +19,9 @@
 - [x] Add the ability to list column names and data types as a list to the console output.
 - [x] Add the ability to emit column mapping templates for each column in a file to the probe command.
 - [x] Refactor the probe and schema commands to use "datatype" instead of "data_type" in the schema file.
-- [x] Add to the probe command the functionality to inject a "replace" node that holds an empty array as a template for future replace functionality. 
+- [x] Add to the probe command the functionality to inject a "replace" node that holds an empty array as a template for future replace functionality.
 - [x] Add the ability to replace values by column in the original input file; the schema file should allow you to define multiple value/replace pairs per column in a node of the column named "replace", which holds an array of value and replacement value pairs; this feature will be implemented as a new command named "fix."
-- [ ] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
+- [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
 - [ ] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.

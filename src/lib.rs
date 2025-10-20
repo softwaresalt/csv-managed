@@ -18,11 +18,12 @@ pub mod stats;
 pub mod table;
 pub mod verify;
 
-use std::{env, sync::OnceLock};
+use std::{env, sync::OnceLock, time::Instant};
 
 use anyhow::{Context, Result};
+use chrono::{SecondsFormat, Utc};
 use clap::Parser;
-use log::{LevelFilter, debug, info};
+use log::{LevelFilter, debug, error, info};
 
 use crate::cli::{Cli, Commands};
 
@@ -42,20 +43,46 @@ pub fn run() -> Result<()> {
     init_logging();
     let cli = Cli::parse();
     match cli.command {
-        Commands::Probe(args) => handle_probe(&args),
-        Commands::Index(args) => handle_index(&args),
-        Commands::Schema(args) => schema_cmd::execute(&args),
-        Commands::Process(args) => process::execute(&args),
-        Commands::Fix(args) => fix::execute(&args),
-        Commands::Append(args) => append::execute(&args),
-        Commands::Verify(args) => verify::execute(&args),
-        Commands::Preview(args) => preview::execute(&args),
-        Commands::Stats(args) => stats::execute(&args),
-        Commands::Frequency(args) => frequency::execute(&args),
-        Commands::Join(args) => join::execute(&args),
-        Commands::Install(args) => install::execute(&args),
-        Commands::Columns(args) => columns::execute(&args),
+        Commands::Probe(args) => run_operation("probe", || handle_probe(&args)),
+        Commands::Index(args) => run_operation("index", || handle_index(&args)),
+        Commands::Schema(args) => run_operation("schema", || schema_cmd::execute(&args)),
+        Commands::Process(args) => run_operation("process", || process::execute(&args)),
+        Commands::Fix(args) => run_operation("fix", || fix::execute(&args)),
+        Commands::Append(args) => run_operation("append", || append::execute(&args)),
+        Commands::Verify(args) => run_operation("verify", || verify::execute(&args)),
+        Commands::Preview(args) => run_operation("preview", || preview::execute(&args)),
+        Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
+        Commands::Frequency(args) => run_operation("frequency", || frequency::execute(&args)),
+        Commands::Join(args) => run_operation("join", || join::execute(&args)),
+        Commands::Install(args) => run_operation("install", || install::execute(&args)),
+        Commands::Columns(args) => run_operation("columns", || columns::execute(&args)),
     }
+}
+
+fn run_operation<F>(name: &str, op: F) -> Result<()>
+where
+    F: FnOnce() -> Result<()>,
+{
+    let start_clock = Utc::now();
+    let start_instant = Instant::now();
+    let result = op();
+    let end_clock = Utc::now();
+    let duration_secs = start_instant.elapsed().as_secs_f64();
+    let start_str = start_clock.to_rfc3339_opts(SecondsFormat::Millis, true);
+    let end_str = end_clock.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+    match &result {
+        Ok(_) => info!(
+            "Operation '{}' completed (status=ok) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3}",
+            name
+        ),
+        Err(err) => error!(
+            "Operation '{}' failed (status=error) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3} | error: {err:?}",
+            name
+        ),
+    }
+
+    result
 }
 
 fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
