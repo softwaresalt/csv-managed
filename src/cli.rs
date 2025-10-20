@@ -209,6 +209,9 @@ pub struct VerifyArgs {
     /// Character encoding for input files (defaults to utf-8)
     #[arg(long = "input-encoding")]
     pub input_encoding: Option<String>,
+    /// Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value.
+    #[arg(long = "report-invalid", value_name = "OPTIONS", num_args = 0..=3)]
+    pub report_invalid: Option<Vec<String>>,
 }
 
 #[derive(Debug, Args)]

@@ -163,7 +163,8 @@ Options:
   -m, --schema <SCHEMA>                  Schema file describing the expected structure
   -i, --input <INPUTS>                   One or more CSV files to verify
       --delimiter <DELIMITER>            CSV delimiter character
-      --input-encoding <INPUT_ENCODING>  Character encoding for input files (defaults to utf-8)
+    --input-encoding <INPUT_ENCODING>  Character encoding for input files (defaults to utf-8)
+        --report-invalid [<OPTIONS>]       Summarize invalid columns by default; append ':detail' for row samples, ':detail:summary' for both, optional LIMIT caps samples
   -h, --help                             Print help
 ```
 

@@ -301,6 +301,7 @@ Validate one or more CSV files against a schema definition.
 | `-m, --schema <FILE>` | Schema file. |
 | `-i, --input <FILE>` | Repeatable input files. |
 | `--delimiter <VAL>` | Input delimiter. |
+| `--report-invalid[:detail[:summary]] [LIMIT]` | Summarize invalid columns by default; append `:detail` for row samples, `:detail:summary` for both, and optionally add LIMIT to cap sample rows. |
 
 ### preview
 

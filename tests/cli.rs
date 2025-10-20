@@ -1,4 +1,4 @@
-use std::{env, fs, io::Write, process::Command as StdCommand};
+use std::{env, fs, io::Write, path::PathBuf, process::Command as StdCommand};
 
 use assert_cmd::Command;
 use csv_managed::{
@@ -32,6 +32,13 @@ fn write_sample_csv(delimiter: u8) -> (tempfile::TempDir, std::path::PathBuf) {
     )
     .unwrap();
     (dir, file_path)
+}
+
+fn fixture_path(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("data")
+        .join(name)
 }
 
 #[test]
@@ -323,6 +330,90 @@ fn verify_reports_header_mismatch_detail() {
                 .and(contains("expected 'name'"))
                 .and(contains("wrong")),
         );
+}
+
+#[test]
+fn verify_reports_summary_only_by_default() {
+    let schema_path = fixture_path("orders.schema");
+    let csv_path = fixture_path("orders_invalid.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--report-invalid",
+        ])
+        .assert()
+        .failure()
+        .stdout(
+            contains("Columns with schema violations")
+                .and(contains("Invalid rows").not())
+                .and(contains("amount"))
+                .and(contains("float"))
+                .and(contains("2")),
+        )
+        .stderr(contains("Found 2 invalid value(s)"));
+}
+
+#[test]
+fn verify_reports_invalid_rows_with_limit_using_fixture() {
+    let schema_path = fixture_path("orders.schema");
+    let csv_path = fixture_path("orders_invalid.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--report-invalid:detail",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stdout(
+            contains("Invalid rows")
+                .and(contains("row | column"))
+                .and(contains("\u{1b}[31mnot_a_number\u{1b}[0m"))
+                .and(contains("Displayed 1 of 2 invalid row(s)"))
+                .and(contains("Columns with schema violations").not()),
+        )
+        .stderr(contains("Found 2 invalid value(s)"));
+}
+
+#[test]
+fn verify_reports_all_invalid_rows_without_limit() {
+    let schema_path = fixture_path("orders.schema");
+    let csv_path = fixture_path("orders_invalid.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--report-invalid:detail:summary",
+        ])
+        .assert()
+        .failure()
+        .stdout(
+            contains("Invalid rows")
+                .and(contains("row | column | raw"))
+                .and(contains(" 2   | amount"))
+                .and(contains(" 3   | amount"))
+                .and(contains("\u{1b}[31mnot_a_number\u{1b}[0m"))
+                .and(contains("Columns with schema violations"))
+                .and(contains("Displayed").not()),
+        )
+        .stderr(contains("Found 2 invalid value(s)"));
 }
 
 #[test]

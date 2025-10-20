@@ -22,6 +22,7 @@
 - [x] Add to the probe command the functionality to inject a "replace" node that holds an empty array as a template for future replace functionality.
 - [x] Add the ability to replace values by column in the original input file; the schema file should allow you to define multiple value/replace pairs per column in a node of the column named "replace", which holds an array of value and replacement value pairs; this feature runs through the `process` command.
 - [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
+- [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
 - [ ] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.

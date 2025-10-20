@@ -48,7 +48,21 @@ fn format_row(values: &[String], widths: &[usize]) -> String {
 }
 
 fn display_width(value: &str) -> usize {
-    value.chars().count()
+    let mut width = 0usize;
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' {
+            // Skip ANSI escape sequence (e.g. \x1b[31m)
+            for next in chars.by_ref() {
+                if next == 'm' {
+                    break;
+                }
+            }
+        } else {
+            width += 1;
+        }
+    }
+    width
 }
 
 #[cfg(test)]
@@ -78,5 +92,11 @@ mod tests {
         assert_eq!(display_width("abc"), 3);
         assert_eq!(display_width(""), 0);
         assert_eq!(display_width("résumé"), 6);
+    }
+
+    #[test]
+    fn display_width_ignores_ansi_sequences() {
+        let value = "\u{1b}[31minvalid\u{1b}[0m";
+        assert_eq!(display_width(value), "invalid".len());
     }
 }

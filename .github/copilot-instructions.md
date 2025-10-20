@@ -53,7 +53,9 @@ Features of this tool include:
 - The ability to transform fields from one data type to another; for example, a string to date, time, or datetime.
 - The ability to change the format of a date, time, or datetime field to a custom formatted string output.
 - The ability to replace values by column in the original input file; this should be tied to verification using the schema file; the schema file should allow you to define multiple value/replace pairs per column.
-
+- When running the verify command, the tool should provide a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
+- The ability to define a currency datatype that restricts decimal precision to 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
+- Enhance data verification capabilities so that it can be used as an effective cloud implemented data validation tool for customers.
 
 ## Architecture Patterns
 

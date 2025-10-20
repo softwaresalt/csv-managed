@@ -1,6 +1,5 @@
 fn main() {
-    if let Err(err) = csv_managed::run() {
-        eprintln!("error: {err}");
+    if csv_managed::run().is_err() {
         std::process::exit(1);
     }
 }

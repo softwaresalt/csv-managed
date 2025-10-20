@@ -1,0 +1,9 @@
+{
+  "columns": [
+  { "name": "id", "datatype": "Integer" },
+  { "name": "name", "datatype": "String" },
+  { "name": "amount", "datatype": "Float" },
+  { "name": "status", "datatype": "String" },
+  { "name": "ordered_at", "datatype": "Date" }
+  ]
+}

@@ -1,0 +1,4 @@
+id,name,amount,status,ordered_at
+1,Alice,not_a_number,shipped,2024-01-01
+2,Bob,not_a_number,processing,2024-01-03
+3,Charlie,87.65,cancelled,2024-02-10

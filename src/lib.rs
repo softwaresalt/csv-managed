@@ -17,7 +17,7 @@ pub mod stats;
 pub mod table;
 pub mod verify;
 
-use std::{env, sync::OnceLock, time::Instant};
+use std::{env, ffi::OsString, sync::OnceLock, time::Instant};
 
 use anyhow::{Context, Result};
 use chrono::{SecondsFormat, Utc};
@@ -40,7 +40,7 @@ fn init_logging() {
 
 pub fn run() -> Result<()> {
     init_logging();
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(preprocess_cli_args(env::args_os()));
     match cli.command {
         Commands::Probe(args) => run_operation("probe", || handle_probe(&args)),
         Commands::Index(args) => run_operation("index", || handle_index(&args)),
@@ -57,6 +57,26 @@ pub fn run() -> Result<()> {
     }
 }
 
+fn preprocess_cli_args<I>(args: I) -> Vec<OsString>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    let mut processed = Vec::new();
+    for arg in args {
+        if let Some(value) = arg.to_str() {
+            if let Some(rest) = value.strip_prefix("--report-invalid:") {
+                processed.push(OsString::from("--report-invalid"));
+                for segment in rest.split(':').filter(|segment| !segment.is_empty()) {
+                    processed.push(OsString::from(segment));
+                }
+                continue;
+            }
+        }
+        processed.push(arg);
+    }
+    processed
+}
+
 fn run_operation<F>(name: &str, op: F) -> Result<()>
 where
     F: FnOnce() -> Result<()>,
@@ -71,10 +91,10 @@ where
 
     match &result {
         Ok(_) => info!(
-            "Operation '{name}' completed (status=ok) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3}"
+            "Operation '{name}' completed (status=ok)\nstart: {start_str}\nend: {end_str}\nduration_secs: {duration_secs:.3}"
         ),
         Err(err) => error!(
-            "Operation '{name}' failed (status=error) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3} | error: {err:?}"
+            "Operation '{name}' failed (status=error)\nstart: {start_str}\nend: {end_str}\nduration_secs: {duration_secs:.3}\nerror: {err:?}"
         ),
     }
 
