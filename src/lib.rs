@@ -4,7 +4,6 @@ pub mod columns;
 pub mod data;
 pub mod derive;
 pub mod filter;
-pub mod fix;
 pub mod frequency;
 pub mod index;
 pub mod install;
@@ -47,7 +46,6 @@ pub fn run() -> Result<()> {
         Commands::Index(args) => run_operation("index", || handle_index(&args)),
         Commands::Schema(args) => run_operation("schema", || schema_cmd::execute(&args)),
         Commands::Process(args) => run_operation("process", || process::execute(&args)),
-        Commands::Fix(args) => run_operation("fix", || fix::execute(&args)),
         Commands::Append(args) => run_operation("append", || append::execute(&args)),
         Commands::Verify(args) => run_operation("verify", || verify::execute(&args)),
         Commands::Preview(args) => run_operation("preview", || preview::execute(&args)),
@@ -73,12 +71,10 @@ where
 
     match &result {
         Ok(_) => info!(
-            "Operation '{}' completed (status=ok) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3}",
-            name
+            "Operation '{name}' completed (status=ok) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3}"
         ),
         Err(err) => error!(
-            "Operation '{}' failed (status=error) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3} | error: {err:?}",
-            name
+            "Operation '{name}' failed (status=error) | start: {start_str}, end: {end_str}, duration_secs: {duration_secs:.3} | error: {err:?}"
         ),
     }
 

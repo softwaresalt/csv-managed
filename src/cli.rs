@@ -17,10 +17,8 @@ pub enum Commands {
     Schema(SchemaArgs),
     /// Create a B-Tree index (.idx) for one or more columns
     Index(IndexArgs),
-    /// Transform a CSV file using sorting, filtering, projection, and derivations
+    /// Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
     Process(ProcessArgs),
-    /// Apply schema-defined value replacements to a CSV file
-    Fix(FixArgs),
     /// Append multiple CSV files into a single output
     Append(AppendArgs),
     /// Verify one or more CSV files against a schema definition
@@ -116,7 +114,7 @@ pub struct ProcessArgs {
     /// Output CSV file (stdout if omitted)
     #[arg(short = 'o', long = "output")]
     pub output: Option<PathBuf>,
-    /// Schema file to drive typed operations
+    /// Schema file to drive typed operations and apply value replacements
     #[arg(short = 'm', long = "schema", alias = "meta")]
     pub schema: Option<PathBuf>,
     /// Existing index file to speed up operations
@@ -164,31 +162,6 @@ pub struct ProcessArgs {
     /// Render output as an elastic table to stdout
     #[arg(long = "table")]
     pub table: bool,
-}
-
-#[derive(Debug, Args)]
-pub struct FixArgs {
-    /// Input CSV file to transform
-    #[arg(short = 'i', long = "input")]
-    pub input: PathBuf,
-    /// Output CSV file (stdout if omitted)
-    #[arg(short = 'o', long = "output")]
-    pub output: Option<PathBuf>,
-    /// Schema file supplying replacement mappings
-    #[arg(short = 'm', long = "schema", alias = "meta")]
-    pub schema: PathBuf,
-    /// CSV delimiter character for reading input
-    #[arg(long, value_parser = parse_delimiter)]
-    pub delimiter: Option<u8>,
-    /// Delimiter to use for output (defaults to input delimiter)
-    #[arg(long = "output-delimiter", value_parser = parse_delimiter)]
-    pub output_delimiter: Option<u8>,
-    /// Character encoding of the input file (defaults to utf-8)
-    #[arg(long = "input-encoding")]
-    pub input_encoding: Option<String>,
-    /// Character encoding for the output file/stdout (defaults to utf-8)
-    #[arg(long = "output-encoding")]
-    pub output_encoding: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]

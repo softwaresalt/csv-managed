@@ -325,10 +325,10 @@ impl ColumnMeta {
 impl Schema {
     pub fn apply_replacements_to_row(&self, row: &mut [String]) {
         for (idx, column) in self.columns.iter().enumerate() {
-            if let Some(value) = row.get_mut(idx) {
-                if let Cow::Owned(normalized) = column.normalize_value(value) {
-                    *value = normalized;
-                }
+            if let Some(value) = row.get_mut(idx)
+                && let Cow::Owned(normalized) = column.normalize_value(value)
+            {
+                *value = normalized;
             }
         }
     }

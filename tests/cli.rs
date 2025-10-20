@@ -283,57 +283,6 @@ fn process_applies_value_replacements_from_schema() {
 }
 
 #[test]
-fn fix_command_applies_schema_replacements() {
-    let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
-
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
-        .args([
-            "probe",
-            "-i",
-            csv_path.to_str().unwrap(),
-            "-m",
-            schema_path.to_str().unwrap(),
-        ])
-        .assert()
-        .success();
-
-    let mut schema = Schema::load(&schema_path).expect("load probed schema");
-    let status_column = schema
-        .columns
-        .iter_mut()
-        .find(|col| col.name == "status")
-        .expect("status column");
-    status_column.value_replacements.push(ValueReplacement {
-        from: "processing".to_string(),
-        to: "pending".to_string(),
-    });
-    schema
-        .save(&schema_path)
-        .expect("save schema with replacements");
-
-    let output_path = dir.path().join("fixed.csv");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
-        .args([
-            "fix",
-            "-i",
-            csv_path.to_str().unwrap(),
-            "-o",
-            output_path.to_str().unwrap(),
-            "--schema",
-            schema_path.to_str().unwrap(),
-        ])
-        .assert()
-        .success();
-
-    let output = fs::read_to_string(&output_path).expect("read fixed output");
-    assert!(output.contains("pending"));
-    assert!(!output.contains(",processing"));
-}
-
-#[test]
 fn verify_reports_header_mismatch_detail() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema.schema");

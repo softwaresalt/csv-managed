@@ -10,20 +10,19 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-  probe      Probe a CSV file and infer column data types into a .schema file
-  schema     Create a .schema file from explicit column definitions
-  index      Create a B-Tree index (.idx) for one or more columns
-  process    Transform a CSV file using sorting, filtering, projection, and derivations
-  fix        Apply schema-defined value replacements to a CSV file
-  append     Append multiple CSV files into a single output
-  verify     Verify one or more CSV files against a schema definition
-  preview    Preview the first few rows of a CSV file in a formatted table
-  stats      Produce summary statistics for numeric columns
-  frequency  Produce frequency counts for categorical columns
-  join       Join two CSV files on common columns
-  install    Install the csv-managed binary via cargo install
-  columns    List column names and data types from a schema file
-  help       Print this message or the help of the given subcommand(s)
+probe      Probe a CSV file and infer column data types into a .schema file
+schema     Create a .schema file from explicit column definitions
+index      Create a B-Tree index (.idx) for one or more columns
+process    Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
+append     Append multiple CSV files into a single output
+verify     Verify one or more CSV files against a schema definition
+preview    Preview the first few rows of a CSV file in a formatted table
+stats      Produce summary statistics for numeric columns
+frequency  Produce frequency counts for categorical columns
+join       Join two CSV files on common columns
+install    Install the csv-managed binary via cargo install
+columns    List column names and data types from a schema file
+help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -50,27 +49,6 @@ Options:
           Character encoding of the input file (defaults to utf-8)
       --mapping
           Emit column mapping templates to stdout after probing
-      --replace
-          Inject empty replace arrays into the generated schema as a template
-  -h, --help
-          Print help
-```
-
-## schema
-
-```text
-Create a .schema file from explicit column definitions
-
-Usage: csv-managed.exe schema [OPTIONS] --output <OUTPUT> --column <COLUMNS>
-
-Options:
-  -o, --output <OUTPUT>         Destination .schema file path
-  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
-      --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
-  -h, --help                    Print help
-```
-
-Note: append `->New Name` to any `name:type` entry to assign a different output column name. Repeat `--replace` for each legacy token you want to normalize before validation.
 
 ## index
 
@@ -97,15 +75,15 @@ Options:
       --delimiter <DELIMITER>
           CSV delimiter character (supports ',', 'tab', ';', '|')
       --input-encoding <INPUT_ENCODING>
-          Character encoding of the input file (defaults to utf-8)
+      Character encoding of the input file (defaults to utf-8)
   -h, --help
-          Print help
+      Print help
 ```
 
 ## process
 
 ```text
-Transform a CSV file using sorting, filtering, projection, and derivations
+Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
 
 Usage: csv-managed.exe process [OPTIONS] --input <INPUT>
 
@@ -115,7 +93,7 @@ Options:
   -o, --output <OUTPUT>
           Output CSV file (stdout if omitted)
   -m, --schema <SCHEMA>
-          Schema file to drive typed operations
+      Schema file to drive typed operations and apply value replacements
   -x, --index <INDEX>
           Existing index file to speed up operations
       --index-variant <INDEX_VARIANT>
@@ -146,32 +124,6 @@ Options:
           Normalize boolean columns in output [default: original] [possible values: original, true-false, one-zero]
       --table
           Render output as an elastic table to stdout
-  -h, --help
-          Print help
-```
-
-## fix
-
-```text
-Apply schema-defined value replacements to a CSV file
-
-Usage: csv-managed.exe fix [OPTIONS] --input <INPUT> --schema <SCHEMA>
-
-Options:
-  -i, --input <INPUT>
-          Input CSV file to transform
-  -o, --output <OUTPUT>
-          Output CSV file (stdout if omitted)
-  -m, --schema <SCHEMA>
-          Schema file supplying replacement mappings
-      --delimiter <DELIMITER>
-          CSV delimiter character for reading input
-      --output-delimiter <OUTPUT_DELIMITER>
-          Delimiter to use for output (defaults to input delimiter)
-      --input-encoding <INPUT_ENCODING>
-          Character encoding of the input file (defaults to utf-8)
-      --output-encoding <OUTPUT_ENCODING>
-          Character encoding for the output file/stdout (defaults to utf-8)
   -h, --help
           Print help
 ```
