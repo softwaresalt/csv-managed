@@ -3,6 +3,7 @@ pub mod cli;
 pub mod columns;
 pub mod data;
 pub mod derive;
+pub mod expr;
 pub mod filter;
 pub mod frequency;
 pub mod index;

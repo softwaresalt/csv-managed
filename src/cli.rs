@@ -138,6 +138,9 @@ pub struct ProcessArgs {
     /// Row-level filters such as `amount>=100` or `status = shipped`
     #[arg(long = "filter", action = clap::ArgAction::Append)]
     pub filters: Vec<String>,
+    /// Evalexpr-based filter expressions that must evaluate to truthy values
+    #[arg(long = "filter-expr", action = clap::ArgAction::Append)]
+    pub filter_exprs: Vec<String>,
     /// Emit 1-based row numbers as the first column
     #[arg(long = "row-numbers")]
     pub row_numbers: bool,

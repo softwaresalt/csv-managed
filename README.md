@@ -12,7 +12,7 @@
 | Value normalization | Schema `replace` arrays and boolean normalization convert legacy tokens before typed operations; `process --boolean-format` controls emitted true/false representation. |
 | Indexing (`index`) | Build B-tree index files with multiple named variants, mixed asc/desc columns, and combo expansion for shared prefixes. |
 | Sorting (`process`) | Streams through matching index variants for ordered reads and falls back to stable multi-column in-memory sort when needed. |
-| Filtering & projection | Type-aware filters (`= != > >= < <= contains startswith endswith`), column inclusion/exclusion, row limits, and optional 1-based row numbers. |
+| Filtering & projection | Type-aware filters (`= != > >= < <= contains startswith endswith`), evalexpr filters (`--filter-expr`) with temporal helpers, column inclusion/exclusion, row limits, and optional 1-based row numbers. |
 | Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
 | Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
 | Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
@@ -212,6 +212,7 @@ Transform pipeline: sort, filter, derive, project, exclude, boolean formatting, 
 | `--exclude-columns <LIST>` | Exclusion list (repeatable). |
 | `--derive <name=expr>` | Derived column (repeatable). |
 | `--filter <expr>` | Filter expression (repeatable; AND). |
+| `--filter-expr <EXPR>` | Evalexpr-based filter evaluated per row; supports temporal helpers (`date_add`, `date_diff_days`, `time_diff_seconds`, etc.). Use double-quoted string literals for constants (e.g., `"06:00:00"`). |
 | `--row-numbers` | Prepend `row_number`. |
 | `--limit <N>` | Emit at most N rows. |
 | `--delimiter <VAL>` | Input delimiter. |
@@ -415,6 +416,39 @@ Mixed operators:
 ```powershell
 --filter "order_date >= 2024-01-01" --filter "description contains urgent" --filter "region != US"
 ```
+
+### Temporal Expression Helpers
+
+`--filter-expr` and derived column expressions can use built-in helpers for manipulating dates, times, and datetimes:
+
+| Function | Description |
+|----------|-------------|
+| `date_add(date, days)` / `date_sub(date, days)` | Shift a date forward or backward by whole days. |
+| `date_diff_days(end, start)` | Difference in days between two dates (can be negative). |
+| `date_format(date, "%d %b %Y")` | Render a date with a custom chrono-compatible format string. |
+| `datetime_add_seconds(ts, seconds)` | Shift a datetime by an offset in seconds. |
+| `datetime_diff_seconds(end, start)` | Difference between datetimes in seconds. |
+| `datetime_to_date(ts)` / `datetime_to_time(ts)` | Extract date or time portions from a datetime. |
+| `datetime_format(ts, "%Y-%m-%dT%H:%M")` | Custom formatting for datetimes. |
+| `time_add_seconds(time, seconds)` | Shift an `HH:MM[:SS]` time of day by seconds. |
+| `time_diff_seconds(end, start)` | Difference between two times (seconds). |
+
+All helpers accept and return canonical strings (e.g., `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, `HH:MM:SS`). Time arguments also accept `HH:MM` shorthand. Integer offsets accept either integers or floats (fractional parts truncated).
+
+PowerShell example:
+
+```powershell
+./target/release/csv-managed.exe process `
+  -i ./data/orders.csv `
+  -m ./data/orders.schema `
+  --filter-expr "date_diff_days(shipped_at, ordered_at) >= 1" `
+  --derive 'ship_eta=date_add(ordered_at, 2)' `
+  --derive 'ship_window=time_diff_seconds(ship_time, "06:00:00")' `
+  --columns id,ordered_at,shipped_at,ship_eta,ship_window `
+  --limit 5
+```
+
+String literals in expressions must use double quotes (`""`) to distinguish them from column identifiers; the surrounding CLI quoting can use single quotes (recommended on PowerShell) or escaped double quotes as needed by the shell.
 
 ### Data Types
 

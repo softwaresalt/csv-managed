@@ -106,6 +106,8 @@ Options:
           Exclude this comma-separated list of columns from output
       --derive <DERIVES>
           Additional derived columns using `name=expression`
+      --filter-expr <FILTER_EXPR>
+          Evalexpr filter evaluated per row (supports temporal helpers; quote string literals with double quotes)
       --filter <FILTERS>
           Row-level filters such as `amount>=100` or `status = shipped`
       --row-numbers

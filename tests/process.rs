@@ -175,6 +175,10 @@ fn create_subset_with_checks(
     subset
 }
 
+fn temporal_orders_dataset() -> PathBuf {
+    fixture_path("orders_temporal.csv")
+}
+
 fn count_rows(path: &Path) -> usize {
     let delimiter = delimiter_for(path);
     let mut reader = ReaderBuilder::new()
@@ -474,6 +478,166 @@ fn process_filters_and_derives_top_scorers() {
         assert!(goals >= 10);
         assert_eq!(record.get(flag_idx).expect("flag value"), "true");
     }
+}
+
+#[test]
+fn process_supports_temporal_expression_filters_and_derives() {
+    let temp = tempdir().expect("tempdir");
+    let csv_path = temporal_orders_dataset();
+    let schema_path = create_schema(&temp, &csv_path);
+    let output_path = temp.path().join("temporal.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--filter-expr",
+            "date_diff_days(shipped_at, ordered_at) >= 1",
+            "--derive",
+            "ship_delay_days=date_diff_days(shipped_at, ordered_at)",
+            "--derive",
+            "ship_eta=date_add(ordered_at, 2)",
+            "--derive",
+            "ship_seconds=time_diff_seconds(ship_time, \"06:00:00\")",
+            "--derive",
+            "process_seconds=datetime_diff_seconds(shipped_at_ts, ordered_at_ts)",
+            "--derive",
+            "ship_day=date_format(shipped_at, \"%A\")",
+            "--derive",
+            "ship_date_from_ts=datetime_to_date(shipped_at_ts)",
+            "--derive",
+            "ship_time_from_ts=datetime_to_time(shipped_at_ts)",
+            "--derive",
+            "ordered_ts_fmt=datetime_format(ordered_at_ts, \"%Y/%m/%d %H:%M\")",
+            "--derive",
+            "ship_time_plus_hour=time_add_seconds(ship_time, 3600)",
+            "--columns",
+            "id",
+            "--columns",
+            "ordered_at",
+            "--columns",
+            "shipped_at",
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    assert_eq!(rows.len(), 3, "filter expression should remove zero-day shipments");
+
+    let ship_delay_idx = headers
+        .iter()
+        .position(|h| h == "ship_delay_days")
+        .expect("ship_delay column");
+    let ship_eta_idx = headers
+        .iter()
+        .position(|h| h == "ship_eta")
+        .expect("ship_eta column");
+    let ship_seconds_idx = headers
+        .iter()
+        .position(|h| h == "ship_seconds")
+        .expect("ship_seconds column");
+    let process_seconds_idx = headers
+        .iter()
+        .position(|h| h == "process_seconds")
+        .expect("process_seconds column");
+    let ship_day_idx = headers
+        .iter()
+        .position(|h| h == "ship_day")
+        .expect("ship_day column");
+    let ship_date_from_ts_idx = headers
+        .iter()
+        .position(|h| h == "ship_date_from_ts")
+        .expect("ship_date_from_ts column");
+    let ship_time_from_ts_idx = headers
+        .iter()
+        .position(|h| h == "ship_time_from_ts")
+        .expect("ship_time_from_ts column");
+    let ordered_ts_fmt_idx = headers
+        .iter()
+        .position(|h| h == "ordered_ts_fmt")
+        .expect("ordered_ts_fmt column");
+    let ship_time_plus_hour_idx = headers
+        .iter()
+        .position(|h| h == "ship_time_plus_hour")
+        .expect("ship_time_plus_hour column");
+
+    let ids: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(0).expect("id").to_string())
+        .collect();
+    assert_eq!(ids, vec!["1", "2", "4"]);
+
+    let delays: Vec<i64> = rows
+        .iter()
+        .map(|record| record.get(ship_delay_idx).expect("delay").parse().expect("delay int"))
+        .collect();
+    assert_eq!(delays, vec![2, 1, 2]);
+
+    let etas: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ship_eta_idx).expect("eta").to_string())
+        .collect();
+    assert_eq!(etas, vec!["2024-01-03", "2024-01-07", "2024-02-12"]);
+
+    let ship_seconds: Vec<i64> = rows
+        .iter()
+        .map(|record| {
+            record
+                .get(ship_seconds_idx)
+                .expect("ship seconds")
+                .parse()
+                .expect("ship seconds int")
+        })
+        .collect();
+    assert_eq!(ship_seconds, vec![8100, 6300, 37800]);
+
+    let process_seconds: Vec<i64> = rows
+        .iter()
+        .map(|record| {
+            record
+                .get(process_seconds_idx)
+                .expect("process seconds")
+                .parse()
+                .expect("process seconds int")
+        })
+        .collect();
+    assert_eq!(process_seconds, vec![180900, 94500, 181800]);
+
+    let ship_days: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ship_day_idx).expect("ship_day").to_string())
+        .collect();
+    assert_eq!(ship_days, vec!["Wednesday", "Saturday", "Monday"]);
+
+    let ship_dates_from_ts: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ship_date_from_ts_idx).expect("ship date from ts").to_string())
+        .collect();
+    assert_eq!(ship_dates_from_ts, vec!["2024-01-03", "2024-01-06", "2024-02-12"]);
+
+    let ship_times_from_ts: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ship_time_from_ts_idx).expect("ship time from ts").to_string())
+        .collect();
+    assert_eq!(ship_times_from_ts, vec!["08:15:00", "07:45:00", "16:30:00"]);
+
+    let ordered_ts_fmt: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ordered_ts_fmt_idx).expect("ordered ts fmt").to_string())
+        .collect();
+    assert_eq!(ordered_ts_fmt, vec!["2024/01/01 06:00", "2024/01/05 05:30", "2024/02/10 14:00"]);
+
+    let ship_time_plus_hour: Vec<String> = rows
+        .iter()
+        .map(|record| record.get(ship_time_plus_hour_idx).expect("ship time plus hour").to_string())
+        .collect();
+    assert_eq!(ship_time_plus_hour, vec!["09:15:00", "08:45:00", "17:30:00"]);
 }
 
 #[test]

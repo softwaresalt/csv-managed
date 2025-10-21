@@ -1,9 +1,7 @@
 use anyhow::{Context, Result, anyhow};
-use evalexpr::{
-    ContextWithMutableVariables, HashMapContext, Value as EvalValue, eval_with_context,
-};
+use evalexpr::{Value as EvalValue, eval_with_context};
 
-use crate::data::{Value, normalize_column_name, value_to_evalexpr};
+use crate::{data::Value, expr};
 
 #[derive(Debug, Clone)]
 pub struct DerivedColumn {
@@ -37,31 +35,7 @@ impl DerivedColumn {
         typed_row: &[Option<Value>],
         row_number: Option<usize>,
     ) -> Result<String> {
-        let mut context = HashMapContext::new();
-        for (idx, header) in headers.iter().enumerate() {
-            let canon = normalize_column_name(header);
-            let key_by_index = format!("c{idx}");
-            if let Some(value) = typed_row.get(idx).and_then(|v| v.as_ref()) {
-                context
-                    .set_value(canon.clone(), value_to_evalexpr(value))
-                    .with_context(|| format!("Binding column '{header}'"))?;
-                context
-                    .set_value(key_by_index.clone(), value_to_evalexpr(value))
-                    .with_context(|| format!("Binding column index {idx}"))?;
-            } else if let Some(raw) = raw_row.get(idx) {
-                context
-                    .set_value(canon.clone(), EvalValue::String(raw.clone()))
-                    .with_context(|| format!("Binding raw column '{header}'"))?;
-                context
-                    .set_value(key_by_index.clone(), EvalValue::String(raw.clone()))
-                    .with_context(|| format!("Binding raw column index {idx}"))?;
-            }
-        }
-        if let Some(row_number) = row_number {
-            context
-                .set_value("row_number".to_string(), EvalValue::Int(row_number as i64))
-                .context("Binding row_number")?;
-        }
+        let context = expr::build_context(headers, raw_row, typed_row, row_number)?;
 
         let result = eval_with_context(&self.expression, &context)
             .with_context(|| format!("Evaluating expression for column '{}'", self.name))?;

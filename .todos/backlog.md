@@ -1,0 +1,100 @@
+# TO-DO
+
+## Version 1.0.0
+
+- [x] Provide a B-Tree indexing command that writes `.idx` files for selected columns.
+- [x] Allow subsequent commands to select a prebuilt index file (and variant) during processing.
+- [x] Support sorting CSV output by specified columns, including columns present in an index.
+- [x] Support ascending and descending sort directions across multiple columns.
+- [x] Allow explicit column name and datatype declarations to be stored in `.schema` files.
+- [x] Probe CSV files to infer column datatypes and persist them to a schema file.
+- [x] Emit sorted results to new files via the `-o/--output` argument.
+- [x] Add row numbers to output rows when requested.
+- [x] Select a subset of columns (or exclude specific columns) from either the original or transformed data.
+- [x] Derive or add new columns via expression evaluation.
+- [x] Filter rows using column-aware comparisons and expression-based predicates.
+- [x] Normalize boolean values to standard `true/false` or `1/0` forms.
+- [x] Append data from multiple CSV files into a single output while enforcing schema consistency.
+- [x] Verify the integrity of one or more CSV files against a schema definition.
+- [x] Verify multiple CSV files against a single schema, including during append operations.
+- [x] Stream processing to minimize memory usage and maximize throughput.
+- [x] Accept stdin/stdout for chaining with other command-line utilities.
+- [x] Project new columns (including boolean flags) from expressions applied to existing columns.
+- [x] Join two CSV files with inner, left, right, and full outer joins.
+- [x] Render filtered results as elastic tables without writing an intermediate file.
+- [x] Preview a limited number of rows from the start of a CSV file.
+- [x] Produce summary statistics (count, mean, median, min, max, standard deviation) for numeric columns.
+- [x] Produce frequency counts for categorical columns.
+- [x] Support excluding columns from the output file.
+- [x] Install the published binary via `cargo install` for easy CLI access.
+- [x] Index a file on multiple column combinations, including mixed sort directions, and store multiple variants.
+- [x] List schema columns and datatypes in a human-readable console table.
+- [x] Persist schema rename mappings so outputs can remap column names consistently.
+- [x] Output a schema definition in a human-readable format on the console.
+- [x] Change date, time, or datetime formats to custom string outputs.
+- [x] Replace column values according to schema-defined mappings before processing.
+- [x] Highlight schema violations with row-level samples and column summaries in verification reports.
+- [x] Review current index storage format and limitations for multi-column/direction support.
+- [x] Design structure for storing multiple index variants keyed by column names and sort directions.
+- [x] Update index build logic to optionally create several variants in one file or multiple files.
+- [x] Extend index serialization format to capture direction metadata per column.
+- [x] Update CLI to allow naming/selecting specific index variants with direction info.
+- [x] Teach process command to pick best-matching index variant based on requested sorts, including mixed directions.
+- [x] Implement install command that shells out to `cargo install csv-managed` with options for version/force/local path.
+- [x] Document install command usage and multi-index support in README.
+- [x] Add tests covering install command argument plumbing and multi-index selection logic.
+- [x] Add GUID data type support.
+- [x] Refactor the solution to use .schema instead of .meta and rename metadata.rs to schema.rs.
+- [x] Add the ability to specify the column names along with the data types of a CSV file in the schema file.
+- [x] Add the ability to specify in the .schema file a mapping of existing column names to new column names to be used in all outputs from the file.
+- [x] Add GitHub pipeline build and deployment capability using build and deployment definitions or actions.
+- [x] Add deployment of the executable as a binary for easy access from the command line from the cargo package store.
+- [x] Add the ability to index a file on multiple combinations of columns and store multiple indexes for the same file and mixed sort directions (ascending/descending) per column.
+- [x] Add the ability to list column names and data types as a list to the console output.
+- [x] Add the ability to emit column mapping templates for each column in a file to the probe command.
+- [x] Refactor the probe and schema commands to use "datatype" instead of "data_type" in the schema file.
+- [x] Add to the probe command the functionality to inject a "replace" node that holds an empty array as a template for future replace functionality.
+- [x] Add the ability to replace values by column in the original input file; the schema file should allow you to define multiple value/replace pairs per column in a node of the column named "replace", which holds an array of value and replacement value pairs; this feature runs through the `process` command.
+- [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
+- [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
+
+## Version 1.1.0
+
+- [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
+- [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
+- [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
+- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
+- [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
+- [ ] Add the ability to index all of the files in a directory matching a single schema file.
+- [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
+- [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
+- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
+- [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
+- [ ] Verify all files in a directory (by extension) against a shared schema in one operation.
+- [ ] Index all files in a directory that share a schema definition.
+- [ ] Perform a union across multiple files with deduplication.
+- [ ] Union and sort all files in a directory, splitting output by row count or file size.
+- [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
+- [ ] Define primary keys (single or composite) that uniquely identify rows.
+- [ ] Add fast hash signatures per row for indexes defined on primary keys.
+- [ ] Probe files to suggest candidate primary (or composite) keys.
+- [ ] Handle fixed-precision decimal datatypes with configurable scale.
+- [ ] Transform fields between datatypes (e.g., string → date/datetime) in a controlled manner.
+- [ ] Define a currency datatype with enforced precision and standardized formatting/transforms.
+- [ ] Enhance verification capabilities for cloud-scale data validation scenarios.
+
+## Version 1.2.0
+
+- [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
+
+## Version 1.0.3
+
+- [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
+
+## Backlog
+
+- [ ] Add the ability to define a primary key (single column or composite) that uniquely identifies each row in a CSV file and expose it through CLI workflows.
+- [ ] Add the ability to add a fast hash signature for each row in primary-key-backed indexes.
+- [ ] Add the ability to probe a file for candidate primary/composite keys and report them to the console.
+- [ ] Add the ability to handle decimal datatypes of configurable precision and scale across parsing, validation, and sorting pipelines.
+- [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).

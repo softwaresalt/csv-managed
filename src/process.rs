@@ -9,6 +9,7 @@ use crate::{
     cli::{BooleanFormat, ProcessArgs},
     data::{ComparableValue, Value, parse_typed_value},
     derive::{DerivedColumn, parse_derived_columns},
+    expr,
     filter::{evaluate_conditions, parse_filters},
     index::{CsvIndex, IndexVariant, SortDirection},
     io_utils,
@@ -149,6 +150,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
             schema: &schema,
             headers: &headers,
             filters: &filter_conditions,
+            filter_exprs: &args.filter_exprs,
             derived_columns: &derived_columns,
             output_plan: &output_plan,
             writer: &mut writer,
@@ -258,6 +260,7 @@ struct ProcessEngine<'a> {
     schema: &'a Schema,
     headers: &'a [String],
     filters: &'a [crate::filter::FilterCondition],
+    filter_exprs: &'a [String],
     derived_columns: &'a [DerivedColumn],
     output_plan: &'a OutputPlan,
     writer: &'a mut csv::Writer<Box<dyn std::io::Write>>,
@@ -281,6 +284,18 @@ impl<'a> ProcessEngine<'a> {
 
             if !self.filters.is_empty()
                 && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
+            {
+                continue;
+            }
+
+            if !self.filter_exprs.is_empty()
+                && !evaluate_filter_expressions(
+                    self.filter_exprs,
+                    self.headers,
+                    &raw,
+                    &typed,
+                    Some(ordinal + 1),
+                )?
             {
                 continue;
             }
@@ -335,6 +350,18 @@ impl<'a> ProcessEngine<'a> {
             let typed = parse_row(&raw, self.schema)?;
             if !self.filters.is_empty()
                 && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
+            {
+                continue;
+            }
+
+            if !self.filter_exprs.is_empty()
+                && !evaluate_filter_expressions(
+                    self.filter_exprs,
+                    self.headers,
+                    &raw,
+                    &typed,
+                    Some(ordinal + 1),
+                )?
             {
                 continue;
             }
@@ -446,6 +473,25 @@ where
         )?;
     }
     Ok(())
+}
+
+fn evaluate_filter_expressions(
+    expressions: &[String],
+    headers: &[String],
+    raw_row: &[String],
+    typed_row: &[Option<Value>],
+    row_number: Option<usize>,
+) -> Result<bool> {
+    if expressions.is_empty() {
+        return Ok(true);
+    }
+    let context = expr::build_context(headers, raw_row, typed_row, row_number)?;
+    for expression in expressions {
+        if !expr::evaluate_expression_to_bool(expression, &context)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn emit_single_row(

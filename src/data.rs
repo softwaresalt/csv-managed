@@ -1,7 +1,7 @@
 use std::fmt;
 
 use anyhow::{Context, Result, anyhow, bail};
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use evalexpr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -115,6 +115,16 @@ pub fn parse_naive_datetime(value: &str) -> Result<NaiveDateTime> {
     Err(anyhow!("Failed to parse '{value}' as datetime"))
 }
 
+pub fn parse_naive_time(value: &str) -> Result<NaiveTime> {
+    const TIME_FORMATS: &[&str] = &["%H:%M:%S", "%H:%M"];
+    for fmt in TIME_FORMATS {
+        if let Ok(parsed) = NaiveTime::parse_from_str(value, fmt) {
+            return Ok(parsed);
+        }
+    }
+    Err(anyhow!("Failed to parse '{value}' as time"))
+}
+
 pub fn normalize_column_name(name: &str) -> String {
     name.chars()
         .map(|c| match c {
@@ -185,7 +195,7 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{NaiveDate, NaiveDateTime};
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use evalexpr::Value as EvalValue;
     use uuid::Uuid;
 
@@ -216,6 +226,14 @@ mod tests {
             expected
         );
         assert_eq!(parse_naive_datetime("2024-05-06 14:30").unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_naive_time_supports_multiple_formats() {
+        let expected = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
+        assert_eq!(parse_naive_time("14:30:00").unwrap(), expected);
+        assert_eq!(parse_naive_time("14:30").unwrap(), expected);
+        assert!(parse_naive_time("24:61").is_err());
     }
 
     #[test]
