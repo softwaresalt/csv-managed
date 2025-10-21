@@ -98,3 +98,9 @@
 - [ ] Add the ability to probe a file for candidate primary/composite keys and report them to the console.
 - [ ] Add the ability to handle decimal datatypes of configurable precision and scale across parsing, validation, and sorting pipelines.
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
+- [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
+- [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
+- [ ] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
+- [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
+- [ ] Add the ability to perform stats over date, time, and datetime values, counts of non-numeric and non-datetime.
+- [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.

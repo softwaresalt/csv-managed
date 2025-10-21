@@ -1,0 +1,4 @@
+id,quantity,price,status
+1,10,5.5,good
+2,NA,7.0,backorder
+3,20,5.5,good

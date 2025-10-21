@@ -1,0 +1,226 @@
+{
+  "columns": [
+    {
+      "datatype": "String",
+      "name": "Rank",
+      "name_mapping": "rank",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Player",
+      "name_mapping": "player",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Nation",
+      "name_mapping": "nation",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Position",
+      "name_mapping": "position",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Squad",
+      "name_mapping": "squad",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Competition",
+      "name_mapping": "competition",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Age",
+      "name_mapping": "age",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Year_Born",
+      "name_mapping": "year_born",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Playing Time_MP",
+      "name_mapping": "playing_time_mp",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Playing Time_Starts",
+      "name_mapping": "playing_time_starts",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Playing Time_Min",
+      "name_mapping": "playing_time_min",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Playing Time_90s",
+      "name_mapping": "playing_time_90s",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_Gls",
+      "name_mapping": "performance_gls",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_Ast",
+      "name_mapping": "performance_ast",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_G+A",
+      "name_mapping": "performance_g_a",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_G-PK",
+      "name_mapping": "performance_g_pk",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_PK",
+      "name_mapping": "performance_pk",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_PKatt",
+      "name_mapping": "performance_p_katt",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_CrdY",
+      "name_mapping": "performance_crd_y",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Performance_CrdR",
+      "name_mapping": "performance_crd_r",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Expected_xG",
+      "name_mapping": "expected_x_g",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Expected_npxG",
+      "name_mapping": "expected_npx_g",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Expected_xAG",
+      "name_mapping": "expected_x_ag",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Expected_npxG+xAG",
+      "name_mapping": "expected_npx_g_x_ag",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Progression_PrgC",
+      "name_mapping": "progression_prg_c",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Progression_PrgP",
+      "name_mapping": "progression_prg_p",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Progression_PrgR",
+      "name_mapping": "progression_prg_r",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_Gls",
+      "name_mapping": "per_90_minutes_gls",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_Ast",
+      "name_mapping": "per_90_minutes_ast",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_G+A",
+      "name_mapping": "per_90_minutes_g_a",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_G-PK",
+      "name_mapping": "per_90_minutes_g_pk",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_G+A-PK",
+      "name_mapping": "per_90_minutes_g_a_pk",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_xG",
+      "name_mapping": "per_90_minutes_x_g",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_xAG",
+      "name_mapping": "per_90_minutes_x_ag",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_xG+xAG",
+      "name_mapping": "per_90_minutes_x_g_x_ag",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_npxG",
+      "name_mapping": "per_90_minutes_npx_g",
+      "replace": []
+    },
+    {
+      "datatype": "String",
+      "name": "Per 90 Minutes_npxG+xAG",
+      "name_mapping": "per_90_minutes_npx_g_x_ag",
+      "replace": []
+    }
+  ]
+}
