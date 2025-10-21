@@ -1,12 +1,13 @@
 [package]
 name = "csv-managed"
-version = "0.1.0"
-edition = "2024"
+version = "1.0.0"
+edition = "2025"
+authors = ["Derek Williams <software.salt@gmail.com>"]
 description = "High-performance command-line toolkit for streaming, indexing, and transforming CSV datasets"
 license = "MIT"
 repository = "https://github.com/softwaresalt/csv-managed"
 readme = "README.md"
-keywords = ["csv", "data", "cli", "rust"]
+keywords = ["csv", "tsv", "data", "cli", "rust", "wrangling"]
 categories = ["command-line-utilities"]
 homepage = "https://github.com/softwaresalt/csv-managed"
 
