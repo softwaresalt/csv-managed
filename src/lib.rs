@@ -63,14 +63,14 @@ where
 {
     let mut processed = Vec::new();
     for arg in args {
-        if let Some(value) = arg.to_str() {
-            if let Some(rest) = value.strip_prefix("--report-invalid:") {
-                processed.push(OsString::from("--report-invalid"));
-                for segment in rest.split(':').filter(|segment| !segment.is_empty()) {
-                    processed.push(OsString::from(segment));
-                }
-                continue;
+        if let Some(value) = arg.to_str()
+            && let Some(rest) = value.strip_prefix("--report-invalid:")
+        {
+            processed.push(OsString::from("--report-invalid"));
+            for segment in rest.split(':').filter(|segment| !segment.is_empty()) {
+                processed.push(OsString::from(segment));
             }
+            continue;
         }
         processed.push(arg);
     }

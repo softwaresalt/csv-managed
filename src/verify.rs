@@ -108,8 +108,8 @@ fn validate_file_against_schema(
         .map_err(|err| anyhow!("Validating headers for {path:?}: {err}"))?;
 
     let report_cfg = report;
-    let detail_enabled = report_cfg.map_or(false, |cfg| cfg.show_detail);
-    let summary_enabled = report_cfg.map_or(false, |cfg| cfg.show_summary);
+    let detail_enabled = report_cfg.is_some_and(|cfg| cfg.show_detail);
+    let summary_enabled = report_cfg.is_some_and(|cfg| cfg.show_summary);
     let report_enabled = detail_enabled || summary_enabled;
     let collection_limit = if detail_enabled {
         report_cfg.and_then(|cfg| cfg.limit).unwrap_or(usize::MAX)
