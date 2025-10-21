@@ -1,7 +1,7 @@
 [package]
 name = "csv-managed"
 version = "1.0.0"
-edition = "2025"
+edition = "2024"
 authors = ["Derek Williams <software.salt@gmail.com>"]
 description = "High-performance command-line toolkit for streaming, indexing, and transforming CSV datasets"
 license = "MIT"
