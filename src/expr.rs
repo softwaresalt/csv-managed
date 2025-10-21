@@ -207,8 +207,7 @@ fn parse_i64_arg(value: &EvalValue, name: &str) -> Result<i64, evalexpr::Evalexp
         EvalValue::Int(i) => Ok(*i),
         EvalValue::Float(f) => Ok(*f as i64),
         other => Err(eval_error(&format!(
-            "Expected integer for {name}, got {:?}",
-            other
+            "Expected integer for {name}, got {other:?}",
         ))),
     }
 }
@@ -271,7 +270,7 @@ pub fn eval_value_truthy(value: EvalValue) -> bool {
         EvalValue::Int(i) => i != 0,
         EvalValue::Float(f) => f != 0.0,
         EvalValue::String(s) => !s.is_empty(),
-        EvalValue::Tuple(values) => values.into_iter().any(|v| eval_value_truthy(v)),
+    EvalValue::Tuple(values) => values.into_iter().any(eval_value_truthy),
         EvalValue::Empty => false,
     }
 }
