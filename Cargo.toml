@@ -7,7 +7,7 @@ description = "High-performance command-line toolkit for streaming, indexing, an
 license = "MIT"
 repository = "https://github.com/softwaresalt/csv-managed"
 readme = "README.md"
-keywords = ["csv", "tsv", "data", "cli", "rust", "wrangling"]
+keywords = ["csv", "tsv", "data wrangling", "cli", "rust"]
 categories = ["command-line-utilities"]
 homepage = "https://github.com/softwaresalt/csv-managed"
 
