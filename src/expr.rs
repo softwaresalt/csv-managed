@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use evalexpr::{ContextWithMutableFunctions, ContextWithMutableVariables, eval_with_context, Function, HashMapContext, Value as EvalValue};
+use evalexpr::{
+    ContextWithMutableFunctions, ContextWithMutableVariables, Function, HashMapContext,
+    Value as EvalValue, eval_with_context,
+};
 
 use crate::data::{
-    normalize_column_name, parse_naive_date, parse_naive_datetime, parse_naive_time, value_to_evalexpr,
-    Value,
+    Value, normalize_column_name, parse_naive_date, parse_naive_datetime, parse_naive_time,
+    value_to_evalexpr,
 };
 
 fn register_temporal_functions(context: &mut HashMapContext) -> Result<()> {
@@ -165,9 +168,7 @@ fn expect_args(
 ) -> Result<Vec<EvalValue>, evalexpr::EvalexprError> {
     match arguments {
         EvalValue::Empty if expected == 0 => Ok(Vec::new()),
-        value if expected == 1 && !matches!(value, EvalValue::Tuple(_)) => {
-            Ok(vec![value.clone()])
-        }
+        value if expected == 1 && !matches!(value, EvalValue::Tuple(_)) => Ok(vec![value.clone()]),
         EvalValue::Tuple(values) => {
             if values.len() != expected {
                 return Err(evalexpr::EvalexprError::wrong_function_argument_amount(
@@ -270,7 +271,7 @@ pub fn eval_value_truthy(value: EvalValue) -> bool {
         EvalValue::Int(i) => i != 0,
         EvalValue::Float(f) => f != 0.0,
         EvalValue::String(s) => !s.is_empty(),
-    EvalValue::Tuple(values) => values.into_iter().any(eval_value_truthy),
+        EvalValue::Tuple(values) => values.into_iter().any(eval_value_truthy),
         EvalValue::Empty => false,
     }
 }
@@ -300,14 +301,11 @@ mod tests {
     fn datetime_functions_roundtrip() {
         let mut ctx = HashMapContext::new();
         register_temporal_functions(&mut ctx).unwrap();
-        let added = eval_with_context(
-            "datetime_add_seconds(\"2024-01-01 00:00:00\", 3661)",
-            &ctx,
-        )
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .to_string();
+        let added = eval_with_context("datetime_add_seconds(\"2024-01-01 00:00:00\", 3661)", &ctx)
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
         assert_eq!(added, "2024-01-01 01:01:01");
         let diff = eval_with_context(
             "datetime_diff_seconds(\"2024-01-01 01:01:01\", \"2024-01-01 00:00:00\")",

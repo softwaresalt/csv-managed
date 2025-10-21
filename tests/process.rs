@@ -528,7 +528,11 @@ fn process_supports_temporal_expression_filters_and_derives() {
         .success();
 
     let (headers, rows) = read_csv(&output_path);
-    assert_eq!(rows.len(), 3, "filter expression should remove zero-day shipments");
+    assert_eq!(
+        rows.len(),
+        3,
+        "filter expression should remove zero-day shipments"
+    );
 
     let ship_delay_idx = headers
         .iter()
@@ -575,7 +579,13 @@ fn process_supports_temporal_expression_filters_and_derives() {
 
     let delays: Vec<i64> = rows
         .iter()
-        .map(|record| record.get(ship_delay_idx).expect("delay").parse().expect("delay int"))
+        .map(|record| {
+            record
+                .get(ship_delay_idx)
+                .expect("delay")
+                .parse()
+                .expect("delay int")
+        })
         .collect();
     assert_eq!(delays, vec![2, 1, 2]);
 
@@ -617,27 +627,56 @@ fn process_supports_temporal_expression_filters_and_derives() {
 
     let ship_dates_from_ts: Vec<String> = rows
         .iter()
-        .map(|record| record.get(ship_date_from_ts_idx).expect("ship date from ts").to_string())
+        .map(|record| {
+            record
+                .get(ship_date_from_ts_idx)
+                .expect("ship date from ts")
+                .to_string()
+        })
         .collect();
-    assert_eq!(ship_dates_from_ts, vec!["2024-01-03", "2024-01-06", "2024-02-12"]);
+    assert_eq!(
+        ship_dates_from_ts,
+        vec!["2024-01-03", "2024-01-06", "2024-02-12"]
+    );
 
     let ship_times_from_ts: Vec<String> = rows
         .iter()
-        .map(|record| record.get(ship_time_from_ts_idx).expect("ship time from ts").to_string())
+        .map(|record| {
+            record
+                .get(ship_time_from_ts_idx)
+                .expect("ship time from ts")
+                .to_string()
+        })
         .collect();
     assert_eq!(ship_times_from_ts, vec!["08:15:00", "07:45:00", "16:30:00"]);
 
     let ordered_ts_fmt: Vec<String> = rows
         .iter()
-        .map(|record| record.get(ordered_ts_fmt_idx).expect("ordered ts fmt").to_string())
+        .map(|record| {
+            record
+                .get(ordered_ts_fmt_idx)
+                .expect("ordered ts fmt")
+                .to_string()
+        })
         .collect();
-    assert_eq!(ordered_ts_fmt, vec!["2024/01/01 06:00", "2024/01/05 05:30", "2024/02/10 14:00"]);
+    assert_eq!(
+        ordered_ts_fmt,
+        vec!["2024/01/01 06:00", "2024/01/05 05:30", "2024/02/10 14:00"]
+    );
 
     let ship_time_plus_hour: Vec<String> = rows
         .iter()
-        .map(|record| record.get(ship_time_plus_hour_idx).expect("ship time plus hour").to_string())
+        .map(|record| {
+            record
+                .get(ship_time_plus_hour_idx)
+                .expect("ship time plus hour")
+                .to_string()
+        })
         .collect();
-    assert_eq!(ship_time_plus_hour, vec!["09:15:00", "08:45:00", "17:30:00"]);
+    assert_eq!(
+        ship_time_plus_hour,
+        vec!["09:15:00", "08:45:00", "17:30:00"]
+    );
 }
 
 #[test]
