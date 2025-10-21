@@ -6,23 +6,20 @@
 
 | Area | Description |
 |------|-------------|
-| Delimiters | Input/output: comma, tab (`tab`), pipe (\|), semicolon (`;`), or any single ASCII char; output delimiter can differ (`--output-delimiter`). |
-| Schema inference (`probe`) | Full scan or sampled (`--sample-rows`) inference: String, Integer, Float, Boolean, Date, DateTime → stored as JSON `.schema`. |
-| Probe mappings | Optional `--mapping` flag prints schema mapping templates and injects default `name_mapping` entries (lowercase_snake_case) into the generated schema. |
-| Schema authoring (`schema`) | Manually declare columns with data types and optional output names, writing a `.schema` file without inferring from data. |
-| Value normalization | Schema-level `replace` arrays (value/replacement pairs) convert legacy tokens (e.g. `Y/N`, `Pending`) into canonical values before parsing, filtering, stats, or verification. Generate empty templates during probing with `--replace`. |
-| Schema-driven replacements | `process` applies schema-defined replacements automatically while projecting, filtering, or rewriting outputs. |
-| Schema listing (`columns`) | Print a table of column positions, names, types, and optional output names from a schema file. |
-| Typed parsing | Integer, float, boolean normalization (`true/false`, `t/f`, `yes/no`, `y/n`, `1/0`); multi-format dates & datetimes. |
-| Indexing (`index`) | B-Tree style composite key index (byte offsets) for fast ascending iteration. |
-| Indexed sorted reads | `process --sort` uses matching index for streaming ascending order. |
-| Index variants | Build multiple named sort specifications per index file (`--spec`); select with `--index-variant`. |
-| In‑memory multi-column sort | Stable sort with mixed asc/desc columns (fallback when no index). |
-| Filtering | Operators: `= != > >= < <= contains startswith endswith`; type-aware; repeat for AND chaining. |
-| Column projection | Include explicit columns (`-C/--columns`). |
-| Column exclusion | Omit columns via `--exclude-columns` (after inclusion). |
-| Derived columns | Expression engine (evalexpr) arithmetic, comparisons, boolean logic, string ops; reference by header or positional alias `cN`. |
-| Row numbers | Optional 1-based `row_number` via `--row-numbers`. |
+| Delimiters & encodings | Read/write comma, tab, pipe, semicolon, or any ASCII delimiter; override output delimiter; stream via stdin/stdout (`-`) with explicit `--input-encoding` / `--output-encoding`. |
+| Schema inference (`probe`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, and Guid columns; optional `--mapping` and `--replace` templates saved to `.schema`. |
+| Schema authoring & listing | `schema` builds manual definitions with renames and replacements; `columns` prints column positions, names, types, and output aliases. |
+| Value normalization | Schema `replace` arrays and boolean normalization convert legacy tokens before typed operations; `process --boolean-format` controls emitted true/false representation. |
+| Indexing (`index`) | Build B-tree index files with multiple named variants, mixed asc/desc columns, and combo expansion for shared prefixes. |
+| Sorting (`process`) | Streams through matching index variants for ordered reads and falls back to stable multi-column in-memory sort when needed. |
+| Filtering & projection | Type-aware filters (`= != > >= < <= contains startswith endswith`), column inclusion/exclusion, row limits, and optional 1-based row numbers. |
+| Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
+| Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
+| Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
+| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric column; `frequency` reports distinct value counts with optional top-N cap. |
+| Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
+| Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
+| Installation | `install` wraps `cargo install` with convenience flags (`--locked`, `--force`, `--root`, `--version`) and matches the release workflow. |
 
 cmd.exe:
 
@@ -45,18 +42,7 @@ cmd.exe:
 ```
 
 If `--index-variant` is omitted, `process` automatically chooses the variant that covers the longest prefix of the requested `--sort` columns and directions.
-4. Extended expression library (regex, date math, if/else, null coalescing, aggregates).
-5. Parallelism (rayon) for sort/filter phases.
-6. Configurable reader options (quote char, flexible header detection, escapes).
-7. Boolean token customization via schema.
-8. Index versioning & migration utilities.
-9. Cardinality & histogram statistics for planning.
-10. Feature flags to reduce binary size.
-11. Streaming approximations (e.g. median via P² algorithm).
-12. Documentation site + generated man pages.
-13. Benchmark harness & published results.
-14. Machine-readable error codes.
-15. Native decimal (fixed precision) & rounding strategies.
+When no indexed variant matches the requested sort signature, the command falls back to an in-memory stable sort while continuing to stream rows wherever possible.
 
 ## Installation
 
@@ -119,8 +105,10 @@ set RUST_LOG=info
 ./target/release/csv-managed.exe join --left ./data/orders.csv --right ./data/customers.csv --left-key customer_id --right-key id --type inner -o joined.csv
 # 9. Append monthly extracts
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
-# 10. Verify integrity
+# 10. Verify integrity (summary default)
 ./target/release/csv-managed.exe verify -m orders.schema -i q1.csv
+#     Investigate failures with highlighted samples (optional limit)
+./target/release/csv-managed.exe verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
 ```
 
 ## Command Reference
@@ -438,8 +426,9 @@ Mixed operators:
 | Boolean | `true/false`, `t/f`, `yes/no`, `y/n`, `1/0` | Parsing flexible; output format selectable. |
 | Date | `2024-08-01`, `08/01/2024`, `01/08/2024` | Canonical output `YYYY-MM-DD`. |
 | DateTime | `2024-08-01T13:45:00`, `2024-08-01 13:45` | Naive (no timezone). |
+| Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
 
-Pending: Decimal, Time-only.
+Future work: Decimal, Time-only, Currency.
 
 ### Stdin/Stdout Usage
 
