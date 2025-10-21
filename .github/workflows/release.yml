@@ -12,6 +12,10 @@ jobs:
   build-release:
     name: Build Release Binary
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
 
     steps:
       - name: Checkout source
@@ -41,6 +45,11 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
+      - name: Authenticate with crates.io
+        uses: crates-io/github-actions/authenticate@v1
+        with:
+          crate: csv-managed
+
       - name: Package binary
         run: |
           mkdir -p dist
@@ -49,8 +58,7 @@ jobs:
           tar -czf csv-managed-${{ github.ref_name }}-${{ runner.os }}-x86_64.tar.gz csv-managed
 
       - name: Publish crate to crates.io
-        if: secrets.CRATES_IO_TOKEN != ''
-        run: cargo publish --locked --token ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish --locked
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
