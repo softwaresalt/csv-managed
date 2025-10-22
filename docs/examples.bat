@@ -6,11 +6,31 @@ rem Probe full file (all rows) to capture mixed column as string
 rem Probe with limited sampling to infer integer type from first row only
 .\target\release\csv-managed.exe probe -i .\tests\data\probe_sample_variation.csv -m .\tmp\probe_sampled.schema --sample-rows 1
 
-rem Create a Windows-1252 encoded CSV containing non-ASCII characters
-powershell -NoProfile -Command "$content = \"id,name`n1,Caf$([char]0x00E9)`n\"; $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($content); [System.IO.File]::WriteAllBytes('.\tmp\probe_windows1252.csv', $bytes)"
+rem Create a Windows-1252 encoded CSV derived from the Big 5 stats dataset
+powershell -NoProfile -Command "$lines = Get-Content .\tests\data\big_5_players_stats_2023_2024.csv | Select-Object -First 25; $text = ($lines -join [Environment]::NewLine) + [Environment]::NewLine; $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($text); [System.IO.File]::WriteAllBytes('.\tmp\big_5_windows1252.csv', $bytes)"
 
 rem Probe using explicit input encoding support
-.\target\release\csv-managed.exe probe -i .\tmp\probe_windows1252.csv -m .\tmp\probe_windows.schema --input-encoding windows-1252
+.\target\release\csv-managed.exe probe -i .\tmp\big_5_windows1252.csv -m .\tmp\probe_windows.schema --input-encoding windows-1252
+
+rem Prepare preview subsets derived from the Big 5 stats dataset
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --limit 15 --columns Rank --columns Player --columns Squad -o .\tmp\big_5_preview.csv
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --limit 5 --columns Rank --columns Player --columns Squad --output-delimiter tab -o .\tmp\big_5_preview.tsv
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --limit 5 --columns Rank --columns Player --columns Squad --output-delimiter "|" -o .\tmp\big_5_preview_pipe.csv
+
+rem Preview default row count (10 rows) from the primary dataset
+.\target\release\csv-managed.exe preview -i .\tests\data\big_5_players_stats_2023_2024.csv
+
+rem Preview with an explicit row limit
+.\target\release\csv-managed.exe preview -i .\tests\data\big_5_players_stats_2023_2024.csv --rows 5
+
+rem Preview auto-detects tab-delimited files via extension
+.\target\release\csv-managed.exe preview -i .\tmp\big_5_preview.tsv
+
+rem Preview with a custom delimiter override (pipe-separated values)
+.\target\release\csv-managed.exe preview -i .\tmp\big_5_preview_pipe.csv --delimiter "|"
+
+rem Preview using explicit input encoding for Windows-1252 data
+.\target\release\csv-managed.exe preview -i .\tmp\big_5_windows1252.csv --input-encoding windows-1252
 
 .\target\release\csv-managed.exe probe -i .\tests\data\big_5_players_stats_2023_2024.csv -m .\tests\data\big_5_players_stats.schema --mapping --replace
 .\target\release\csv-managed.exe verify -m .\tests\data\big_5_players_stats.schema -i .\tests\data\big_5_players_stats_2023_2024.csv

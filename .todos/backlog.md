@@ -62,6 +62,8 @@
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
+- [ ] Add the ability to perform stats over date, time, and datetime values.
+- [ ] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface.
 - [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
@@ -102,5 +104,6 @@
 - [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
 - [ ] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
-- [ ] Add the ability to perform stats over date, time, and datetime values, counts of non-numeric and non-datetime.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
+- [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
+- [ ] Refactor the verify command into the schema commant to simplify the command-line interface; implement as schema --verify.
