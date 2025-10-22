@@ -8,7 +8,7 @@ use log::info;
 use crate::{
     cli::StatsArgs,
     data::{Value, parse_typed_value},
-    io_utils,
+    frequency, io_utils,
     schema::{self, ColumnType, Schema},
     table,
 };
@@ -16,7 +16,7 @@ use crate::{
 pub fn execute(args: &StatsArgs) -> Result<()> {
     if args.schema.is_none() && io_utils::is_dash(&args.input) {
         return Err(anyhow!(
-            "Reading from stdin requires --schema (or --meta) for typed statistics"
+            "Reading from stdin requires --schema (or --meta) for stats operations"
         ));
     }
 
@@ -25,11 +25,37 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
 
     let schema = load_or_infer_schema(args, delimiter, encoding)?;
 
-    let columns = resolve_columns(&schema, &args.columns)?;
+    let columns = resolve_columns(&schema, &args.columns, args.frequency)?;
     if columns.is_empty() {
+        if args.frequency {
+            return Err(anyhow!(
+                "No columns available for frequency analysis. Supply --columns to continue."
+            ));
+        }
         return Err(anyhow!(
             "No numeric or temporal columns available. Provide a schema file or explicit column list."
         ));
+    }
+
+    if args.frequency {
+        let rows = frequency::compute_frequency_rows(
+            &args.input,
+            &schema,
+            delimiter,
+            encoding,
+            &columns,
+            args.top,
+            (args.limit > 0).then_some(args.limit),
+        )?;
+        let headers = vec![
+            "column".to_string(),
+            "value".to_string(),
+            "count".to_string(),
+            "percent".to_string(),
+        ];
+        table::print_table(&headers, &rows);
+        info!("Computed frequency counts for {} column(s)", columns.len());
+        return Ok(());
     }
 
     let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
@@ -80,8 +106,25 @@ fn load_or_infer_schema(
     }
 }
 
-fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> {
-    if specified.is_empty() {
+fn resolve_columns(
+    schema: &Schema,
+    specified: &[String],
+    frequency_mode: bool,
+) -> Result<Vec<usize>> {
+    if frequency_mode {
+        if specified.is_empty() {
+            Ok((0..schema.columns.len()).collect())
+        } else {
+            specified
+                .iter()
+                .map(|name| {
+                    schema
+                        .column_index(name)
+                        .ok_or_else(|| anyhow!("Column '{name}' not found in schema"))
+                })
+                .collect()
+        }
+    } else if specified.is_empty() {
         Ok(schema
             .columns
             .iter()

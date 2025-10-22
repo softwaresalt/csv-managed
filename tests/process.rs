@@ -935,7 +935,7 @@ fn stats_outputs_summary_for_selected_columns() {
 }
 
 #[test]
-fn frequency_outputs_top_values_for_boolean_column() {
+fn stats_frequency_outputs_top_values_for_boolean_column() {
     let temp = tempdir().expect("tempdir");
     let input = primary_dataset();
     let (data, schema_path) = create_boolean_subset(&temp, &input, 500);
@@ -943,13 +943,14 @@ fn frequency_outputs_top_values_for_boolean_column() {
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "frequency",
+            "stats",
             "-i",
             data.to_str().unwrap(),
             "--schema",
             schema_path.to_str().unwrap(),
             "-C",
             BOOLEAN_COL,
+            "--frequency",
             "--top",
             "3",
         ])

@@ -25,10 +25,8 @@ pub enum Commands {
     Verify(VerifyArgs),
     /// Preview the first few rows of a CSV file in a formatted table
     Preview(PreviewArgs),
-    /// Produce summary statistics for numeric columns
+    /// Produce summary statistics for numeric columns or frequency counts via --frequency
     Stats(StatsArgs),
-    /// Produce frequency counts for categorical columns
-    Frequency(FrequencyArgs),
     /// Join two CSV files on common columns
     Join(JoinArgs),
     /// Install the csv-managed binary via cargo install
@@ -253,26 +251,10 @@ pub struct StatsArgs {
     /// Maximum rows to scan (0 = all)
     #[arg(long, default_value_t = 0)]
     pub limit: usize,
-}
-
-#[derive(Debug, Args)]
-pub struct FrequencyArgs {
-    /// Input CSV file to analyze
-    #[arg(short = 'i', long = "input")]
-    pub input: PathBuf,
-    /// Schema file to drive typed operations
-    #[arg(short = 'm', long = "schema", alias = "meta")]
-    pub schema: Option<PathBuf>,
-    /// Columns to compute frequency counts for
-    #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
-    pub columns: Vec<String>,
-    /// CSV delimiter character
-    #[arg(long, value_parser = parse_delimiter)]
-    pub delimiter: Option<u8>,
-    /// Character encoding for input file (defaults to utf-8)
-    #[arg(long = "input-encoding")]
-    pub input_encoding: Option<String>,
-    /// Maximum distinct values to display per column (0 = all)
+    /// Emit distinct value counts instead of summary statistics
+    #[arg(long)]
+    pub frequency: bool,
+    /// Maximum distinct values to display per column when --frequency is used (0 = all)
     #[arg(long, default_value_t = 0)]
     pub top: usize,
 }

@@ -1,4 +1,4 @@
-# CLI Help (Regenerated 2025-10-18)
+# CLI Help (Regenerated 2025-10-21)
 
 Captured with `cargo run -- <subcommand> --help` on Windows PowerShell.
 
@@ -10,19 +10,18 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-probe      Probe a CSV file and infer column data types into a .schema file
-schema     Create a .schema file from explicit column definitions
-index      Create a B-Tree index (.idx) for one or more columns
-process    Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
-append     Append multiple CSV files into a single output
-verify     Verify one or more CSV files against a schema definition
-preview    Preview the first few rows of a CSV file in a formatted table
-stats      Produce summary statistics for numeric & temporal columns (Integer, Float, Date, DateTime, Time)
-frequency  Produce frequency counts for categorical columns
-join       Join two CSV files on common columns
-install    Install the csv-managed binary via cargo install
-columns    List column names and data types from a schema file
-help       Print this message or the help of the given subcommand(s)
+  probe    Probe a CSV file and infer column data types into a .schema file
+  schema   Create a .schema file from explicit column definitions
+  index    Create a B-Tree index (.idx) for one or more columns
+  process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
+  append   Append multiple CSV files into a single output
+  verify   Verify one or more CSV files against a schema definition
+  preview  Preview the first few rows of a CSV file in a formatted table
+  stats    Produce summary statistics for numeric columns or frequency counts via --frequency
+  join     Join two CSV files on common columns
+  install  Install the csv-managed binary via cargo install
+  columns  List column names and data types from a schema file
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -49,6 +48,25 @@ Options:
           Character encoding of the input file (defaults to utf-8)
       --mapping
           Emit column mapping templates to stdout after probing
+      --replace
+          Inject empty replace arrays into the generated schema as a template
+  -h, --help
+          Print help
+```
+
+## schema
+
+```text
+Create a .schema file from explicit column definitions
+
+Usage: csv-managed.exe schema [OPTIONS] --output <OUTPUT> --column <COLUMNS>
+
+Options:
+  -o, --output <OUTPUT>         Destination .schema file path
+  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
+      --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
+  -h, --help                    Print help
+```
 
 ## index
 
@@ -75,9 +93,9 @@ Options:
       --delimiter <DELIMITER>
           CSV delimiter character (supports ',', 'tab', ';', '|')
       --input-encoding <INPUT_ENCODING>
-      Character encoding of the input file (defaults to utf-8)
+          Character encoding of the input file (defaults to utf-8)
   -h, --help
-      Print help
+          Print help
 ```
 
 ## process
@@ -93,7 +111,7 @@ Options:
   -o, --output <OUTPUT>
           Output CSV file (stdout if omitted)
   -m, --schema <SCHEMA>
-      Schema file to drive typed operations and apply value replacements
+          Schema file to drive typed operations and apply value replacements
   -x, --index <INDEX>
           Existing index file to speed up operations
       --index-variant <INDEX_VARIANT>
@@ -106,10 +124,10 @@ Options:
           Exclude this comma-separated list of columns from output
       --derive <DERIVES>
           Additional derived columns using `name=expression`
-      --filter-expr <FILTER_EXPR>
-          Evalexpr filter evaluated per row (supports temporal helpers; quote string literals with double quotes)
       --filter <FILTERS>
           Row-level filters such as `amount>=100` or `status = shipped`
+      --filter-expr <FILTER_EXPRS>
+          Evalexpr-based filter expressions that must evaluate to truthy values
       --row-numbers
           Emit 1-based row numbers as the first column
       --limit <LIMIT>
@@ -162,12 +180,18 @@ Verify one or more CSV files against a schema definition
 Usage: csv-managed.exe verify [OPTIONS] --schema <SCHEMA> --input <INPUTS>
 
 Options:
-  -m, --schema <SCHEMA>                  Schema file describing the expected structure
-  -i, --input <INPUTS>                   One or more CSV files to verify
-      --delimiter <DELIMITER>            CSV delimiter character
-    --input-encoding <INPUT_ENCODING>  Character encoding for input files (defaults to utf-8)
-        --report-invalid [<OPTIONS>]       Summarize invalid columns by default; append ':detail' for row samples, ':detail:summary' for both, optional LIMIT caps samples
-  -h, --help                             Print help
+  -m, --schema <SCHEMA>
+          Schema file describing the expected structure
+  -i, --input <INPUTS>
+          One or more CSV files to verify
+      --delimiter <DELIMITER>
+          CSV delimiter character
+      --input-encoding <INPUT_ENCODING>
+          Character encoding for input files (defaults to utf-8)
+      --report-invalid [<OPTIONS>...]
+          Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value
+  -h, --help
+          Print help
 ```
 
 ## preview
@@ -188,40 +212,27 @@ Options:
 ## stats
 
 ```text
-Produce summary statistics for numeric and temporal columns (Integer, Float, Date, DateTime, Time). Temporal std dev values include a unit suffix (days or seconds).
+Produce summary statistics for numeric columns or frequency counts via --frequency
 
 Usage: csv-managed.exe stats [OPTIONS] --input <INPUT>
 
 Options:
-  -i, --input <INPUT>                    Input CSV file to profile
-  -m, --schema <SCHEMA>                  Schema file to drive typed operations
-    -C, --columns <COLUMNS>                Columns to include (defaults to numeric & temporal columns)
-      --delimiter <DELIMITER>            CSV delimiter character
-      --input-encoding <INPUT_ENCODING>  Character encoding for input file (defaults to utf-8)
-      --limit <LIMIT>                    Maximum rows to scan (0 = all) [default: 0]
-  -h, --help                             Print help
-```
-
-## frequency
-
-```text
-Produce frequency counts for categorical columns
-
-Usage: csv-managed.exe frequency [OPTIONS] --input <INPUT>
-
-Options:
   -i, --input <INPUT>
-          Input CSV file to analyze
+          Input CSV file to profile
   -m, --schema <SCHEMA>
           Schema file to drive typed operations
   -C, --columns <COLUMNS>
-          Columns to compute frequency counts for
+          Columns to include (defaults to numeric columns)
       --delimiter <DELIMITER>
           CSV delimiter character
       --input-encoding <INPUT_ENCODING>
           Character encoding for input file (defaults to utf-8)
+      --limit <LIMIT>
+          Maximum rows to scan (0 = all) [default: 0]
+      --frequency
+          Emit distinct value counts instead of summary statistics
       --top <TOP>
-          Maximum distinct values to display per column (0 = all) [default: 0]
+          Maximum distinct values to display per column when --frequency is used (0 = all) [default: 0]
   -h, --help
           Print help
 ```

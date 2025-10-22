@@ -16,7 +16,7 @@
 | Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
 | Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
 | Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
-| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `frequency` reports distinct value counts with optional top-N cap. |
+| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `stats --frequency` reports distinct value counts with optional top-N cap. |
 | Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
 | Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
 | Installation | `install` wraps `cargo install` with convenience flags (`--locked`, `--force`, `--root`, `--version`) and matches the release workflow. |
@@ -100,7 +100,7 @@ set RUST_LOG=info
 # 5b. Temporal summary statistics
 ./target/release/csv-managed.exe stats -i ./tests/data/stats_temporal.csv -m ./tests/data/stats_temporal.schema --columns ordered_at --columns ordered_at_ts --columns ship_time
 # 6. Frequency counts (top 10)
-./target/release/csv-managed.exe frequency -i ./data/orders.csv -m ./data/orders.schema --top 10
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema --frequency --top 10
 # 7. Preview first 15 rows
 ./target/release/csv-managed.exe preview -i ./data/orders.csv --rows 15
 # 8. Join customers with orders
@@ -325,8 +325,10 @@ They are rendered back to canonical forms; standard deviation for Date reports `
 |------|-------------|
 | `-i, --input <FILE or ->` | Input file or `-` (stdin; requires schema). |
 | `-m, --schema <FILE>` | Schema file (recommended). |
-| `-C, --columns <LIST>` | Restrict to listed numeric columns. |
+| `-C, --columns <LIST>` | Restrict to listed columns (defaults to numeric & temporal columns, or all columns when `--frequency` is used). |
 | `--delimiter <VAL>` | Input delimiter. |
+| `--frequency` | Emit distinct value counts instead of summary statistics. |
+| `--top <N>` | Limit to the top N values per column when `--frequency` is used (0 = all). |
 | `--limit <N>` | Scan at most N rows (0 = all). |
 
 #### Temporal stats example
@@ -365,17 +367,9 @@ Sample output (elastic table formatting):
 
 Mean and median for Time represent the central tendency of seconds-from-midnight values, rendered back into `HH:MM:SS`.
 
-### frequency
+#### Frequency counts (--frequency)
 
-Distinct value counts per column.
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE or ->` | Input file or stdin (`-`; schema required). |
-| `-m, --schema <FILE>` | Optional schema. |
-| `-C, --columns <LIST>` | Limit to listed columns. |
-| `--delimiter <VAL>` | Input delimiter. |
-| `--top <N>` | Limit to top N values (0 = all). |
+`stats --frequency` reports distinct value counts per column. By default, every column is included; use `-C/--columns` to target a subset. Combine with `--top` to cap the number of values displayed per column (0 = all).
 
 ### join
 
@@ -562,7 +556,7 @@ Set `RUST_LOG=csv_managed=debug` (or `info`) for insight into phases (index use,
 cargo test
 ```
 
-Integration tests cover probe, index, process (filters, derives, sort, delimiters). Additional tests planned for joins, stats, frequency.
+Integration tests cover probe, index, process (filters, derives, sort, delimiters). Additional tests planned for joins and stats frequency scenarios.
 
 ### Contributing
 

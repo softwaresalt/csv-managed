@@ -256,6 +256,37 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
     );
 }
 
+#[test]
+fn stats_frequency_reports_categorical_counts() {
+    let csv_path = fixture_path("stats_schema.csv");
+    let schema_path = fixture_path("stats_schema.schema");
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--frequency",
+            "-C",
+            "status",
+            "--top",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(stdout.contains("status"), "status column missing: {stdout}");
+    assert!(stdout.contains("good"), "expected 'good' frequency");
+    assert!(
+        stdout.contains("backorder"),
+        "expected 'backorder' frequency"
+    );
+    assert!(stdout.contains("count"), "missing count header: {stdout}");
+}
+
 fn parse_table_row(line: &str) -> Vec<String> {
     line.split('|')
         .map(|cell| cell.trim())

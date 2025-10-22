@@ -63,14 +63,14 @@
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
 - [x] Add the ability to perform stats over date, time, and datetime values.
-- [ ] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface.
+- [x] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface; implement as stats --frequency.
+- [ ] Add the ability to apply a filter on the stats commmand to filter the rows on which stats are being calculated, including for use with the --frequency flag.
 - [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
 - [ ] Refactor the verify command into the schema command to simplify the command-line interface; implement as schema --verify.
 - [ ] Refactor the columns command into the schema command to simplify the command-line interface; implement as schema --columns.
 - [ ] Refactor the preview command into the process command to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
 - [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
-- [ ] Add the ability to index all of the files in a directory matching a single schema file.
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
 - [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
@@ -95,6 +95,7 @@
 ## Version 1.0.3: The Index Edition
 
 - [ ] Index all files in a directory that share a schema definition.
+- [ ] Add the ability to index all of the files in a directory matching a single schema file.
 
 ## Version 1.0.4: The Excel Edition
 

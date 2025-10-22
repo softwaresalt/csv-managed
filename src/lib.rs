@@ -51,7 +51,6 @@ pub fn run() -> Result<()> {
         Commands::Verify(args) => run_operation("verify", || verify::execute(&args)),
         Commands::Preview(args) => run_operation("preview", || preview::execute(&args)),
         Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
-        Commands::Frequency(args) => run_operation("frequency", || frequency::execute(&args)),
         Commands::Join(args) => run_operation("join", || join::execute(&args)),
         Commands::Install(args) => run_operation("install", || install::execute(&args)),
         Commands::Columns(args) => run_operation("columns", || columns::execute(&args)),

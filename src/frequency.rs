@@ -1,94 +1,50 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use encoding_rs::Encoding;
-use log::info;
 
 use crate::{
-    cli::FrequencyArgs,
     data::{Value, parse_typed_value},
     io_utils,
-    schema::{self, Schema},
-    table,
+    schema::Schema,
 };
 
-pub fn execute(args: &FrequencyArgs) -> Result<()> {
-    if args.schema.is_none() && io_utils::is_dash(&args.input) {
-        return Err(anyhow!(
-            "Reading from stdin requires --schema (or --meta) for frequency analysis"
-        ));
-    }
-
-    let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
-    let encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
-
-    let schema = load_or_infer_schema(args, delimiter, encoding)?;
-    let columns = resolve_columns(&schema, &args.columns)?;
-    if columns.is_empty() {
-        return Err(anyhow!(
-            "No columns available for frequency analysis. Supply --columns to continue."
-        ));
-    }
-
-    let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
+pub fn compute_frequency_rows(
+    input: &Path,
+    schema: &Schema,
+    delimiter: u8,
+    encoding: &'static Encoding,
+    columns: &[usize],
+    top: usize,
+    row_limit: Option<usize>,
+) -> Result<Vec<Vec<String>>> {
+    let mut reader = io_utils::open_csv_reader_from_path(input, delimiter, true)?;
     let headers = io_utils::reader_headers(&mut reader, encoding)?;
     schema
         .validate_headers(&headers)
-        .with_context(|| format!("Validating headers for {input:?}", input = args.input))?;
+        .with_context(|| format!("Validating headers for {input:?}", input = input))?;
 
-    let mut stats = FrequencyAccumulator::new(&columns, &schema);
+    let mut stats = FrequencyAccumulator::new(columns, schema);
 
     for (row_idx, record) in reader.byte_records().enumerate() {
+        if let Some(limit) = row_limit
+            && row_idx >= limit
+        {
+            break;
+        }
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
         schema.apply_replacements_to_row(&mut decoded);
         stats
-            .ingest(&schema, &decoded)
+            .ingest(schema, &decoded)
             .with_context(|| format!("Processing row {}", row_idx + 2))?;
     }
 
     let mut rows = Vec::new();
-    for column_index in &columns {
-        rows.extend(stats.render_rows(*column_index, args.top));
+    for &column_index in columns {
+        rows.extend(stats.render_rows(column_index, top));
     }
-
-    let headers = vec![
-        "column".to_string(),
-        "value".to_string(),
-        "count".to_string(),
-        "percent".to_string(),
-    ];
-    table::print_table(&headers, &rows);
-    info!("Computed frequency counts for {} column(s)", columns.len());
-    Ok(())
-}
-
-fn load_or_infer_schema(
-    args: &FrequencyArgs,
-    delimiter: u8,
-    encoding: &'static Encoding,
-) -> Result<Schema> {
-    if let Some(path) = &args.schema {
-        Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))
-    } else {
-        schema::infer_schema(&args.input, 0, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {input:?}", input = args.input))
-    }
-}
-
-fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> {
-    if specified.is_empty() {
-        Ok((0..schema.columns.len()).collect())
-    } else {
-        specified
-            .iter()
-            .map(|name| {
-                schema
-                    .column_index(name)
-                    .ok_or_else(|| anyhow!("Column '{name}' not found in schema"))
-            })
-            .collect()
-    }
+    Ok(rows)
 }
 
 struct FrequencyAccumulator {
