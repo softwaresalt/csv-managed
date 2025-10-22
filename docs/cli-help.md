@@ -17,7 +17,7 @@ process    Transform a CSV file using sorting, filtering, projection, derivation
 append     Append multiple CSV files into a single output
 verify     Verify one or more CSV files against a schema definition
 preview    Preview the first few rows of a CSV file in a formatted table
-stats      Produce summary statistics for numeric columns
+stats      Produce summary statistics for numeric & temporal columns (Integer, Float, Date, DateTime, Time)
 frequency  Produce frequency counts for categorical columns
 join       Join two CSV files on common columns
 install    Install the csv-managed binary via cargo install
@@ -188,14 +188,14 @@ Options:
 ## stats
 
 ```text
-Produce summary statistics for numeric columns
+Produce summary statistics for numeric and temporal columns (Integer, Float, Date, DateTime, Time). Temporal std dev values include a unit suffix (days or seconds).
 
 Usage: csv-managed.exe stats [OPTIONS] --input <INPUT>
 
 Options:
   -i, --input <INPUT>                    Input CSV file to profile
   -m, --schema <SCHEMA>                  Schema file to drive typed operations
-  -C, --columns <COLUMNS>                Columns to include (defaults to numeric columns)
+    -C, --columns <COLUMNS>                Columns to include (defaults to numeric & temporal columns)
       --delimiter <DELIMITER>            CSV delimiter character
       --input-encoding <INPUT_ENCODING>  Character encoding for input file (defaults to utf-8)
       --limit <LIMIT>                    Maximum rows to scan (0 = all) [default: 0]

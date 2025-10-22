@@ -7,7 +7,7 @@
 | Area | Description |
 |------|-------------|
 | Delimiters & encodings | Read/write comma, tab, pipe, semicolon, or any ASCII delimiter; override output delimiter; stream via stdin/stdout (`-`) with explicit `--input-encoding` / `--output-encoding`. |
-| Schema inference (`probe`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, and Guid columns; optional `--mapping` and `--replace` templates saved to `.schema`. |
+| Schema inference (`probe`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, and Guid columns; optional `--mapping` and `--replace` templates saved to `.schema`. |
 | Schema authoring & listing | `schema` builds manual definitions with renames and replacements; `columns` prints column positions, names, types, and output aliases. |
 | Value normalization | Schema `replace` arrays and boolean normalization convert legacy tokens before typed operations; `process --boolean-format` controls emitted true/false representation. |
 | Indexing (`index`) | Build B-tree index files with multiple named variants, mixed asc/desc columns, and combo expansion for shared prefixes. |
@@ -16,7 +16,7 @@
 | Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
 | Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
 | Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
-| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric column; `frequency` reports distinct value counts with optional top-N cap. |
+| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `frequency` reports distinct value counts with optional top-N cap. |
 | Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
 | Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
 | Installation | `install` wraps `cargo install` with convenience flags (`--locked`, `--force`, `--root`, `--version`) and matches the release workflow. |
@@ -304,7 +304,20 @@ Display first N rows in an elastic table.
 
 ### stats
 
-Summary statistics for numeric columns.
+Summary statistics for numeric and temporal columns.
+
+Supported types:
+
+* Numeric: Integer, Float
+* Temporal: Date, DateTime, Time
+
+Temporal values are internally converted to numeric metrics for aggregation:
+
+* Date => days from Common Era (CE)
+* DateTime => epoch seconds (UTC naive)
+* Time => seconds from midnight
+
+They are rendered back to canonical forms; standard deviation for Date reports `days` and for DateTime/Time reports `seconds`.
 
 | Flag | Description |
 |------|-------------|
@@ -313,6 +326,42 @@ Summary statistics for numeric columns.
 | `-C, --columns <LIST>` | Restrict to listed numeric columns. |
 | `--delimiter <VAL>` | Input delimiter. |
 | `--limit <N>` | Scan at most N rows (0 = all). |
+
+#### Temporal stats example
+
+Given a temporal schema file:
+
+```jsonc
+{
+  "columns": [
+    { "name": "id", "datatype": "Integer" },
+    { "name": "ordered_at", "datatype": "Date" },
+    { "name": "ordered_at_ts", "datatype": "DateTime" },
+    { "name": "shipped_at", "datatype": "Date" },
+    { "name": "shipped_at_ts", "datatype": "DateTime" },
+    { "name": "ship_time", "datatype": "Time" },
+    { "name": "status", "datatype": "String" }
+  ]
+}
+```
+
+Run stats over temporal columns:
+
+```powershell
+./target/release/csv-managed.exe stats -i ./data/orders_temporal.csv -m ./data/orders_temporal.schema \
+  --columns ordered_at --columns ordered_at_ts --columns ship_time
+```
+
+Sample output (elastic table formatting):
+
+```text
+| column         | count | min                | max                | mean                | median              | std_dev        |
+| ordered_at     | 4     | 2024-01-01         | 2024-02-10         | 2024-01-31          | 2024-01-06          | 15.56 days     |
+| ordered_at_ts  | 4     | 2024-01-01 04:45:00| 2024-02-10 14:00:00| 2024-01-30 17:03:45 | 2024-01-06 05:57:30 | 1345678 seconds|
+| ship_time      | 4     | 06:00:00           | 16:30:00           | 09:37:30            | 08:00:00            | 12810 seconds  |
+```
+
+Mean and median for Time represent the central tendency of seconds-from-midnight values, rendered back into `HH:MM:SS`.
 
 ### frequency
 
@@ -460,9 +509,10 @@ String literals in expressions must use double quotes (`""`) to distinguish them
 | Boolean | `true/false`, `t/f`, `yes/no`, `y/n`, `1/0` | Parsing flexible; output format selectable. |
 | Date | `2024-08-01`, `08/01/2024`, `01/08/2024` | Canonical output `YYYY-MM-DD`. |
 | DateTime | `2024-08-01T13:45:00`, `2024-08-01 13:45` | Naive (no timezone). |
+| Time | `06:00:00`, `14:30`, `08:01:30` | Canonical output `HH:MM:SS`; inference accepts `HH:MM[:SS]`. |
 | Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
 
-Future work: Decimal, Time-only, Currency.
+Future work: Decimal, Currency.
 
 ### Stdin/Stdout Usage
 
@@ -489,16 +539,16 @@ Index stores byte offsets keyed by concatenated column values. A single `.idx` c
 
 ### Performance Considerations
 
-- Indexed sort avoids loading all rows into memory.
-- Early filtering cuts sort & derive workload.
-- Derived expressions evaluated per emitted row—keep them lean.
-- Median requires storing column values (potential memory impact for huge numeric columns).
+* Indexed sort avoids loading all rows into memory.
+* Early filtering cuts sort & derive workload.
+* Derived expressions evaluated per emitted row—keep them lean.
+* Median requires storing column values (potential memory impact for huge numeric columns).
 
 ### Error Handling
 
-- Rich `anyhow` contexts (I/O, parsing, evaluation, schema, index).
-- Fast failure on unknown columns, invalid expressions, header/schema mismatches.
-- Invalid UTF‑8 rows error (never silently skipped).
+* Rich `anyhow` contexts (I/O, parsing, evaluation, schema, index).
+* Fast failure on unknown columns, invalid expressions, header/schema mismatches.
+* Invalid UTF‑8 rows error (never silently skipped).
 
 ### Logging
 
