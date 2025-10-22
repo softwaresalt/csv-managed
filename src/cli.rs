@@ -242,6 +242,12 @@ pub struct StatsArgs {
     /// Columns to include (defaults to numeric columns)
     #[arg(short = 'C', long = "columns", action = clap::ArgAction::Append)]
     pub columns: Vec<String>,
+    /// Row-level filters such as `amount>=100` or `status = shipped`
+    #[arg(long = "filter", action = clap::ArgAction::Append)]
+    pub filters: Vec<String>,
+    /// Evalexpr-based filter expressions that must evaluate to truthy values
+    #[arg(long = "filter-expr", action = clap::ArgAction::Append)]
+    pub filter_exprs: Vec<String>,
     /// CSV delimiter character
     #[arg(long, value_parser = parse_delimiter)]
     pub delimiter: Option<u8>,

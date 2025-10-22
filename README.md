@@ -16,7 +16,7 @@
 | Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
 | Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
 | Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
-| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `stats --frequency` reports distinct value counts with optional top-N cap. |
+| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `--filter`/`--filter-expr` limit the rows considered and also apply to `stats --frequency`, which reports distinct value counts with optional top-N cap. |
 | Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
 | Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
 | Installation | `install` wraps `cargo install` with convenience flags (`--locked`, `--force`, `--root`, `--version`) and matches the release workflow. |
@@ -367,9 +367,35 @@ Sample output (elastic table formatting):
 
 Mean and median for Time represent the central tendency of seconds-from-midnight values, rendered back into `HH:MM:SS`.
 
+Apply filters to restrict the rows included in the calculation:
+
+```powershell
+./target/release/csv-managed.exe stats -i ./data/stats_schema.csv -m ./data/stats_schema.schema \
+  --columns quantity --filter "status=good"
+```
+
+`--filter` accepts the same column comparisons as `process --filter`. For complex predicates, repeat `--filter` or add `--filter-expr` for Evalexpr-based expressions. Filters apply to both summary statistics and `--frequency` output.
+
 #### Frequency counts (--frequency)
 
 `stats --frequency` reports distinct value counts per column. By default, every column is included; use `-C/--columns` to target a subset. Combine with `--top` to cap the number of values displayed per column (0 = all).
+
+Example combining `--frequency` with filters over the Big 5 dataset:
+
+```powershell
+./target/release/csv-managed.exe stats `
+  -i ./tests/data/big_5_players_stats_2023_2024.csv `
+  --frequency `
+  -C Squad `
+  --filter "Player=Max Aarons"
+```
+
+Sample output (elastic table formatting):
+
+```text
+| column | value       | count | percent |
+| Squad  | Bournemouth | 1     | 100.00% |
+```
 
 ### join
 

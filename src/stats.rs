@@ -7,8 +7,9 @@ use log::info;
 
 use crate::{
     cli::StatsArgs,
-    data::{Value, parse_typed_value},
-    frequency, io_utils,
+    data::Value,
+    filter, frequency, io_utils,
+    rows::{evaluate_filter_expressions, parse_typed_row},
     schema::{self, ColumnType, Schema},
     table,
 };
@@ -37,15 +38,22 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
         ));
     }
 
+    let filters = filter::parse_filters(&args.filters)?;
+
     if args.frequency {
+        let freq_options = frequency::FrequencyOptions {
+            top: args.top,
+            row_limit: (args.limit > 0).then_some(args.limit),
+            filters: &filters,
+            filter_exprs: &args.filter_exprs,
+        };
         let rows = frequency::compute_frequency_rows(
             &args.input,
             &schema,
             delimiter,
             encoding,
             &columns,
-            args.top,
-            (args.limit > 0).then_some(args.limit),
+            &freq_options,
         )?;
         let headers = vec![
             "column".to_string(),
@@ -73,8 +81,26 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
         schema.apply_replacements_to_row(&mut decoded);
+        let typed = parse_typed_row(&schema, &decoded)
+            .with_context(|| format!("Parsing row {}", row_idx + 2))?;
+        if !filters.is_empty()
+            && !filter::evaluate_conditions(&filters, &schema, &headers, &decoded, &typed)?
+        {
+            continue;
+        }
+        if !args.filter_exprs.is_empty()
+            && !evaluate_filter_expressions(
+                &args.filter_exprs,
+                &headers,
+                &decoded,
+                &typed,
+                Some(row_idx + 1),
+            )?
+        {
+            continue;
+        }
         stats
-            .ingest(&schema, &decoded)
+            .ingest(&typed)
             .with_context(|| format!("Processing row {}", row_idx + 2))?;
     }
 
@@ -185,21 +211,15 @@ impl StatsAccumulator {
         }
     }
 
-    fn ingest(&mut self, schema: &Schema, record: &[String]) -> Result<()> {
+    fn ingest(&mut self, typed_row: &[Option<Value>]) -> Result<()> {
         for column_index in &self.columns {
-            let column = &schema.columns[*column_index];
-            let value = record.get(*column_index).map(|s| s.as_str()).unwrap_or("");
-            let normalized = column.normalize_value(value);
-            if normalized.is_empty() {
-                continue;
-            }
-            if let Some(parsed) = parse_typed_value(normalized.as_ref(), &column.datatype)
-                .with_context(|| format!("Column '{}'", column.output_name()))?
-                && let Some(stats) = self.data.get_mut(column_index)
+            if let Some(stats) = self.data.get_mut(column_index)
+                && let Some(Some(value)) = typed_row.get(*column_index)
             {
+                let column_name = stats.name.clone();
                 stats
-                    .add_value(&parsed)
-                    .with_context(|| format!("Column '{}'", column.output_name()))?;
+                    .add_value(value)
+                    .with_context(|| format!("Column '{}'", column_name))?;
             }
         }
         Ok(())
@@ -447,8 +467,13 @@ mod tests {
                 break;
             }
             let record = record.expect("record");
-            let decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
-            if accumulator.ingest(&schema, &decoded).is_err() {
+            let mut decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
+            schema.apply_replacements_to_row(&mut decoded);
+            let typed = match crate::rows::parse_typed_row(&schema, &decoded) {
+                Ok(values) => values,
+                Err(_) => continue,
+            };
+            if accumulator.ingest(&typed).is_err() {
                 continue;
             }
         }

@@ -50,6 +50,8 @@ rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema.schema --columns quantity --limit 2
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_temporal.csv -m .\tests\data\stats_temporal.schema --columns ordered_at --columns ordered_at_ts --columns ship_time
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema.schema --frequency --top 5
+.\target\release\csv-managed.exe stats -i .\tests\data\big_5_players_stats_2023_2024.csv --frequency -C Squad --filter "Player=Max Aarons"
+.\target\release\csv-managed.exe stats -i .\tests\data\big_5_players_stats_2023_2024.csv --frequency -C Squad --filter "Player contains Thomas"
 
 .\target\debug\csv-managed.exe verify -m .\tests\data\orders.schema -i .\tests\data\orders_invalid.csv --report-invalid
 .\target\debug\csv-managed.exe verify -m .\tests\data\orders.schema -i .\tests\data\orders_invalid.csv --report-invalid:detail 5

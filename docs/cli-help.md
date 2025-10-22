@@ -223,6 +223,10 @@ Options:
           Schema file to drive typed operations
   -C, --columns <COLUMNS>
           Columns to include (defaults to numeric columns)
+      --filter <FILTER>
+          Row-level filters such as `amount>=100` or `status = shipped`
+      --filter-expr <FILTER_EXPR>
+          Evalexpr-based filter expressions that must evaluate to truthy values
       --delimiter <DELIMITER>
           CSV delimiter character
       --input-encoding <INPUT_ENCODING>

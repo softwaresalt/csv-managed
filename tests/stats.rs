@@ -287,6 +287,68 @@ fn stats_frequency_reports_categorical_counts() {
     assert!(stdout.contains("count"), "missing count header: {stdout}");
 }
 
+#[test]
+fn stats_filter_limits_rows_for_summary() {
+    let csv_path = fixture_path(BIG5_DATA);
+    let temp = tempdir().expect("temp dir");
+    let subset_path = temp.path().join("big5_filtered.csv");
+    write_big5_numeric_subset(&csv_path, &subset_path, 5, false);
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            subset_path.to_str().unwrap(),
+            "--columns",
+            GOALS_COLUMN,
+            "--filter",
+            &format!("{ASSISTS_COLUMN}>=1"),
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    let row = stdout
+        .lines()
+        .find(|line| line.contains(GOALS_COLUMN))
+        .expect("goals row");
+    let cells = parse_table_row(row);
+    assert_eq!(cells[0], GOALS_COLUMN);
+    assert_eq!(cells[1], "3", "filter should restrict to assists >= 1");
+    assert_eq!(cells[4], "0.6667", "mean should reflect filtered goals");
+}
+
+#[test]
+fn stats_frequency_honors_filters() {
+    let data_path = fixture_path(BIG5_DATA);
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            data_path.to_str().unwrap(),
+            "--frequency",
+            "-C",
+            "Squad",
+            "--filter",
+            "Player=Max Aarons",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Bournemouth"),
+        "expected squad to remain: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Union Berlin"),
+        "unexpected squad found after filtering: {stdout}"
+    );
+}
+
 fn parse_table_row(line: &str) -> Vec<String> {
     line.split('|')
         .map(|cell| cell.trim())

@@ -4,10 +4,19 @@ use anyhow::{Context, Result};
 use encoding_rs::Encoding;
 
 use crate::{
-    data::{Value, parse_typed_value},
+    data::Value,
+    filter::{FilterCondition, evaluate_conditions},
     io_utils,
+    rows::{evaluate_filter_expressions, parse_typed_row},
     schema::Schema,
 };
+
+pub struct FrequencyOptions<'a> {
+    pub top: usize,
+    pub row_limit: Option<usize>,
+    pub filters: &'a [FilterCondition],
+    pub filter_exprs: &'a [String],
+}
 
 pub fn compute_frequency_rows(
     input: &Path,
@@ -15,8 +24,7 @@ pub fn compute_frequency_rows(
     delimiter: u8,
     encoding: &'static Encoding,
     columns: &[usize],
-    top: usize,
-    row_limit: Option<usize>,
+    options: &FrequencyOptions,
 ) -> Result<Vec<Vec<String>>> {
     let mut reader = io_utils::open_csv_reader_from_path(input, delimiter, true)?;
     let headers = io_utils::reader_headers(&mut reader, encoding)?;
@@ -27,7 +35,7 @@ pub fn compute_frequency_rows(
     let mut stats = FrequencyAccumulator::new(columns, schema);
 
     for (row_idx, record) in reader.byte_records().enumerate() {
-        if let Some(limit) = row_limit
+        if let Some(limit) = options.row_limit
             && row_idx >= limit
         {
             break;
@@ -35,14 +43,31 @@ pub fn compute_frequency_rows(
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
         schema.apply_replacements_to_row(&mut decoded);
+        let typed = parse_typed_row(schema, &decoded)?;
+        if !options.filters.is_empty()
+            && !evaluate_conditions(options.filters, schema, &headers, &decoded, &typed)?
+        {
+            continue;
+        }
+        if !options.filter_exprs.is_empty()
+            && !evaluate_filter_expressions(
+                options.filter_exprs,
+                &headers,
+                &decoded,
+                &typed,
+                Some(row_idx + 1),
+            )?
+        {
+            continue;
+        }
         stats
-            .ingest(schema, &decoded)
+            .ingest(schema, &decoded, &typed)
             .with_context(|| format!("Processing row {}", row_idx + 2))?;
     }
 
     let mut rows = Vec::new();
     for &column_index in columns {
-        rows.extend(stats.render_rows(column_index, top));
+        rows.extend(stats.render_rows(column_index, options.top));
     }
     Ok(rows)
 }
@@ -72,27 +97,22 @@ impl FrequencyAccumulator {
         }
     }
 
-    fn ingest(&mut self, schema: &Schema, record: &[String]) -> Result<()> {
+    fn ingest(
+        &mut self,
+        schema: &Schema,
+        raw_row: &[String],
+        typed_row: &[Option<Value>],
+    ) -> Result<()> {
         for column_index in &self.columns {
             let column = &schema.columns[*column_index];
-            let raw = record.get(*column_index).map(|s| s.as_str()).unwrap_or("");
+            let raw = raw_row.get(*column_index).map(|s| s.as_str()).unwrap_or("");
             let normalized = column.normalize_value(raw);
             let value = if normalized.is_empty() {
                 String::from("<empty>")
+            } else if let Some(typed) = typed_row.get(*column_index).and_then(|v| v.as_ref()) {
+                display_value(typed)
             } else {
-                match parse_typed_value(normalized.as_ref(), &column.datatype)
-                    .with_context(|| format!("Column '{}'", column.output_name()))?
-                {
-                    Some(Value::String(s)) => s,
-                    Some(Value::Integer(i)) => i.to_string(),
-                    Some(Value::Float(f)) => format_number(f),
-                    Some(Value::Boolean(b)) => b.to_string(),
-                    Some(Value::Date(d)) => d.format("%Y-%m-%d").to_string(),
-                    Some(Value::DateTime(dt)) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
-                    Some(Value::Time(t)) => t.format("%H:%M:%S").to_string(),
-                    Some(Value::Guid(g)) => g.to_string(),
-                    None => String::from("<empty>"),
-                }
+                normalized.into_owned()
             };
             let total = self
                 .totals
@@ -142,6 +162,19 @@ impl FrequencyAccumulator {
     }
 }
 
+fn display_value(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Integer(i) => i.to_string(),
+        Value::Float(f) => format_number(*f),
+        Value::Boolean(b) => b.to_string(),
+        Value::Date(d) => d.format("%Y-%m-%d").to_string(),
+        Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+        Value::Time(t) => t.format("%H:%M:%S").to_string(),
+        Value::Guid(g) => g.to_string(),
+    }
+}
+
 fn format_number(value: f64) -> String {
     if value.fract() == 0.0 {
         format!("{value:.0}")
@@ -183,8 +216,12 @@ mod tests {
                 break;
             }
             let record = record.expect("record");
-            let decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
-            accumulator.ingest(&schema, &decoded).expect("ingest row");
+            let mut decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
+            schema.apply_replacements_to_row(&mut decoded);
+            let typed = crate::rows::parse_typed_row(&schema, &decoded).expect("parse typed row");
+            accumulator
+                .ingest(&schema, &decoded, &typed)
+                .expect("ingest row");
         }
 
         let rows = accumulator.render_rows(column_index, 3);

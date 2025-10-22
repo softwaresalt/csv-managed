@@ -64,7 +64,7 @@
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
 - [x] Add the ability to perform stats over date, time, and datetime values.
 - [x] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface; implement as stats --frequency.
-- [ ] Add the ability to apply a filter on the stats commmand to filter the rows on which stats are being calculated, including for use with the --frequency flag.
+- [x] Add the ability to apply a filter on the stats commmand to filter the rows on which stats are being calculated, including for use with the --frequency flag.
 - [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
 - [ ] Refactor the verify command into the schema command to simplify the command-line interface; implement as schema --verify.
 - [ ] Refactor the columns command into the schema command to simplify the command-line interface; implement as schema --columns.
@@ -80,7 +80,12 @@
 - [ ] Transform fields between datatypes (e.g., string → date/datetime) in a controlled manner.
 - [ ] Define a currency datatype with enforced precision and standardized formatting/transforms.
 
-## Version 1.2.0: Bulk Operations Edition
+## Version 1.2.0: The Index Edition
+
+- [ ] Index all files in a directory that share a schema definition.
+- [ ] Add the ability to index all of the files in a directory matching a single schema file.
+
+## Version 1.3.0: Bulk Operations Edition
 
 - [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
@@ -92,12 +97,7 @@
 - [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
 - [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
 
-## Version 1.0.3: The Index Edition
-
-- [ ] Index all files in a directory that share a schema definition.
-- [ ] Add the ability to index all of the files in a directory matching a single schema file.
-
-## Version 1.0.4: The Excel Edition
+## Version 1.4.0: The Excel Edition
 
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 
@@ -110,7 +110,7 @@
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
 - [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
 - [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
-- [ ] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
+- [x] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
 - [ ] 

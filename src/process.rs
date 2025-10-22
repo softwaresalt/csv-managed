@@ -7,12 +7,12 @@ use log::{debug, info};
 
 use crate::{
     cli::{BooleanFormat, ProcessArgs},
-    data::{ComparableValue, Value, parse_typed_value},
+    data::{ComparableValue, Value},
     derive::{DerivedColumn, parse_derived_columns},
-    expr,
     filter::{evaluate_conditions, parse_filters},
     index::{CsvIndex, IndexVariant, SortDirection},
     io_utils,
+    rows::{evaluate_filter_expressions, parse_typed_row},
     schema::{ColumnMeta, ColumnType, Schema},
 };
 
@@ -280,7 +280,7 @@ impl<'a> ProcessEngine<'a> {
             let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
             let mut raw = io_utils::decode_record(&record, encoding)?;
             self.schema.apply_replacements_to_row(&mut raw);
-            let typed = parse_row(&raw, self.schema)?;
+            let typed = parse_typed_row(self.schema, &raw)?;
 
             if !self.filters.is_empty()
                 && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
@@ -347,7 +347,7 @@ impl<'a> ProcessEngine<'a> {
             }
             let mut raw = io_utils::decode_record(&record, encoding)?;
             self.schema.apply_replacements_to_row(&mut raw);
-            let typed = parse_row(&raw, self.schema)?;
+            let typed = parse_typed_row(self.schema, &raw)?;
             if !self.filters.is_empty()
                 && !evaluate_conditions(self.filters, self.schema, self.headers, &raw, &typed)?
             {
@@ -475,25 +475,6 @@ where
     Ok(())
 }
 
-fn evaluate_filter_expressions(
-    expressions: &[String],
-    headers: &[String],
-    raw_row: &[String],
-    typed_row: &[Option<Value>],
-    row_number: Option<usize>,
-) -> Result<bool> {
-    if expressions.is_empty() {
-        return Ok(true);
-    }
-    let context = expr::build_context(headers, raw_row, typed_row, row_number)?;
-    for expression in expressions {
-        if !expr::evaluate_expression_to_bool(expression, &context)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
 fn emit_single_row(
     raw: &[String],
     typed: &[Option<Value>],
@@ -523,19 +504,6 @@ fn emit_single_row(
     writer
         .write_record(record.iter())
         .context("Writing output row")
-}
-
-fn parse_row(raw: &[String], schema: &Schema) -> Result<Vec<Option<Value>>> {
-    schema
-        .columns
-        .iter()
-        .enumerate()
-        .map(|(idx, column)| {
-            let value = raw.get(idx).map(|s| s.as_str()).unwrap_or("");
-            let normalized = column.normalize_value(value);
-            parse_typed_value(normalized.as_ref(), &column.datatype)
-        })
-        .collect()
 }
 
 fn compare_rows(a: &RowData, b: &RowData, plan: &[SortInstruction]) -> std::cmp::Ordering {

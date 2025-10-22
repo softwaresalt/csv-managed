@@ -12,6 +12,7 @@ pub mod io_utils;
 pub mod join;
 pub mod preview;
 pub mod process;
+pub mod rows;
 pub mod schema;
 pub mod schema_cmd;
 pub mod stats;
