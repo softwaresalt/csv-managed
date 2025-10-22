@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use encoding_rs::Encoding;
 use log::info;
 
@@ -27,7 +28,7 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
     let columns = resolve_columns(&schema, &args.columns)?;
     if columns.is_empty() {
         return Err(anyhow!(
-            "No numeric columns available. Provide a schema file or explicit column list."
+            "No numeric or temporal columns available. Provide a schema file or explicit column list."
         ));
     }
 
@@ -85,7 +86,7 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
             .columns
             .iter()
             .enumerate()
-            .filter(|(_, col)| matches!(col.datatype, ColumnType::Integer | ColumnType::Float))
+            .filter(|(_, col)| is_supported_datatype(&col.datatype))
             .map(|(idx, _)| idx)
             .collect())
     } else {
@@ -96,9 +97,9 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
                     .column_index(name)
                     .ok_or_else(|| anyhow!("Column '{name}' not found in schema"))?;
                 let column = &schema.columns[idx];
-                if !matches!(column.datatype, ColumnType::Integer | ColumnType::Float) {
+                if !is_supported_datatype(&column.datatype) {
                     return Err(anyhow!(
-                        "Column '{}' is type {:?} and cannot be profiled as numeric",
+                        "Column '{}' is type {:?} and cannot be profiled for statistics",
                         column.output_name(),
                         column.datatype
                     ));
@@ -107,6 +108,17 @@ fn resolve_columns(schema: &Schema, specified: &[String]) -> Result<Vec<usize>> 
             })
             .collect()
     }
+}
+
+fn is_supported_datatype(datatype: &ColumnType) -> bool {
+    matches!(
+        datatype,
+        ColumnType::Integer
+            | ColumnType::Float
+            | ColumnType::Date
+            | ColumnType::DateTime
+            | ColumnType::Time
+    )
 }
 
 struct StatsAccumulator {
@@ -118,7 +130,10 @@ impl StatsAccumulator {
     fn new(columns: &[usize], schema: &Schema) -> Self {
         let mut data = HashMap::new();
         for idx in columns {
-            let stats = ColumnStats::with_name(schema.columns[*idx].output_name().to_string());
+            let stats = ColumnStats::with_column(
+                schema.columns[*idx].output_name().to_string(),
+                schema.columns[*idx].datatype.clone(),
+            );
             data.insert(*idx, stats);
         }
         Self {
@@ -137,21 +152,11 @@ impl StatsAccumulator {
             }
             if let Some(parsed) = parse_typed_value(normalized.as_ref(), &column.datatype)
                 .with_context(|| format!("Column '{}'", column.output_name()))?
+                && let Some(stats) = self.data.get_mut(column_index)
             {
-                let numeric = match parsed {
-                    Value::Integer(i) => i as f64,
-                    Value::Float(f) => f,
-                    other => {
-                        return Err(anyhow!(
-                            "Column '{}' expected numeric type but encountered {:?}",
-                            column.output_name(),
-                            other
-                        ));
-                    }
-                };
-                if let Some(stats) = self.data.get_mut(column_index) {
-                    stats.add(numeric);
-                }
+                stats
+                    .add_value(&parsed)
+                    .with_context(|| format!("Column '{}'", column.output_name()))?;
             }
         }
         Ok(())
@@ -161,39 +166,16 @@ impl StatsAccumulator {
         let mut rows = Vec::new();
         for column_index in &self.columns {
             if let Some(stats) = self.data.get(column_index) {
-                rows.push(vec![
-                    stats.name.clone(),
-                    stats.count.to_string(),
-                    stats
-                        .min
-                        .map(format_number)
-                        .unwrap_or_else(|| "".to_string()),
-                    stats
-                        .max
-                        .map(format_number)
-                        .unwrap_or_else(|| "".to_string()),
-                    stats
-                        .mean()
-                        .map(format_number)
-                        .unwrap_or_else(|| "".to_string()),
-                    stats
-                        .median()
-                        .map(format_number)
-                        .unwrap_or_else(|| "".to_string()),
-                    stats
-                        .std_dev()
-                        .map(format_number)
-                        .unwrap_or_else(|| "".to_string()),
-                ]);
+                rows.push(stats.render_row());
             }
         }
         rows
     }
 }
 
-#[derive(Default)]
 struct ColumnStats {
     name: String,
+    datatype: ColumnType,
     values: Vec<f64>,
     sum: f64,
     sum_squares: f64,
@@ -203,26 +185,34 @@ struct ColumnStats {
 }
 
 impl ColumnStats {
-    fn with_name(name: String) -> Self {
+    fn with_column(name: String, datatype: ColumnType) -> Self {
         Self {
             name,
-            ..Self::default()
+            datatype,
+            values: Vec::new(),
+            sum: 0.0,
+            sum_squares: 0.0,
+            count: 0,
+            min: None,
+            max: None,
         }
     }
 
-    fn add(&mut self, value: f64) {
+    fn add_value(&mut self, value: &Value) -> Result<()> {
+        let numeric = value_to_metric(value, &self.datatype)?;
         self.count += 1;
-        self.sum += value;
-        self.sum_squares += value * value;
+        self.sum += numeric;
+        self.sum_squares += numeric * numeric;
         self.min = Some(match self.min {
-            Some(current) => current.min(value),
-            None => value,
+            Some(current) => current.min(numeric),
+            None => numeric,
         });
         self.max = Some(match self.max {
-            Some(current) => current.max(value),
-            None => value,
+            Some(current) => current.max(numeric),
+            None => numeric,
         });
-        self.values.push(value);
+        self.values.push(numeric);
+        Ok(())
     }
 
     fn mean(&self) -> Option<f64> {
@@ -256,6 +246,30 @@ impl ColumnStats {
             (self.sum_squares - self.count as f64 * mean * mean) / (self.count as f64 - 1.0);
         Some(variance.max(0.0).sqrt())
     }
+
+    fn render_row(&self) -> Vec<String> {
+        vec![
+            self.name.clone(),
+            self.count.to_string(),
+            self.format_metric(self.min),
+            self.format_metric(self.max),
+            self.format_metric(self.mean()),
+            self.format_metric(self.median()),
+            self.format_std_dev(self.std_dev()),
+        ]
+    }
+
+    fn format_metric(&self, metric: Option<f64>) -> String {
+        metric
+            .map(|value| format_metric(value, &self.datatype))
+            .unwrap_or_default()
+    }
+
+    fn format_std_dev(&self, metric: Option<f64>) -> String {
+        metric
+            .map(|value| format_std_dev_value(value, &self.datatype))
+            .unwrap_or_default()
+    }
 }
 
 fn format_number(value: f64) -> String {
@@ -263,6 +277,92 @@ fn format_number(value: f64) -> String {
         format!("{value:.0}")
     } else {
         format!("{value:.4}")
+    }
+}
+
+fn value_to_metric(value: &Value, datatype: &ColumnType) -> Result<f64> {
+    match (datatype, value) {
+        (ColumnType::Integer, Value::Integer(i)) => Ok(*i as f64),
+        (ColumnType::Float, Value::Float(f)) => Ok(*f),
+        (ColumnType::Date, Value::Date(d)) => Ok(date_to_metric(d)),
+        (ColumnType::DateTime, Value::DateTime(dt)) => Ok(datetime_to_metric(dt)),
+        (ColumnType::Time, Value::Time(t)) => Ok(time_to_metric(t)),
+        (ColumnType::Float, Value::Integer(i)) => Ok(*i as f64),
+        _ => bail!("Value {:?} incompatible with datatype {datatype:?}", value),
+    }
+}
+
+fn date_to_metric(date: &NaiveDate) -> f64 {
+    date.num_days_from_ce() as f64
+}
+
+fn datetime_to_metric(dt: &NaiveDateTime) -> f64 {
+    dt.and_utc().timestamp() as f64
+}
+
+fn time_to_metric(time: &NaiveTime) -> f64 {
+    time.num_seconds_from_midnight() as f64
+}
+
+fn metric_to_date(metric: f64) -> Option<NaiveDate> {
+    NaiveDate::from_num_days_from_ce_opt(metric.round() as i32)
+}
+
+fn metric_to_datetime(metric: f64) -> Option<NaiveDateTime> {
+    if metric.is_nan() || metric.is_infinite() {
+        return None;
+    }
+    DateTime::<Utc>::from_timestamp(metric.round() as i64, 0).map(|dt| dt.naive_utc())
+}
+
+fn metric_to_time(metric: f64) -> Option<NaiveTime> {
+    let mut seconds = metric.round();
+    if seconds.is_nan() || seconds.is_infinite() {
+        return None;
+    }
+    if seconds < 0.0 {
+        seconds = 0.0;
+    }
+    if seconds >= 86_400.0 {
+        seconds = 86_399.0;
+    }
+    NaiveTime::from_num_seconds_from_midnight_opt(seconds as u32, 0)
+}
+
+fn format_metric(value: f64, datatype: &ColumnType) -> String {
+    match datatype {
+        ColumnType::Integer | ColumnType::Float => format_number(value),
+        ColumnType::Date => metric_to_date(value)
+            .map(|d| d.format("%Y-%m-%d").to_string())
+            .unwrap_or_default(),
+        ColumnType::DateTime => metric_to_datetime(value)
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+            .unwrap_or_default(),
+        ColumnType::Time => metric_to_time(value)
+            .map(|t| t.format("%H:%M:%S").to_string())
+            .unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+fn format_std_dev_value(value: f64, datatype: &ColumnType) -> String {
+    match datatype {
+        ColumnType::Integer | ColumnType::Float => format_number(value),
+        ColumnType::Date => format_duration(value, "days"),
+        ColumnType::DateTime | ColumnType::Time => format_duration(value, "seconds"),
+        _ => String::new(),
+    }
+}
+
+fn format_duration(value: f64, unit: &str) -> String {
+    let magnitude = format_number(value.abs());
+    if magnitude.is_empty() {
+        return String::new();
+    }
+    if value < 0.0 {
+        format!("-{magnitude} {unit}")
+    } else {
+        format!("{magnitude} {unit}")
     }
 }
 

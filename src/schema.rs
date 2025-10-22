@@ -7,7 +7,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    data::{parse_naive_date, parse_naive_datetime},
+    data::{parse_naive_date, parse_naive_datetime, parse_naive_time},
     io_utils,
 };
 
@@ -19,6 +19,7 @@ pub enum ColumnType {
     Boolean,
     Date,
     DateTime,
+    Time,
     Guid,
 }
 
@@ -31,13 +32,14 @@ impl ColumnType {
             ColumnType::Boolean => "boolean",
             ColumnType::Date => "date",
             ColumnType::DateTime => "datetime",
+            ColumnType::Time => "time",
             ColumnType::Guid => "guid",
         }
     }
 
     pub fn variants() -> &'static [&'static str] {
         &[
-            "string", "integer", "float", "boolean", "date", "datetime", "guid",
+            "string", "integer", "float", "boolean", "date", "datetime", "time", "guid",
         ]
     }
 }
@@ -60,6 +62,7 @@ impl std::str::FromStr for ColumnType {
             "boolean" | "bool" => Ok(ColumnType::Boolean),
             "date" => Ok(ColumnType::Date),
             "datetime" | "date-time" | "timestamp" => Ok(ColumnType::DateTime),
+            "time" => Ok(ColumnType::Time),
             "guid" | "uuid" => Ok(ColumnType::Guid),
             _ => Err(anyhow!(
                 "Unknown column type '{value}'. Supported types: {}",
@@ -200,6 +203,7 @@ struct TypeCandidate {
     possible_boolean: bool,
     possible_date: bool,
     possible_datetime: bool,
+    possible_time: bool,
     possible_guid: bool,
 }
 
@@ -211,6 +215,7 @@ impl TypeCandidate {
             possible_boolean: true,
             possible_date: true,
             possible_datetime: true,
+            possible_time: true,
             possible_guid: true,
         }
     }
@@ -236,6 +241,9 @@ impl TypeCandidate {
         if self.possible_datetime && parse_naive_datetime(value).is_err() {
             self.possible_datetime = false;
         }
+        if self.possible_time && parse_naive_time(value).is_err() {
+            self.possible_time = false;
+        }
         if self.possible_guid {
             let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
             if Uuid::parse_str(trimmed).is_err() {
@@ -255,6 +263,8 @@ impl TypeCandidate {
             ColumnType::Date
         } else if self.possible_datetime {
             ColumnType::DateTime
+        } else if self.possible_time {
+            ColumnType::Time
         } else if self.possible_guid {
             ColumnType::Guid
         } else {

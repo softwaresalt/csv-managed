@@ -133,6 +133,7 @@ impl FrequencyAccumulator {
                     Some(Value::Boolean(b)) => b.to_string(),
                     Some(Value::Date(d)) => d.format("%Y-%m-%d").to_string(),
                     Some(Value::DateTime(dt)) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+                    Some(Value::Time(t)) => t.format("%H:%M:%S").to_string(),
                     Some(Value::Guid(g)) => g.to_string(),
                     None => String::from("<empty>"),
                 }

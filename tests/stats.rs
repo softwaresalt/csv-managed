@@ -10,6 +10,13 @@ use csv_managed::schema::{Schema, ValueReplacement};
 const BIG5_DATA: &str = "big_5_players_stats_2023_2024.csv";
 const GOALS_COLUMN: &str = "Performance_Gls";
 const ASSISTS_COLUMN: &str = "Performance_Ast";
+const ORDERS_TEMPORAL_DATA: &str = "orders_temporal.csv";
+const ORDERS_TEMPORAL_SCHEMA: &str = "orders_temporal.schema";
+const ORDERED_AT_COL: &str = "ordered_at";
+const ORDERED_AT_TS_COL: &str = "ordered_at_ts";
+const SHIP_TIME_COL: &str = "ship_time";
+const STATS_TEMPORAL_DATA: &str = "stats_temporal.csv";
+const STATS_TEMPORAL_SCHEMA: &str = "stats_temporal.schema";
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -246,5 +253,123 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
     assert_eq!(
         columns[4], expected_mean_str,
         "mean should reflect replacement"
+    );
+}
+
+fn parse_table_row(line: &str) -> Vec<String> {
+    line.split('|')
+        .map(|cell| cell.trim())
+        .filter(|cell| !cell.is_empty())
+        .map(|cell| cell.to_string())
+        .collect()
+}
+
+#[test]
+fn stats_handles_temporal_columns_from_schema() {
+    let data_path = fixture_path(ORDERS_TEMPORAL_DATA);
+    let schema_path = fixture_path(ORDERS_TEMPORAL_SCHEMA);
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            data_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--columns",
+            ORDERED_AT_COL,
+            "--columns",
+            ORDERED_AT_TS_COL,
+            "--columns",
+            SHIP_TIME_COL,
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+
+    let ordered_line = stdout
+        .lines()
+        .find(|line| line.contains(ORDERED_AT_COL))
+        .expect("ordered_at row present");
+    let ordered_cells = parse_table_row(ordered_line);
+    assert_eq!(ordered_cells[0], ORDERED_AT_COL);
+    assert_eq!(ordered_cells[1], "4");
+    assert_eq!(ordered_cells[2], "2024-01-01");
+    assert_eq!(ordered_cells[3], "2024-02-10");
+    assert!(
+        ordered_cells[6].ends_with("days"),
+        "std dev should note days"
+    );
+
+    let ordered_ts_line = stdout
+        .lines()
+        .find(|line| line.contains(ORDERED_AT_TS_COL))
+        .expect("ordered_at_ts row present");
+    let ordered_ts_cells = parse_table_row(ordered_ts_line);
+    assert_eq!(ordered_ts_cells[0], ORDERED_AT_TS_COL);
+    assert_eq!(ordered_ts_cells[1], "4");
+    assert_eq!(ordered_ts_cells[2], "2024-01-01 06:00:00");
+    assert_eq!(ordered_ts_cells[3], "2024-02-10 14:00:00");
+    assert!(
+        ordered_ts_cells[6].ends_with("seconds"),
+        "std dev should note seconds"
+    );
+
+    let ship_time_line = stdout
+        .lines()
+        .find(|line| line.contains(SHIP_TIME_COL))
+        .expect("ship_time row present");
+    let ship_time_cells = parse_table_row(ship_time_line);
+    assert_eq!(ship_time_cells[0], SHIP_TIME_COL);
+    assert_eq!(ship_time_cells[1], "4");
+    assert_eq!(ship_time_cells[2], "06:00:00");
+    assert_eq!(ship_time_cells[3], "16:30:00");
+    assert_eq!(ship_time_cells[4], "09:37:30");
+    assert_eq!(ship_time_cells[5], "08:00:00");
+    assert!(
+        ship_time_cells[6].ends_with("seconds"),
+        "time std dev should note seconds"
+    );
+}
+
+#[test]
+fn stats_includes_temporal_columns_by_default() {
+    let data_path = fixture_path(STATS_TEMPORAL_DATA);
+    let schema_path = fixture_path(STATS_TEMPORAL_SCHEMA);
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            data_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--limit",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+
+    assert!(
+        stdout.contains(ORDERED_AT_COL),
+        "date column missing: {stdout}"
+    );
+    assert!(
+        stdout.contains(ORDERED_AT_TS_COL),
+        "datetime column missing: {stdout}"
+    );
+    assert!(
+        stdout.contains(SHIP_TIME_COL),
+        "time column missing: {stdout}"
+    );
+    assert!(stdout.contains("id"), "integer column missing: {stdout}");
+    assert!(
+        !stdout.contains("status"),
+        "string column should not be present: {stdout}"
     );
 }

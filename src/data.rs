@@ -16,6 +16,7 @@ pub enum Value {
     Boolean(bool),
     Date(NaiveDate),
     DateTime(NaiveDateTime),
+    Time(NaiveTime),
     Guid(Uuid),
 }
 
@@ -36,6 +37,7 @@ impl Value {
             Value::Boolean(b) => b.to_string(),
             Value::Date(d) => d.format("%Y-%m-%d").to_string(),
             Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+            Value::Time(t) => t.format("%H:%M:%S").to_string(),
             Value::Guid(g) => g.to_string(),
         }
     }
@@ -50,6 +52,7 @@ impl Ord for Value {
             (Value::Boolean(a), Value::Boolean(b)) => a.cmp(b),
             (Value::Date(a), Value::Date(b)) => a.cmp(b),
             (Value::DateTime(a), Value::DateTime(b)) => a.cmp(b),
+            (Value::Time(a), Value::Time(b)) => a.cmp(b),
             (Value::Guid(a), Value::Guid(b)) => a.cmp(b),
             _ => panic!("Cannot compare heterogeneous Value variants"),
         }
@@ -170,6 +173,10 @@ pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> 
             let parsed = parse_naive_datetime(value)?;
             Value::DateTime(parsed)
         }
+        ColumnType::Time => {
+            let parsed = parse_naive_time(value)?;
+            Value::Time(parsed)
+        }
         ColumnType::Guid => {
             let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
             let parsed = Uuid::parse_str(trimmed)
@@ -188,6 +195,7 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
         Value::Boolean(b) => evalexpr::Value::Boolean(*b),
         Value::Date(d) => evalexpr::Value::String(d.format("%Y-%m-%d").to_string()),
         Value::DateTime(dt) => evalexpr::Value::String(dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+        Value::Time(t) => evalexpr::Value::String(t.format("%H:%M:%S").to_string()),
         Value::Guid(g) => evalexpr::Value::String(g.to_string()),
     }
 }

@@ -97,6 +97,8 @@ set RUST_LOG=info
 ./target/release/csv-managed.exe process -i ./data/orders.csv -o ./data/orders_clean.csv --schema ./data/orders.schema
 # 5. Summary statistics
 ./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema
+# 5b. Temporal summary statistics
+./target/release/csv-managed.exe stats -i ./tests/data/stats_temporal.csv -m ./tests/data/stats_temporal.schema --columns ordered_at --columns ordered_at_ts --columns ship_time
 # 6. Frequency counts (top 10)
 ./target/release/csv-managed.exe frequency -i ./data/orders.csv -m ./data/orders.schema --top 10
 # 7. Preview first 15 rows

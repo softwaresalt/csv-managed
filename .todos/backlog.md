@@ -62,34 +62,41 @@
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
-- [ ] Add the ability to perform stats over date, time, and datetime values.
+- [x] Add the ability to perform stats over date, time, and datetime values.
 - [ ] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface.
+- [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
+- [ ] Refactor the verify command into the schema command to simplify the command-line interface; implement as schema --verify.
+- [ ] Refactor the columns command into the schema command to simplify the command-line interface; implement as schema --columns.
+- [ ] Refactor the preview command into the process command to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
 - [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
-- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
 - [ ] Add the ability to index all of the files in a directory matching a single schema file.
-- [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
-- [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
-- [ ] Verify all files in a directory (by extension) against a shared schema in one operation.
-- [ ] Index all files in a directory that share a schema definition.
-- [ ] Perform a union across multiple files with deduplication.
-- [ ] Union and sort all files in a directory, splitting output by row count or file size.
 - [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
 - [ ] Add fast hash signatures per row for indexes defined on primary keys.
-- [ ] Probe files to suggest candidate primary (or composite) keys.
 - [ ] Handle fixed-precision decimal datatypes with configurable scale.
 - [ ] Transform fields between datatypes (e.g., string → date/datetime) in a controlled manner.
 - [ ] Define a currency datatype with enforced precision and standardized formatting/transforms.
-- [ ] Enhance verification capabilities for cloud-scale data validation scenarios.
 
-## Version 1.2.0
+## Version 1.2.0: Bulk Operations Edition
 
 - [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
+- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
+- [ ] Union and sort all files in a directory, splitting output by row count or file size.
+- [ ] Perform a union across multiple files with deduplication.
+- [ ] Probe files to suggest candidate primary (or composite) keys.
+- [ ] Verify all files in a directory (by extension) against a shared schema in one operation.
+- [ ] Enhance verification capabilities for cloud-scale data validation scenarios.
+- [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
+- [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
 
-## Version 1.0.3
+## Version 1.0.3: The Index Edition
+
+- [ ] Index all files in a directory that share a schema definition.
+
+## Version 1.0.4: The Excel Edition
 
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 
@@ -105,5 +112,4 @@
 - [ ] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
-- [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
-- [ ] Refactor the verify command into the schema commant to simplify the command-line interface; implement as schema --verify.
+- [ ] 
