@@ -133,7 +133,7 @@ fn probe_includes_replace_template_when_requested() {
 }
 
 #[test]
-fn columns_command_prints_schema_listing() {
+fn schema_columns_subcommand_prints_schema_listing() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
@@ -151,7 +151,12 @@ fn columns_command_prints_schema_listing() {
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args(["columns", "--schema", schema_path.to_str().unwrap()])
+        .args([
+            "schema",
+            "columns",
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
         .assert()
         .success()
         .stdout(
@@ -159,6 +164,27 @@ fn columns_command_prints_schema_listing() {
                 .and(contains("type"))
                 .and(contains("amount")),
         );
+}
+
+#[test]
+fn schema_help_describes_columns_subcommand() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["schema", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("columns"));
+}
+
+#[test]
+fn schema_columns_requires_schema_argument() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["schema", "columns"])
+        .assert()
+        .failure()
+        .stderr(contains("required arguments were not provided"))
+        .stderr(contains("--schema <SCHEMA>"));
 }
 
 #[test]

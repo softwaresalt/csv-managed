@@ -68,7 +68,7 @@
 - [x] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
 - [x] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new subcommands of the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
 - [x] Refactor the verify command into a subcommand of the schema command to simplify the command-line interface; implement as schema verify.
-- [ ] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
+- [x] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
 - [ ] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
 - [ ] Would it be a better design to combine the join command into the process command?
 - [ ] Expand schema infer --snapshot to include: hash of header sequence + datatype assignments and summary histograms or min/max ranges of sampled values.  Append a “Snapshot Internals” subsection to the README.  Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
@@ -119,5 +119,5 @@
 - [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
-- [ ] Add the ability to
+- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
 - 

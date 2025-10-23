@@ -52,7 +52,6 @@ pub fn run() -> Result<()> {
         Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
         Commands::Join(args) => run_operation("join", || join::execute(&args)),
         Commands::Install(args) => run_operation("install", || install::execute(&args)),
-        Commands::Columns(args) => run_operation("columns", || columns::execute(&args)),
     }
 }
 

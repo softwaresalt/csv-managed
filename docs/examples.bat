@@ -9,6 +9,10 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 .\target\release\csv-managed.exe schema -o .\tmp\schema_list.schema -c "id:integer,status:string,created_at:datetime"
 ::type .\tmp\schema_list.schema
 
+rem List columns from a saved schema file
+.\target\release\csv-managed.exe schema columns --schema .\tests\data\orders.schema
+.\target\release\csv-managed.exe schema columns --schema .\tests\data\big_5_players_stats.schema
+
 rem Probe full file (all rows) to capture mixed column as string
 .\target\release\csv-managed.exe schema infer -i .\tests\data\probe_sample_variation.csv -o .\tmp\probe_full.schema --sample-rows 0
 

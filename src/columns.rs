@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use log::info;
 
-use crate::{cli::ColumnsArgs, schema::Schema, table};
+use crate::{cli::SchemaColumnsArgs, schema::Schema, table};
 
-pub fn execute(args: &ColumnsArgs) -> Result<()> {
+pub fn execute(args: &SchemaColumnsArgs) -> Result<()> {
     let schema = Schema::load(&args.schema)
         .with_context(|| format!("Loading schema from {schema:?}", schema = args.schema))?;
 

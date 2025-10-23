@@ -7,8 +7,11 @@ use anyhow::{Context, Result, anyhow};
 use log::info;
 
 use crate::{
-    cli::{SchemaArgs, SchemaInferArgs, SchemaMode, SchemaProbeArgs, SchemaVerifyArgs},
-    io_utils, printable_delimiter,
+    cli::{
+        SchemaArgs, SchemaColumnsArgs, SchemaInferArgs, SchemaMode, SchemaProbeArgs,
+        SchemaVerifyArgs,
+    },
+    columns, io_utils, printable_delimiter,
     schema::{self, ColumnMeta, ColumnType, InferenceStats, Schema, ValueReplacement},
     table, verify,
 };
@@ -18,6 +21,7 @@ pub fn execute(args: &SchemaArgs) -> Result<()> {
         Some(SchemaMode::Probe(probe_args)) => execute_probe(probe_args),
         Some(SchemaMode::Infer(infer_args)) => execute_infer(infer_args),
         Some(SchemaMode::Verify(verify_args)) => execute_verify(verify_args),
+        Some(SchemaMode::Columns(columns_args)) => execute_columns(columns_args),
         None => execute_manual(args),
     }
 }
@@ -146,6 +150,10 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
 
 fn execute_verify(args: &SchemaVerifyArgs) -> Result<()> {
     verify::execute(args)
+}
+
+fn execute_columns(args: &SchemaColumnsArgs) -> Result<()> {
+    columns::execute(args)
 }
 
 fn required_output_path<'a>(output: Option<&'a Path>, message: &str) -> Result<&'a Path> {

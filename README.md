@@ -10,7 +10,7 @@
 | Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
 | Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `.schema`. See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
-| Column Listing | `columns` renders column positions, types, and aliases derived from schema mapping. See: [columns](#columns). |
+| Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
 | Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
 | Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and combo expansion (`--combo`) for prefix/direction permutations. See: [index](#index). |
 | Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
@@ -632,7 +632,7 @@ Example:
 
 ### install
 
-### columns
+### schema columns
 
 List schema columns and their data types in a formatted table.
 
@@ -643,14 +643,14 @@ List schema columns and their data types in a formatted table.
 PowerShell:
 
 ```powershell
-./target/release/csv-managed.exe columns `
+./target/release/csv-managed.exe schema columns `
   --schema ./data/orders.schema
 ```
 
 cmd.exe:
 
 ```batch
-./target/release/csv-managed.exe columns ^
+./target/release/csv-managed.exe schema columns ^
   --schema ./data/orders.schema
 ```
 
@@ -668,7 +668,6 @@ Example:
 ```powershell
 ./target/release/csv-managed.exe install --locked
 ```
-
 
 ### Data Types
 

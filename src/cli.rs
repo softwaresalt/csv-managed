@@ -27,8 +27,6 @@ pub enum Commands {
     Join(JoinArgs),
     /// Install the csv-managed binary via cargo install
     Install(InstallArgs),
-    /// List column names and data types from a schema file
-    Columns(ColumnsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -55,6 +53,8 @@ pub enum SchemaMode {
     Infer(SchemaInferArgs),
     /// Verify CSV files against a schema definition
     Verify(SchemaVerifyArgs),
+    /// List column names and data types from a schema file
+    Columns(SchemaColumnsArgs),
 }
 
 #[derive(Debug, Args, Clone)]
@@ -287,7 +287,7 @@ pub struct StatsArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ColumnsArgs {
+pub struct SchemaColumnsArgs {
     /// Schema file describing the columns to list
     #[arg(short = 'm', long = "schema", alias = "meta")]
     pub schema: PathBuf,

@@ -18,7 +18,6 @@ Commands:
   stats    Produce summary statistics for numeric columns or frequency counts via --frequency
   join     Join two CSV files on common columns
   install  Install the csv-managed binary via cargo install
-  columns  List column names and data types from a schema file
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -34,16 +33,18 @@ Create a .schema file from explicit column definitions
 Usage: csv-managed.exe schema [OPTIONS] [COMMAND]
 
 Commands:
-    probe   Display inferred schema details without writing a file
-    infer   Infer schema metadata and optionally persist a .schema file
-    verify  Verify CSV files against a schema definition
-    help    Print this message or the help of the given subcommand(s)
+    probe    Display inferred schema details without writing a file
+    infer    Infer schema metadata and optionally persist a .schema file
+    verify   Verify CSV files against a schema definition
+    columns  List column names and data types from a schema file
+    help     Print this message or the help of the given subcommand(s)
 
 Options:
     -o, --output <OUTPUT>         Destination .schema file path (alias --schema retained for compatibility)
     -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
             --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
     -h, --help                    Print help
+```
 
 ### schema probe
 
@@ -121,6 +122,20 @@ Options:
           Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value
   -h, --help
           Print help
+```
+
+### schema columns
+
+```text
+List column names and data types from a schema file
+
+Usage: csv-managed.exe schema columns --schema <SCHEMA>
+
+Options:
+  -m, --schema <SCHEMA>
+      Schema file describing the columns to list
+  -h, --help
+      Print help
 ```
 
 ## index
@@ -325,14 +340,3 @@ Options:
   -h, --help               Print help
 ```
 
-## columns
-
-```text
-List column names and data types from a schema file
-
-Usage: csv-managed.exe columns --schema <SCHEMA>
-
-Options:
-  -m, --schema <SCHEMA>  Schema file describing the columns to list
-  -h, --help             Print help
-```
