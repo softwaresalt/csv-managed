@@ -1,6 +1,11 @@
-use std::{fs::File, path::Path};
+use std::{
+    fs,
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use assert_cmd::Command;
+use csv_managed::schema::{ColumnType, Schema};
 use predicates::str::contains;
 use serde_json::Value;
 use tempfile::tempdir;
@@ -8,6 +13,13 @@ use tempfile::tempdir;
 fn load_schema(path: &Path) -> Value {
     let file = File::open(path).expect("open schema output");
     serde_json::from_reader(file).expect("parse schema json")
+}
+
+fn fixture_path(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("data")
+        .join(name)
 }
 
 fn column(value: &Value, index: usize) -> &Value {
@@ -202,4 +214,236 @@ fn schema_command_validates_replacement_column_names() {
         .assert()
         .failure()
         .stderr(contains("unknown column"));
+}
+
+#[test]
+fn schema_probe_on_big5_reports_samples_and_formats() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("sample"),
+        "probe table missing sample column: {stdout}"
+    );
+    assert!(
+        stdout.contains("format"),
+        "probe table missing format column: {stdout}"
+    );
+    assert!(
+        stdout.contains("Max Aarons"),
+        "expected player sample missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("Whole number") || stdout.contains("Decimal point"),
+        "format hint missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("Sampled 5 row(s)"),
+        "sampling footer missing: {stdout}"
+    );
+}
+
+#[test]
+fn schema_infer_with_overrides_and_mapping_on_big5() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let temp = tempdir().expect("temp dir");
+    let schema_path = temp.path().join("big5_override.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "--mapping",
+            "--override",
+            "Performance_Gls:integer",
+            "--override",
+            "Per 90 Minutes_Gls:string",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "10",
+        ])
+        .assert()
+        .success();
+
+    let schema = Schema::load(&schema_path).expect("load inferred schema");
+    let perf_gls = schema
+        .columns
+        .iter()
+        .find(|col| col.name == "Performance_Gls")
+        .expect("Performance_Gls column");
+    assert_eq!(
+        perf_gls.datatype,
+        ColumnType::Integer,
+        "override should coerce Performance_Gls to integer"
+    );
+
+    let per90_gls = schema
+        .columns
+        .iter()
+        .find(|col| col.name == "Per 90 Minutes_Gls")
+        .expect("Per 90 Minutes_Gls column");
+    assert_eq!(
+        per90_gls.datatype,
+        ColumnType::String,
+        "override should coerce Per 90 Minutes_Gls to string"
+    );
+    assert_eq!(
+        per90_gls.rename.as_deref(),
+        Some("per_90_minutes_gls"),
+        "mapping should add snake_case rename"
+    );
+}
+
+#[test]
+fn schema_probe_snapshot_writes_and_validates_layout() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let temp = tempfile::tempdir().expect("temp dir");
+    let snapshot_path = temp.path().join("probe.snap");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let snapshot = fs::read_to_string(&snapshot_path).expect("snapshot written");
+    assert!(
+        snapshot.contains("Sampled"),
+        "snapshot missing footer: {snapshot}"
+    );
+
+    // Second run should succeed when snapshot matches.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Deliberately corrupt snapshot to ensure mismatch is detected.
+    fs::write(&snapshot_path, "corrupted snapshot").expect("overwrite snapshot");
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("Probe output does not match snapshot"));
+}
+
+#[test]
+fn schema_infer_snapshot_writes_and_validates_layout() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let temp = tempfile::tempdir().expect("temp dir");
+    let snapshot_path = temp.path().join("infer.snap");
+    let schema_path = temp.path().join("infer.schema");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let snapshot = fs::read_to_string(&snapshot_path).expect("snapshot written");
+    assert!(
+        snapshot.contains("Sampled"),
+        "snapshot missing footer: {snapshot}"
+    );
+
+    let schema_contents = fs::read_to_string(&schema_path).expect("schema written");
+    assert!(
+        schema_contents.contains("columns"),
+        "schema output missing columns"
+    );
+
+    // Second run should still succeed when snapshot matches the rendered output.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Corrupt snapshot to ensure mismatch detection fires.
+    fs::write(&snapshot_path, "corrupted snapshot").expect("overwrite snapshot");
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "5",
+            "--snapshot",
+            snapshot_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("Probe output does not match snapshot"));
 }

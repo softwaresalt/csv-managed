@@ -65,10 +65,13 @@
 - [x] Add the ability to perform stats over date, time, and datetime values.
 - [x] Refactor the frequency command features & capabilities to be incorporated into the stats command and subsequently remove the frequency command to simplify the command-line interface; implement as stats --frequency.
 - [x] Add the ability to apply a filter on the stats commmand to filter the rows on which stats are being calculated, including for use with the --frequency flag.
-- [ ] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new flags to the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
-- [ ] Refactor the verify command into the schema command to simplify the command-line interface; implement as schema --verify.
-- [ ] Refactor the columns command into the schema command to simplify the command-line interface; implement as schema --columns.
-- [ ] Refactor the preview command into the process command to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
+- [x] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
+- [x] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new subcommands of the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
+- [x] Refactor the verify command into a subcommand of the schema command to simplify the command-line interface; implement as schema verify.
+- [ ] How does the new snapshot feature differ from the schema verify command?
+- [ ] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
+- [ ] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
+- [ ] Would it be a better design to combine the join command into the process command?
 - [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
@@ -110,7 +113,8 @@
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
 - [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
 - [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
-- [x] Add a --filter feature to the stats command to filter the rows on which stats are being calculated; filter should operate as a forward-only, in-place read of the data and should not require temporary files.
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
-- [ ] 
+- [ ] Add the ability to read Parquet files.
+- [ ] Add the ability to
+- 

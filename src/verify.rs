@@ -4,14 +4,14 @@ use anyhow::{Context, Result, anyhow};
 use log::info;
 
 use crate::{
-    cli::VerifyArgs,
+    cli::SchemaVerifyArgs,
     data::parse_typed_value,
     io_utils,
     schema::{ColumnType, Schema},
     table,
 };
 
-pub fn execute(args: &VerifyArgs) -> Result<()> {
+pub fn execute(args: &SchemaVerifyArgs) -> Result<()> {
     let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
     let schema = Schema::load(&args.schema)
         .with_context(|| format!("Loading schema from {schema:?}", schema = args.schema))?;

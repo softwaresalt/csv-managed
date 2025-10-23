@@ -19,10 +19,11 @@ fn probe_full_scan_detects_string_in_mixed_column() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             fixture_path("probe_sample_variation.csv").to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--sample-rows",
             "0",
@@ -46,10 +47,11 @@ fn probe_sampling_can_limit_type_detection() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             fixture_path("probe_sample_variation.csv").to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--sample-rows",
             "1",
@@ -79,10 +81,11 @@ fn probe_honors_input_encoding() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             input_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--input-encoding",
             "windows-1252",

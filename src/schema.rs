@@ -102,6 +102,34 @@ pub struct Schema {
     pub columns: Vec<ColumnMeta>,
 }
 
+#[derive(Debug, Clone)]
+pub struct InferenceStats {
+    sample_values: Vec<Option<String>>,
+    rows_read: usize,
+    requested_rows: usize,
+    decode_errors: usize,
+}
+
+impl InferenceStats {
+    pub fn sample_value(&self, index: usize) -> Option<&str> {
+        self.sample_values
+            .get(index)
+            .and_then(|value| value.as_deref())
+    }
+
+    pub fn rows_read(&self) -> usize {
+        self.rows_read
+    }
+
+    pub fn requested_rows(&self) -> usize {
+        self.requested_rows
+    }
+
+    pub fn decode_errors(&self) -> usize {
+        self.decode_errors
+    }
+}
+
 impl Schema {
     pub fn from_headers(headers: &[String]) -> Self {
         let columns = headers
@@ -279,13 +307,25 @@ pub fn infer_schema(
     delimiter: u8,
     encoding: &'static Encoding,
 ) -> Result<Schema> {
+    let (schema, _stats) = infer_schema_with_stats(path, sample_rows, delimiter, encoding)?;
+    Ok(schema)
+}
+
+pub fn infer_schema_with_stats(
+    path: &Path,
+    sample_rows: usize,
+    delimiter: u8,
+    encoding: &'static Encoding,
+) -> Result<(Schema, InferenceStats)> {
     let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
     let header_record = reader.byte_headers()?.clone();
     let headers = io_utils::decode_headers(&header_record, encoding)?;
     let mut candidates = vec![TypeCandidate::new(); headers.len()];
+    let mut samples = vec![None; headers.len()];
 
     let mut record = csv::ByteRecord::new();
     let mut processed = 0usize;
+    let mut decode_errors = 0usize;
     while reader.read_byte_record(&mut record)? {
         if sample_rows > 0 && processed >= sample_rows {
             break;
@@ -294,8 +334,20 @@ pub fn infer_schema(
             if field.is_empty() {
                 continue;
             }
-            let decoded = io_utils::decode_bytes(field, encoding)?;
-            candidates[idx].update(&decoded);
+            match io_utils::decode_bytes(field, encoding) {
+                Ok(decoded) => {
+                    if decoded.is_empty() {
+                        continue;
+                    }
+                    candidates[idx].update(&decoded);
+                    if samples[idx].is_none() {
+                        samples[idx] = Some(decoded);
+                    }
+                }
+                Err(_) => {
+                    decode_errors += 1;
+                }
+            }
         }
         processed += 1;
     }
@@ -311,7 +363,93 @@ pub fn infer_schema(
         })
         .collect();
 
-    Ok(Schema { columns })
+    let schema = Schema { columns };
+    let stats = InferenceStats {
+        sample_values: samples,
+        rows_read: processed,
+        requested_rows: sample_rows,
+        decode_errors,
+    };
+
+    Ok((schema, stats))
+}
+
+pub(crate) fn format_hint_for(datatype: &ColumnType, sample: Option<&str>) -> Option<String> {
+    let sample = sample?;
+    match datatype {
+        ColumnType::DateTime => {
+            if sample.contains('T') {
+                Some("ISO 8601 date-time".to_string())
+            } else if sample.contains('/') {
+                Some("Slash-separated date-time".to_string())
+            } else if sample.contains('-') {
+                Some("Hyphen-separated date-time".to_string())
+            } else {
+                Some("Date-time without delimiter hints".to_string())
+            }
+        }
+        ColumnType::Date => {
+            if sample.contains('/') {
+                Some("Slash-separated date".to_string())
+            } else if sample.contains('-') {
+                Some("Hyphen-separated date".to_string())
+            } else if sample.contains('.') {
+                Some("Dot-separated date".to_string())
+            } else {
+                Some("Date without delimiter hints".to_string())
+            }
+        }
+        ColumnType::Time => {
+            if sample.contains('.') {
+                Some("Time with fractional seconds".to_string())
+            } else {
+                Some("Colon-separated time".to_string())
+            }
+        }
+        ColumnType::Boolean => {
+            let normalized = sample.trim().to_ascii_lowercase();
+            if matches!(normalized.as_str(), "true" | "false" | "t" | "f") {
+                Some("Boolean (true/false tokens)".to_string())
+            } else if matches!(normalized.as_str(), "yes" | "no" | "y" | "n") {
+                Some("Boolean (yes/no tokens)".to_string())
+            } else if matches!(normalized.as_str(), "1" | "0") {
+                Some("Boolean (1/0 tokens)".to_string())
+            } else {
+                Some("Boolean (mixed tokens)".to_string())
+            }
+        }
+        ColumnType::Float => {
+            let has_currency = ["$", "€", "£", "¥"]
+                .iter()
+                .any(|symbol| sample.contains(symbol));
+            if has_currency {
+                Some("Currency symbol detected".to_string())
+            } else if sample.contains(',') {
+                Some("Thousands separator present".to_string())
+            } else if sample.contains('.') {
+                Some("Decimal point".to_string())
+            } else {
+                Some("Floating number without decimal point".to_string())
+            }
+        }
+        ColumnType::Integer => {
+            if sample.starts_with('0') && sample.len() > 1 {
+                Some("Leading zeros preserved".to_string())
+            } else {
+                Some("Whole number".to_string())
+            }
+        }
+        ColumnType::Guid => {
+            if sample.contains('{') || sample.contains('}') {
+                Some("GUID with braces".to_string())
+            } else if sample.contains('-') {
+                Some("Canonical GUID".to_string())
+            } else {
+                Some("GUID without separators".to_string())
+            }
+        }
+        ColumnType::String => None,
+    }
 }
 
 impl ColumnMeta {
@@ -341,5 +479,45 @@ impl Schema {
                 *value = normalized;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use encoding_rs::UTF_8;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn infer_schema_with_stats_captures_samples() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "id,date,value").unwrap();
+        writeln!(file, "1,2024-01-01T08:30:00Z,$12.34").unwrap();
+        writeln!(file, "2,2024-01-02T09:45:00Z,$56.78").unwrap();
+
+        let (schema, stats) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer with stats");
+
+        assert_eq!(schema.columns.len(), 3);
+        assert_eq!(stats.sample_value(1), Some("2024-01-01T08:30:00Z"));
+        assert_eq!(stats.sample_value(2), Some("$12.34"));
+        assert_eq!(stats.rows_read(), 2);
+        assert_eq!(stats.decode_errors(), 0);
+    }
+
+    #[test]
+    fn format_hint_detects_common_patterns() {
+        let date_hint = format_hint_for(&ColumnType::Date, Some("2024/01/30"));
+        assert_eq!(date_hint.as_deref(), Some("Slash-separated date"));
+
+        let currency_hint = format_hint_for(&ColumnType::Float, Some("€1,234.50"));
+        assert_eq!(currency_hint.as_deref(), Some("Currency symbol detected"));
+
+        let guid_hint = format_hint_for(
+            &ColumnType::Guid,
+            Some("{ABCDEF12-3456-7890-ABCD-EF1234567890}"),
+        );
+        assert_eq!(guid_hint.as_deref(), Some("GUID with braces"));
     }
 }

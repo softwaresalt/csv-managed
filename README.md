@@ -7,7 +7,7 @@
 | Area | Description |
 |------|-------------|
 | Delimiters & encodings | Read/write comma, tab, pipe, semicolon, or any ASCII delimiter; override output delimiter; stream via stdin/stdout (`-`) with explicit `--input-encoding` / `--output-encoding`. |
-| Schema inference (`probe`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, and Guid columns; optional `--mapping` and `--replace` templates saved to `.schema`. |
+| Schema inference (`schema --infer`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, and Guid columns; optional `--mapping` and `--replace-template` scaffolding saved to `.schema`. |
 | Schema authoring & listing | `schema` builds manual definitions with renames and replacements; `columns` prints column positions, names, types, and output aliases. |
 | Value normalization | Schema `replace` arrays and boolean normalization convert legacy tokens before typed operations; `process --boolean-format` controls emitted true/false representation. |
 | Indexing (`index`) | Build B-tree index files with multiple named variants, mixed asc/desc columns, and combo expansion for shared prefixes. |
@@ -15,7 +15,7 @@
 | Filtering & projection | Type-aware filters (`= != > >= < <= contains startswith endswith`), evalexpr filters (`--filter-expr`) with temporal helpers, column inclusion/exclusion, row limits, and optional 1-based row numbers. |
 | Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
 | Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
-| Verification (`verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
+| Verification (`schema verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
 | Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `--filter`/`--filter-expr` limit the rows considered and also apply to `stats --frequency`, which reports distinct value counts with optional top-N cap. |
 | Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
 | Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
@@ -88,7 +88,7 @@ set RUST_LOG=info
 
 ```powershell
 # 1. Infer schema
-./target/release/csv-managed.exe probe -i ./data/orders.csv -m ./data/orders.schema --sample-rows 0
+./target/release/csv-managed.exe schema infer -i ./data/orders.csv -o ./data/orders.schema --sample-rows 0
 # 2. Build index (optional for sorted reads)
 ./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders.schema
 # 3. Process with filters / derives / sort
@@ -108,49 +108,64 @@ set RUST_LOG=info
 # 9. Append monthly extracts
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
 # 10. Verify integrity (summary default)
-./target/release/csv-managed.exe verify -m orders.schema -i q1.csv
+./target/release/csv-managed.exe schema verify -m orders.schema -i q1.csv
 #     Investigate failures with highlighted samples (optional limit)
-./target/release/csv-managed.exe verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
+./target/release/csv-managed.exe schema verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
 ```
 
 ## Command Reference
 
 Detailed `--help` output for every command is mirrored in `docs/cli-help.md` for quick reference.
 
-### probe
+### schema
 
-Infer column types and produce a `.schema` JSON file.
+Infer column types from existing data, emit mapping templates, or define columns explicitly.
 
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE>` | Input CSV file. |
-| `-m, --schema <FILE>` | Output schema file. |
-| `--sample-rows <N>` | Sample size (`0` = full scan). |
-| `--delimiter <VAL>` | Input delimiter. |
-| `--mapping` | Insert default lowercase_with_underscores `name_mapping` aliases into the `.schema` file and print templates to stdout. |
-| `--replace` | Emit empty `replace` arrays for each column as a template for future value substitutions. |
+| Command / Flag | Description |
+|----------------|-------------|
+| `schema probe` | Display inferred columns and types in a console table without writing a file. |
+| `schema infer` | Write an inferred JSON schema to the path supplied by `-o/--output`. |
+| `-i, --input <FILE>` | Input CSV file to analyze during probe/infer. |
+| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained). |
+| `-c, --column <SPEC>` | Manual column definitions such as `name:type->Output Name`. |
+| `--replace <SPEC>` | Value replacement directives `column=value->replacement`. |
+| `--sample-rows <N>` | Sample size for inference (`0` = full scan). |
+| `--delimiter <VAL>` | CSV delimiter override when probing or inferring. |
+| `--mapping` | Populate default `name_mapping` aliases and print mapping templates. |
+| `--replace-template` | Emit empty `replace` arrays for each column when inferring. |
+| `--override <SPEC>` | Force inferred column types (e.g. `amount:decimal`). |
+| `--snapshot <PATH>` | Validate probe layouts against a snapshot file (writes it if missing). |
 
-PowerShell:
+When the `probe` subcommand is used, an elastic table highlights inferred sample values, lightweight format hints, and whether each column already has mapping aliases or type overrides. A footer summarizes how many rows were scanned (including the requested limit) and notes any values skipped due to decoding errors.
+
+Passing `--snapshot <path>` to either `schema probe` or `schema infer` captures the rendered probe output to the specified file (creating it on first run) and compares future executions against the frozen layout, causing the command to fail if the formatting changes unexpectedly.
+
+Additional end-to-end command permutations are documented in [`docs/schema-examples.md`](docs/schema-examples.md).
+
+PowerShell (inference mode):
 
 ```powershell
-./target/release/csv-managed.exe probe `
+./target/release/csv-managed.exe schema infer `
   -i ./data/orders.csv `
-  -m ./data/orders.schema `
+  -o ./data/orders.schema `
   --delimiter tab `
   --sample-rows 0 `
-  ```
+  --mapping `
+  --replace-template
+```
+
+PowerShell (explicit columns with replacements):
 
 ```powershell
 ./target/release/csv-managed.exe schema `
   -o ./schemas/orders.schema `
   -c id:integer->Identifier `
-  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string ^
-  --replace status=Pending->Open ^
-  --replace status=Closed (Legacy)->Closed
+  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string `
+  --replace status=Pending->Open `
+  --replace "status=Closed (Legacy)->Closed"
 ```
 
 cmd.exe:
-Use `--replace` to normalize legacy tokens or synonyms before validation and processing; each entry populates the column's `replace` array in the schema file.
 
 ```batch
 ./target/release/csv-managed.exe schema ^
@@ -283,7 +298,7 @@ Example:
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
 ```
 
-### verify
+### schema verify
 
 Validate one or more CSV files against a schema definition.
 
@@ -582,7 +597,7 @@ Set `RUST_LOG=csv_managed=debug` (or `info`) for insight into phases (index use,
 cargo test
 ```
 
-Integration tests cover probe, index, process (filters, derives, sort, delimiters). Additional tests planned for joins and stats frequency scenarios.
+Integration tests cover schema inference, index, process (filters, derives, sort, delimiters). Additional tests planned for joins and stats frequency scenarios.
 
 ### Contributing
 

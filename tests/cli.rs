@@ -48,10 +48,11 @@ fn probe_creates_schema_with_custom_delimiter() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--delimiter",
             ";",
@@ -109,12 +110,13 @@ fn probe_includes_replace_template_when_requested() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
-            "--replace",
+            "--replace-template",
         ])
         .assert()
         .success();
@@ -137,10 +139,11 @@ fn columns_command_prints_schema_listing() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -166,10 +169,11 @@ fn probe_emits_mappings_into_schema_and_stdout() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--mapping",
         ])
@@ -196,16 +200,49 @@ fn probe_emits_mappings_into_schema_and_stdout() {
 }
 
 #[test]
+fn schema_probe_outputs_enhanced_table() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--mapping",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("override"),
+        "override column missing: {stdout}"
+    );
+    assert!(stdout.contains("sample"), "sample column missing: {stdout}");
+    assert!(stdout.contains("format"), "format column missing: {stdout}");
+    assert!(
+        stdout.contains("Sampled"),
+        "sample summary missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("No decoding errors encountered."),
+        "decode summary missing: {stdout}"
+    );
+}
+
+#[test]
 fn process_sorts_filters_and_derives_output() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema.schema");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -246,10 +283,11 @@ fn process_applies_value_replacements_from_schema() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -297,10 +335,11 @@ fn verify_reports_header_mismatch_detail() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -316,6 +355,7 @@ fn verify_reports_header_mismatch_detail() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -340,6 +380,7 @@ fn verify_reports_summary_only_by_default() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -367,6 +408,7 @@ fn verify_reports_invalid_rows_with_limit_using_fixture() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -395,6 +437,7 @@ fn verify_reports_all_invalid_rows_without_limit() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -423,10 +466,11 @@ fn index_is_used_for_sorted_output() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -485,10 +529,11 @@ fn index_combo_spec_generates_multiple_variants() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -590,10 +635,11 @@ fn process_accepts_named_index_variant() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()
@@ -653,10 +699,11 @@ fn process_errors_when_variant_missing() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             csv_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
         ])
         .assert()

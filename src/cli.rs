@@ -11,8 +11,6 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Probe a CSV file and infer column data types into a .schema file
-    Probe(ProbeArgs),
     /// Create a .schema file from explicit column definitions
     Schema(SchemaArgs),
     /// Create a B-Tree index (.idx) for one or more columns
@@ -21,8 +19,6 @@ pub enum Commands {
     Process(ProcessArgs),
     /// Append multiple CSV files into a single output
     Append(AppendArgs),
-    /// Verify one or more CSV files against a schema definition
-    Verify(VerifyArgs),
     /// Preview the first few rows of a CSV file in a formatted table
     Preview(PreviewArgs),
     /// Produce summary statistics for numeric columns or frequency counts via --frequency
@@ -36,15 +32,38 @@ pub enum Commands {
 }
 
 #[derive(Debug, Args)]
-pub struct ProbeArgs {
+pub struct SchemaArgs {
+    /// Manual schema creation and shared options
+    #[command(subcommand)]
+    pub mode: Option<SchemaMode>,
+    /// Destination .schema file path (alias --schema retained for compatibility)
+    #[arg(short = 'o', long = "output", alias = "schema", short_alias = 'm')]
+    pub output: Option<PathBuf>,
+    /// Column definitions using `name:type` syntax (comma-separated or repeatable)
+    #[arg(short = 'c', long = "column", action = clap::ArgAction::Append)]
+    pub columns: Vec<String>,
+    /// Value replacement directives using `column=value->replacement`
+    #[arg(long = "replace", action = clap::ArgAction::Append)]
+    pub replacements: Vec<String>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SchemaMode {
+    /// Display inferred schema details without writing a file
+    Probe(SchemaProbeArgs),
+    /// Infer schema metadata and optionally persist a .schema file
+    Infer(SchemaInferArgs),
+    /// Verify CSV files against a schema definition
+    Verify(SchemaVerifyArgs),
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct SchemaProbeArgs {
     /// Input CSV file to inspect
     #[arg(short = 'i', long = "input")]
     pub input: PathBuf,
-    /// Destination .schema file path
-    #[arg(short = 'm', long = "schema", alias = "meta")]
-    pub schema: PathBuf,
     /// Number of rows to sample when inferring types (0 means full scan)
-    #[arg(long, default_value_t = 2000)]
+    #[arg(long = "sample-rows", default_value_t = 2000)]
     pub sample_rows: usize,
     /// CSV delimiter character (supports ',', 'tab', ';', '|')
     #[arg(long, value_parser = parse_delimiter)]
@@ -55,22 +74,43 @@ pub struct ProbeArgs {
     /// Emit column mapping templates to stdout after probing
     #[arg(long = "mapping")]
     pub mapping: bool,
-    /// Inject empty replace arrays into the generated schema as a template
-    #[arg(long = "replace")]
+    /// Override inferred column types using `name:type`
+    #[arg(long = "override", action = clap::ArgAction::Append)]
+    pub overrides: Vec<String>,
+    /// Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
+    #[arg(long = "snapshot")]
+    pub snapshot: Option<PathBuf>,
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct SchemaInferArgs {
+    #[command(flatten)]
+    pub probe: SchemaProbeArgs,
+    /// Destination .schema file path (alias --schema retained for compatibility)
+    #[arg(short = 'o', long = "output", alias = "schema", short_alias = 'm')]
+    pub output: Option<PathBuf>,
+    /// Inject empty replace arrays into the generated schema as a template when inferring
+    #[arg(long = "replace-template")]
     pub replace_template: bool,
 }
 
-#[derive(Debug, Args)]
-pub struct SchemaArgs {
-    /// Destination .schema file path
-    #[arg(short = 'o', long = "output")]
-    pub output: PathBuf,
-    /// Column definitions using `name:type` syntax (comma-separated or repeatable)
-    #[arg(short = 'c', long = "column", action = clap::ArgAction::Append, required = true)]
-    pub columns: Vec<String>,
-    /// Value replacement directives using `column=value->replacement`
-    #[arg(long = "replace", action = clap::ArgAction::Append)]
-    pub replacements: Vec<String>,
+#[derive(Debug, Args, Clone)]
+pub struct SchemaVerifyArgs {
+    /// Schema file describing the expected structure
+    #[arg(short = 'm', long = "schema", alias = "meta")]
+    pub schema: PathBuf,
+    /// One or more CSV files to verify
+    #[arg(short = 'i', long = "input", required = true, action = clap::ArgAction::Append)]
+    pub inputs: Vec<PathBuf>,
+    /// CSV delimiter character
+    #[arg(long, value_parser = parse_delimiter)]
+    pub delimiter: Option<u8>,
+    /// Character encoding for input files (defaults to utf-8)
+    #[arg(long = "input-encoding")]
+    pub input_encoding: Option<String>,
+    /// Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value.
+    #[arg(long = "report-invalid", value_name = "OPTIONS", num_args = 0..=3)]
+    pub report_invalid: Option<Vec<String>>,
 }
 
 #[derive(Debug, Args)]
@@ -194,25 +234,6 @@ pub struct AppendArgs {
     /// Character encoding for the output file/stdout (defaults to utf-8)
     #[arg(long = "output-encoding")]
     pub output_encoding: Option<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct VerifyArgs {
-    /// Schema file describing the expected structure
-    #[arg(short = 'm', long = "schema", alias = "meta")]
-    pub schema: PathBuf,
-    /// One or more CSV files to verify
-    #[arg(short = 'i', long = "input", required = true, action = clap::ArgAction::Append)]
-    pub inputs: Vec<PathBuf>,
-    /// CSV delimiter character
-    #[arg(long, value_parser = parse_delimiter)]
-    pub delimiter: Option<u8>,
-    /// Character encoding for input files (defaults to utf-8)
-    #[arg(long = "input-encoding")]
-    pub input_encoding: Option<String>,
-    /// Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value.
-    #[arg(long = "report-invalid", value_name = "OPTIONS", num_args = 0..=3)]
-    pub report_invalid: Option<Vec<String>>,
 }
 
 #[derive(Debug, Args)]

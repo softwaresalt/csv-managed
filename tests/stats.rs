@@ -135,10 +135,11 @@ fn stats_columns_flag_limits_output_with_big5_schema() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             subset_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--sample-rows",
             "0",
@@ -185,10 +186,11 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "probe",
+            "schema",
+            "infer",
             "-i",
             clean_subset_path.to_str().unwrap(),
-            "-m",
+            "-o",
             schema_path.to_str().unwrap(),
             "--sample-rows",
             "0",

@@ -44,12 +44,10 @@ pub fn run() -> Result<()> {
     init_logging();
     let cli = Cli::parse_from(preprocess_cli_args(env::args_os()));
     match cli.command {
-        Commands::Probe(args) => run_operation("probe", || handle_probe(&args)),
         Commands::Index(args) => run_operation("index", || handle_index(&args)),
         Commands::Schema(args) => run_operation("schema", || schema_cmd::execute(&args)),
         Commands::Process(args) => run_operation("process", || process::execute(&args)),
         Commands::Append(args) => run_operation("append", || append::execute(&args)),
-        Commands::Verify(args) => run_operation("verify", || verify::execute(&args)),
         Commands::Preview(args) => run_operation("preview", || preview::execute(&args)),
         Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
         Commands::Join(args) => run_operation("join", || join::execute(&args)),
@@ -100,119 +98,6 @@ where
     }
 
     result
-}
-
-fn handle_probe(args: &cli::ProbeArgs) -> Result<()> {
-    let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
-    let encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
-    info!(
-        "Probing '{}' with delimiter '{}'",
-        args.input.display(),
-        printable_delimiter(delimiter)
-    );
-    let mut schema = schema::infer_schema(&args.input, args.sample_rows, delimiter, encoding)
-        .with_context(|| format!("Inferring schema from {input:?}", input = args.input))?;
-    if args.mapping {
-        apply_default_name_mappings(&mut schema);
-    }
-    if args.replace_template {
-        schema
-            .save_with_replace_template(&args.schema)
-            .with_context(|| format!("Writing schema to {:?}", args.schema))?;
-    } else {
-        schema
-            .save(&args.schema)
-            .with_context(|| format!("Writing schema to {:?}", args.schema))?;
-    }
-    info!(
-        "Inferred schema for {} column(s) written to {:?}",
-        schema.columns.len(),
-        args.schema
-    );
-
-    if args.mapping {
-        emit_mappings(&schema);
-    }
-    Ok(())
-}
-
-fn apply_default_name_mappings(schema: &mut schema::Schema) {
-    for column in &mut schema.columns {
-        if column.rename.is_none() {
-            column.rename = Some(to_lower_snake_case(&column.name));
-        }
-    }
-}
-
-fn to_lower_snake_case(value: &str) -> String {
-    let mut result = String::new();
-    let mut chars = value.chars().peekable();
-    let mut last_was_separator = true;
-    let mut last_was_upper = false;
-    while let Some(ch) = chars.next() {
-        if ch.is_ascii_alphanumeric() {
-            if ch.is_ascii_uppercase() {
-                let next_is_lowercase = chars
-                    .peek()
-                    .map(|c| c.is_ascii_lowercase())
-                    .unwrap_or(false);
-                if !result.is_empty()
-                    && (!last_was_separator && (!last_was_upper || next_is_lowercase))
-                    && !result.ends_with('_')
-                {
-                    result.push('_');
-                }
-                result.push(ch.to_ascii_lowercase());
-                last_was_separator = false;
-                last_was_upper = true;
-            } else {
-                if !result.is_empty() && last_was_separator && !result.ends_with('_') {
-                    result.push('_');
-                }
-                result.push(ch.to_ascii_lowercase());
-                last_was_separator = false;
-                last_was_upper = false;
-            }
-        } else {
-            if !result.ends_with('_') && !result.is_empty() {
-                result.push('_');
-            }
-            last_was_separator = true;
-            last_was_upper = false;
-        }
-    }
-    while result.ends_with('_') {
-        result.pop();
-    }
-    if result.is_empty() {
-        value.to_ascii_lowercase()
-    } else {
-        result
-    }
-}
-
-fn emit_mappings(schema: &schema::Schema) {
-    if schema.columns.is_empty() {
-        println!("No columns found to emit mappings.");
-        return;
-    }
-    let mut rows = Vec::with_capacity(schema.columns.len());
-    for (idx, column) in schema.columns.iter().enumerate() {
-        let mapping = format!("{}:{}->", column.name, column.datatype.as_str());
-        rows.push(vec![
-            (idx + 1).to_string(),
-            column.name.clone(),
-            column.datatype.to_string(),
-            mapping,
-        ]);
-    }
-    let headers = vec![
-        "#".to_string(),
-        "name".to_string(),
-        "type".to_string(),
-        "mapping".to_string(),
-    ];
-    table::print_table(&headers, &rows);
 }
 
 fn handle_index(args: &cli::IndexArgs) -> Result<()> {
@@ -284,27 +169,5 @@ pub(crate) fn printable_delimiter(delimiter: u8) -> String {
         b'\t' => "\\t".to_string(),
         b'\n' => "\\n".to_string(),
         other => (other as char).to_string(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::to_lower_snake_case;
-
-    #[test]
-    fn converts_camel_case_to_snake() {
-        assert_eq!(to_lower_snake_case("OrderDate"), "order_date");
-    }
-
-    #[test]
-    fn collapses_separators() {
-        assert_eq!(to_lower_snake_case("customer-name"), "customer_name");
-        assert_eq!(to_lower_snake_case("customer  name"), "customer_name");
-    }
-
-    #[test]
-    fn handles_acronyms() {
-        assert_eq!(to_lower_snake_case("APIKey"), "api_key");
-        assert_eq!(to_lower_snake_case("HTTPStatus"), "http_status");
     }
 }

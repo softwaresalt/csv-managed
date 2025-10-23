@@ -63,10 +63,11 @@ fn create_schema_internal(
     let schema_str = schema.to_str().expect("schema path utf-8");
     let delimiter = delimiter_for(input);
     let mut args = vec![
-        "probe".to_string(),
+        "schema".to_string(),
+        "infer".to_string(),
         "-i".to_string(),
         input_str.to_string(),
-        "-m".to_string(),
+        "-o".to_string(),
         schema_str.to_string(),
         "--sample-rows".to_string(),
         "0".to_string(),
@@ -776,6 +777,7 @@ fn verify_accepts_valid_big5_subset() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -819,6 +821,7 @@ fn verify_rejects_invalid_numeric_value() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),
@@ -878,6 +881,7 @@ fn verify_accepts_value_after_replacement() {
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
+            "schema",
             "verify",
             "-m",
             schema_path.to_str().unwrap(),

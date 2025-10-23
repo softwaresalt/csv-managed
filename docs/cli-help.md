@@ -1,6 +1,6 @@
-# CLI Help (Regenerated 2025-10-21)
+# CLI Help (Regenerated 2025-10-23)
 
-Captured with `cargo run -- <subcommand> --help` on Windows PowerShell.
+Captured with `./target/release/csv-managed.exe <subcommand> --help` on Windows PowerShell.
 
 ## Global Help
 
@@ -10,12 +10,10 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-  probe    Probe a CSV file and infer column data types into a .schema file
   schema   Create a .schema file from explicit column definitions
   index    Create a B-Tree index (.idx) for one or more columns
   process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
   append   Append multiple CSV files into a single output
-  verify   Verify one or more CSV files against a schema definition
   preview  Preview the first few rows of a CSV file in a formatted table
   stats    Produce summary statistics for numeric columns or frequency counts via --frequency
   join     Join two CSV files on common columns
@@ -28,18 +26,35 @@ Options:
   -V, --version  Print version
 ```
 
-## probe
+## schema
 
 ```text
-Probe a CSV file and infer column data types into a .schema file
+Create a .schema file from explicit column definitions
 
-Usage: csv-managed.exe probe [OPTIONS] --input <INPUT> --schema <SCHEMA>
+Usage: csv-managed.exe schema [OPTIONS] [COMMAND]
+
+Commands:
+    probe   Display inferred schema details without writing a file
+    infer   Infer schema metadata and optionally persist a .schema file
+    verify  Verify CSV files against a schema definition
+    help    Print this message or the help of the given subcommand(s)
+
+Options:
+    -o, --output <OUTPUT>         Destination .schema file path (alias --schema retained for compatibility)
+    -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
+            --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
+    -h, --help                    Print help
+
+### schema probe
+
+```text
+Display inferred schema details without writing a file
+
+Usage: csv-managed.exe schema probe [OPTIONS] --input <INPUT>
 
 Options:
   -i, --input <INPUT>
           Input CSV file to inspect
-  -m, --schema <SCHEMA>
-          Destination .schema file path
       --sample-rows <SAMPLE_ROWS>
           Number of rows to sample when inferring types (0 means full scan) [default: 2000]
       --delimiter <DELIMITER>
@@ -48,24 +63,64 @@ Options:
           Character encoding of the input file (defaults to utf-8)
       --mapping
           Emit column mapping templates to stdout after probing
-      --replace
-          Inject empty replace arrays into the generated schema as a template
+      --override <OVERRIDES>
+          Override inferred column types using `name:type`
+      --snapshot <SNAPSHOT>
+          Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
   -h, --help
           Print help
 ```
 
-## schema
+### schema infer
 
 ```text
-Create a .schema file from explicit column definitions
+Infer schema metadata and optionally persist a .schema file
 
-Usage: csv-managed.exe schema [OPTIONS] --output <OUTPUT> --column <COLUMNS>
+Usage: csv-managed.exe schema infer [OPTIONS] --input <INPUT>
 
 Options:
-  -o, --output <OUTPUT>         Destination .schema file path
-  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
-      --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
-  -h, --help                    Print help
+  -i, --input <INPUT>
+          Input CSV file to inspect
+      --sample-rows <SAMPLE_ROWS>
+          Number of rows to sample when inferring types (0 means full scan) [default: 2000]
+      --delimiter <DELIMITER>
+          CSV delimiter character (supports ',', 'tab', ';', '|')
+      --input-encoding <INPUT_ENCODING>
+          Character encoding of the input file (defaults to utf-8)
+      --mapping
+          Emit column mapping templates to stdout after probing
+      --override <OVERRIDES>
+          Override inferred column types using `name:type`
+      --snapshot <SNAPSHOT>
+          Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
+  -o, --output <OUTPUT>
+          Destination .schema file path (alias --schema retained for compatibility)
+      --replace-template
+          Inject empty replace arrays into the generated schema as a template when inferring
+  -h, --help
+          Print help
+```
+
+### schema verify
+
+```text
+Verify CSV files against a schema definition
+
+Usage: csv-managed.exe schema verify [OPTIONS] --schema <SCHEMA> --input <INPUTS>
+
+Options:
+  -m, --schema <SCHEMA>
+          Schema file describing the expected structure
+  -i, --input <INPUTS>
+          One or more CSV files to verify
+      --delimiter <DELIMITER>
+          CSV delimiter character
+      --input-encoding <INPUT_ENCODING>
+          Character encoding for input files (defaults to utf-8)
+      --report-invalid [<OPTIONS>...]
+          Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value
+  -h, --help
+          Print help
 ```
 
 ## index
@@ -172,28 +227,6 @@ Options:
           Print help
 ```
 
-## verify
-
-```text
-Verify one or more CSV files against a schema definition
-
-Usage: csv-managed.exe verify [OPTIONS] --schema <SCHEMA> --input <INPUTS>
-
-Options:
-  -m, --schema <SCHEMA>
-          Schema file describing the expected structure
-  -i, --input <INPUTS>
-          One or more CSV files to verify
-      --delimiter <DELIMITER>
-          CSV delimiter character
-      --input-encoding <INPUT_ENCODING>
-          Character encoding for input files (defaults to utf-8)
-      --report-invalid [<OPTIONS>...]
-          Report invalid rows by summary (default) or detail. Append ':detail' and/or ':summary' and optionally a LIMIT value
-  -h, --help
-          Print help
-```
-
 ## preview
 
 ```text
@@ -223,9 +256,9 @@ Options:
           Schema file to drive typed operations
   -C, --columns <COLUMNS>
           Columns to include (defaults to numeric columns)
-      --filter <FILTER>
+      --filter <FILTERS>
           Row-level filters such as `amount>=100` or `status = shipped`
-      --filter-expr <FILTER_EXPR>
+      --filter-expr <FILTER_EXPRS>
           Evalexpr-based filter expressions that must evaluate to truthy values
       --delimiter <DELIMITER>
           CSV delimiter character
