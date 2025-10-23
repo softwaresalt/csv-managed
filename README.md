@@ -6,20 +6,165 @@
 
 | Area | Description |
 |------|-------------|
-| Delimiters & encodings | Read/write comma, tab, pipe, semicolon, or any ASCII delimiter; override output delimiter; stream via stdin/stdout (`-`) with explicit `--input-encoding` / `--output-encoding`. |
-| Schema inference (`schema --infer`) | Sample or full-scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, and Guid columns; optional `--mapping` and `--replace-template` scaffolding saved to `.schema`. |
-| Schema authoring & listing | `schema` builds manual definitions with renames and replacements; `columns` prints column positions, names, types, and output aliases. |
-| Value normalization | Schema `replace` arrays and boolean normalization convert legacy tokens before typed operations; `process --boolean-format` controls emitted true/false representation. |
-| Indexing (`index`) | Build B-tree index files with multiple named variants, mixed asc/desc columns, and combo expansion for shared prefixes. |
-| Sorting (`process`) | Streams through matching index variants for ordered reads and falls back to stable multi-column in-memory sort when needed. |
-| Filtering & projection | Type-aware filters (`= != > >= < <= contains startswith endswith`), evalexpr filters (`--filter-expr`) with temporal helpers, column inclusion/exclusion, row limits, and optional 1-based row numbers. |
-| Derived columns | Evalexpr-powered expressions provide arithmetic, comparison, conditional, and string operations referencing headers or positional aliases (`cN`). |
-| Append (`append`) | Concatenate files with header validation and optional schema enforcement to guarantee consistent types before merging. |
-| Verification (`schema verify`) | Validates each file against the schema; default output is a column summary. `--report-invalid:detail[:summary] [LIMIT]` adds ANSI-highlighted row samples with optional sample limits. |
-| Stats & frequency | `stats` streams count/mean/median/min/max/stddev per numeric (Integer/Float) and temporal (Date/DateTime/Time) columns; temporal std dev includes units (`days` or `seconds`). `--filter`/`--filter-expr` limit the rows considered and also apply to `stats --frequency`, which reports distinct value counts with optional top-N cap. |
-| Preview & table output | `preview` shows the first N rows as an elastic table; `process --table` renders transformed output as a table on stdout. |
-| Joins (`join`) | Hash join supports inner, left, right, and full outer joins with schema-driven typing and replacement normalization for keys. |
-| Installation | `install` wraps `cargo install` with convenience flags (`--locked`, `--force`, `--root`, `--version`) and matches the release workflow. |
+| Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
+| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
+| Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `.schema`. See: [schema](#schema). |
+| Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
+| Column Listing | `columns` renders column positions, types, and aliases derived from schema mapping. See: [columns](#columns). |
+| Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
+| Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and combo expansion (`--combo`) for prefix/direction permutations. See: [index](#index). |
+| Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
+| Filtering & Projection | Typed comparison filters (`= != > >= < <= contains startswith endswith`), multi-flag AND semantics; Evalexpr predicates (`--filter-expr`) with temporal helpers; column include/exclude; row limiting; optional 1-based row numbers. See: [process](#process), [Expression Reference](#expression-reference). |
+| Temporal Expression Helpers | Functions like `date_diff_days`, `datetime_format`, `time_diff_seconds` usable in derives and `--filter-expr`. See: [process](#process), [Expression Reference](#expression-reference). |
+| Derived Columns | Evalexpr-based expressions referencing header names or positional aliases (`cN`); arithmetic, string, conditional, temporal operations. See: [process](#process), [Expression Reference](#expression-reference). |
+| Append | Concatenate multiple inputs with header (and optional schema) validation, enforcing consistent types pre-merge. See: [append](#append). |
+| Verification | `schema verify` streams each row against declared types; rich reports via `--report-invalid:detail[:summary] [LIMIT]`. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
+| Statistics & Frequency | `stats` computes count, mean, median, min, max, std dev for numeric & temporal columns; `--frequency` distinct counts with optional `--top`; filters apply prior to aggregation. See: [stats](#stats). |
+| Preview & Table Rendering | `preview` elastic table for first N rows; `process --table` formatted output without writing a file. See: [preview](#preview), [process](#process). |
+| Joins | Inner/left/right/full outer hash joins; schema-driven parsing and replacement normalization for join keys. See: [join](#join). |
+| Installation & Tooling | `install` convenience wrapper around `cargo install`; tag-based release workflow; logging via `RUST_LOG`. See: [install](#install). |
+| Streaming & Memory Efficiency | Forward-only iteration for verify, stats, filtering, projection, and indexed sorted reads; minimizes heap usage for large files. See: [process](#process), [schema](#schema). |
+| Error Reporting & Diagnostics | Contextual errors (I/O, parsing, schema mismatch, expression eval); highlighted invalid cells; snapshot mismatch failures surface layout drifts early. See: [schema](#schema), [process](#process). |
+
+### Mini Derived & Filter Expression Cheat Sheets
+
+#### Derived Expression Patterns
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| Header reference | `total_with_tax=amount*1.0825` | Multiply numeric column values. |
+| Positional alias | `margin=c5-c3` | Use `cN` alias (0-based). |
+| Conditional flag | `high_value=if(amount>1000,1,0)` | 1/0 indicator via `if(cond, then, else)`. |
+| Date math | `ship_eta=date_add(ordered_at,2)` | Add days to a date column. |
+| Date diff | `ship_lag=date_diff_days(shipped_at,ordered_at)` | Days between two dates. |
+| Time diff | `window=time_diff_seconds(end_time,start_time)` | Seconds between two times. |
+| Boolean normalization | `is_shipped=if(status="shipped",true,false)` | Emit canonical booleans. |
+| String concat | `channel_tag=concat(channel,"-",region)` | Join string columns. |
+| Guid passthrough | `id_copy=id` | Duplicate a Guid column. |
+| Row number | `row_index=row_number` | Sequential number (with `--row-numbers`). |
+
+#### Filter vs Filter-Expr Cheat Sheet
+
+| Aspect | --filter | --filter-expr |
+|--------|----------|---------------|
+| Syntax style | Simple operator tokens | Full Evalexpr expression |
+| Supported operators | = != > >= < <= contains startswith endswith | arithmetic(+ - * / %), logic(AND OR), functions(if(), concat(), date_*, time_*) |
+| Type awareness | Typed parsing per column | Evaluates on parsed typed values |
+| Temporal helpers | Compare canonical values | date_diff_days, date_add, time_diff_seconds, datetime_format, etc. |
+| Boolean logic | Repeat flag = AND chain | logical operators (AND, OR) or if(...) nesting |
+| String literals | Bare or quoted if spaces | Must use double quotes (outer shell may use single) |
+| Column reference | Header name | Header name or positional alias cN |
+| Row number | Provided when --row-numbers | Variable row_number when --row-numbers |
+| Example | --filter "status = shipped" | --filter-expr 'if(amount>1000 && status="shipped", true, false)' |
+| Temporal example | --filter "ordered_at >= 2024-01-01" | --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 2' |
+| Complex gating | Multiple --filter flags | Single rich conditional expression |
+
+Common `--filter-expr` snippets:
+
+```text
+date_diff_days(shipped_at, ordered_at) > 1
+concat(channel, "-", region) = "web-US"
+if(amount * 1.0825 > 500, 1, 0)
+time_diff_seconds(end_time, start_time) >= 3600
+```
+
+### Expression Reference
+
+Unified reference for derived column expressions, filter vs filter-expr usage, temporal helpers, common pitfalls, and a combined example.
+
+#### 1. Derived Columns (Recap)
+
+Use `--derive name=expression`. Expressions may reference:
+
+* Header names (normalized after schema mapping)
+* Positional aliases `cN` (0-based, so `c0` is first data column)
+* Functions (see Temporal Helpers below)
+* `row_number` (only when `--row-numbers` enabled)
+
+#### 2. Filter vs Filter-Expr (Recap)
+
+Two parallel mechanisms:
+
+* `--filter` provides concise typed comparisons (auto-parsed per datatype; AND chaining across repeats).
+* `--filter-expr` evaluates a full Evalexpr expression after parsing typed values (supports arithmetic, string, conditional, temporal helpers, boolean logic).
+
+Mix them freely; all are combined with AND semantics overall (i.e. row must satisfy every filter and every filter-expr that evaluates true).
+
+#### 3. Temporal Helpers (Full List)
+
+| Function | Description |
+|----------|-------------|
+| `date_add(date, days)` / `date_sub(date, days)` | Shift a date forward or backward by whole days. |
+| `date_diff_days(end, start)` | Difference in days between two dates (can be negative). |
+| `date_format(date, "%d %b %Y")` | Render a date with a custom chrono-compatible format string. |
+| `datetime_add_seconds(ts, seconds)` | Shift a datetime by an offset in seconds. |
+| `datetime_diff_seconds(end, start)` | Difference between datetimes in seconds. |
+| `datetime_to_date(ts)` / `datetime_to_time(ts)` | Extract date or time portions from a datetime. |
+| `datetime_format(ts, "%Y-%m-%dT%H:%M")` | Custom formatting for datetimes. |
+| `time_add_seconds(time, seconds)` | Shift an `HH:MM[:SS]` time of day by seconds. |
+| `time_diff_seconds(end, start)` | Difference between two times (seconds). |
+
+All helpers accept canonical strings (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, `HH:MM:SS`). Time arguments accept `HH:MM`. Fractional numeric offsets are truncated.
+
+#### 4. Common Pitfalls
+
+| Pitfall | Guidance |
+|---------|----------|
+| Quoting (PowerShell) | Wrap the whole expression in single quotes; use double quotes for string literals inside: `'channel="web"'`. |
+| Quoting (cmd.exe) | Escape inner quotes: `"web"`. |
+| Positional alias indexing | `c0` is first column, not `c1`; verify header order after mapping. |
+| Mixed filter logic | Multiple --filter flags AND together; to OR conditions use --filter-expr with (a OR b). |
+| Row number usage | `row_number` available only if `--row-numbers` was set before derives/filters execute. |
+| Temporal comparisons | Prefer helpers (e.g. `date_diff_days`) over manual string comparison for correctness across formats. |
+| Replacements ordering | Schema `replace` mappings are applied before type parsing & expression evaluation; design expressions based on normalized values. |
+| Boolean output format | `--boolean-format` affects derived boolean rendering; logic still works with internal canonical bool. |
+| Performance & median | Median and large numeric derives may retain many values; limit columns or avoid heavy expressions for huge files. |
+| Using snapshots | Snapshots guard inference output only; they do not validate expression correctness. |
+
+#### 5. Combined Filtering Example
+
+Example mixing concise filters and one complex temporal expression:
+
+```powershell
+./target/release/csv-managed.exe process \
+  -i ./data/orders.csv \
+  -m ./data/orders.schema \
+  --filter "status = shipped" \
+  --filter "amount >= 100" \
+  --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 2 && (region = "US" || region = "CA")' \
+  --derive 'ship_lag_days=date_diff_days(shipped_at, ordered_at)' \
+  --row-numbers \
+  -C order_id,ordered_at,shipped_at,ship_lag_days,amount,status,region,row_number \
+  --limit 25
+```
+
+#### 6. Quick Expression Validation Tip
+
+Start with a narrower column selection (`-C`) and a small `--limit` to confirm derived outputs before removing the limit for full processing.
+
+#### 7. Function Index (Alphabetical)
+
+Helper functions usable in `--derive` and `--filter-expr` (temporal & formatting):
+
+`date_add`, `date_diff_days`, `date_format`, `date_sub`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `time_add_seconds`, `time_diff_seconds`
+
+#### 8. Debug Tip
+
+Set an environment variable to increase internal logging verbosity:
+
+PowerShell:
+
+```powershell
+$env:RUST_LOG='csv_managed=debug'
+```
+
+cmd.exe:
+
+```batch
+set RUST_LOG=csv_managed=debug
+```
+
+Future enhancement: a debug mode may emit expression parse/normalize traces (e.g., tokenization, type coercions). When added, they will appear at `debug` level tagged with `expr:` prefixes. This placeholder documents intended usage; if absent, no expression AST logging is currently implemented.
 
 cmd.exe:
 
@@ -113,34 +258,43 @@ set RUST_LOG=info
 ./target/release/csv-managed.exe schema verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
 ```
 
+For more advanced derived column and filtering patterns (bucketing, temporal calculations, chained logic), see `docs/expressions.md`.
+
 ## Command Reference
 
 Detailed `--help` output for every command is mirrored in `docs/cli-help.md` for quick reference.
 
 ### schema
 
-Infer column types from existing data, emit mapping templates, or define columns explicitly.
+Define schemas manually or discover them via `probe` / `infer`; verify datasets against a saved schema and optionally enforce value replacements.
 
-| Command / Flag | Description |
-|----------------|-------------|
-| `schema probe` | Display inferred columns and types in a console table without writing a file. |
-| `schema infer` | Write an inferred JSON schema to the path supplied by `-o/--output`. |
-| `-i, --input <FILE>` | Input CSV file to analyze during probe/infer. |
-| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained). |
-| `-c, --column <SPEC>` | Manual column definitions such as `name:type->Output Name`. |
-| `--replace <SPEC>` | Value replacement directives `column=value->replacement`. |
-| `--sample-rows <N>` | Sample size for inference (`0` = full scan). |
-| `--delimiter <VAL>` | CSV delimiter override when probing or inferring. |
-| `--mapping` | Populate default `name_mapping` aliases and print mapping templates. |
-| `--replace-template` | Emit empty `replace` arrays for each column when inferring. |
-| `--override <SPEC>` | Force inferred column types (e.g. `amount:decimal`). |
-| `--snapshot <PATH>` | Validate probe layouts against a snapshot file (writes it if missing). |
+| Subcommand / Flag | Description |
+|-------------------|-------------|
+| `schema probe` | Display inferred columns and types in a console table (no file written). |
+| `schema infer` | Infer and optionally persist a `.schema` file (`-o/--output`). |
+| `schema verify` | Stream-validate one or more files against a schema (`-m/--schema`). |
+| `-i, --input <FILE>` | Input CSV for `probe` or `infer`. Repeat `-i` for multiple inputs in `verify`. |
+| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained for compatibility). |
+| `-m, --schema <FILE>` | Schema file to use with `verify` (or as destination alias with `infer`). |
+| `-c, --column <SPEC>` | Manual column definitions (`name:type`, or `name:type->Alias`). Repeatable / comma list. |
+| `--replace <SPEC>` | Value replacement directive (`column=value->replacement`) for manual schema authoring. |
+| `--sample-rows <N>` | Rows to sample during inference (`0` = full scan). |
+| `--delimiter <VAL>` | Override input delimiter (`comma`, `tab`, `semicolon`, `pipe`, or single ASCII). |
+| `--input-encoding <ENC>` | Character encoding of input (defaults `utf-8`). |
+| `--mapping` | Emit column mapping templates (aliases) to stdout when probing/infering. |
+| `--replace-template` | Inject empty `replace` arrays per column when inferring. |
+| `--override <SPEC>` | Force specific inferred types (`amount:Float`, `id:Integer`). Repeatable. |
+| `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift. |
+| `--report-invalid[:detail[:summary]] [LIMIT]` | (verify) Add row samples (`:detail`) and/or column summary (`:summary`); optional LIMIT caps sample rows. |
 
-When the `probe` subcommand is used, an elastic table highlights inferred sample values, lightweight format hints, and whether each column already has mapping aliases or type overrides. A footer summarizes how many rows were scanned (including the requested limit) and notes any values skipped due to decoding errors.
+Behavior notes:
 
-Passing `--snapshot <path>` to either `schema probe` or `schema infer` captures the rendered probe output to the specified file (creating it on first run) and compares future executions against the frozen layout, causing the command to fail if the formatting changes unexpectedly.
+* `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
+* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding.
+* `schema verify` streams every row, applying replacements before type parsing; failures can produce ANSI-highlighted samples and column summaries.
+* `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see Snapshot vs Schema Verify below).
 
-Additional end-to-end command permutations are documented in [`docs/schema-examples.md`](docs/schema-examples.md).
+More end-to-end examples: [`docs/schema-examples.md`](docs/schema-examples.md).
 
 PowerShell (inference mode):
 
@@ -236,6 +390,7 @@ Transform pipeline: sort, filter, derive, project, exclude, boolean formatting, 
 | `--output-delimiter <VAL>` | Output delimiter override. |
 | `--boolean-format <FORMAT>` | Normalize boolean output. Formats: `original`, `true-false`, `one-zero`. |
 | `--table` | Render as formatted table (stdout only; incompatible with `--output`). |
+| (see Expression Reference) | Advanced derived, filter, and temporal helper syntax. |
 
 PowerShell:
 
@@ -298,16 +453,50 @@ Example:
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
 ```
 
-### schema verify
+### Snapshot vs Schema Verify
 
-Validate one or more CSV files against a schema definition.
+The `--snapshot` flag (used with `schema probe` or `schema infer`) and the `schema verify` subcommand serve **complementary but distinct** purposes:
 
-| Flag | Description |
-|------|-------------|
-| `-m, --schema <FILE>` | Schema file. |
-| `-i, --input <FILE>` | Repeatable input files. |
-| `--delimiter <VAL>` | Input delimiter. |
-| `--report-invalid[:detail[:summary]] [LIMIT]` | Summarize invalid columns by default; append `:detail` for row samples, `:detail:summary` for both, and optionally add LIMIT to cap sample rows. |
+| Aspect | Snapshot (`schema probe --snapshot` / `schema infer --snapshot`) | Schema verify (`schema verify`) |
+|--------|------------------------------------------------------------------|---------------------------------|
+| Primary goal | Guard against unintended changes in probe/infer formatting or inference heuristics (layout, ordering, inferred types) | Enforce that actual CSV row values conform to a declared schema (types, headers, replacements) |
+| Domain | Developer regression / output stability | Data quality / contractual correctness |
+| Data scanned | Headers + optional sampled rows (based on `--sample-rows`) | Entire file(s), streaming every row |
+| Artifact | A snapshot text file (golden layout); created if missing, compared if present | No artifact on success; optional ANSI-highlighted report on failure |
+| Validation granularity | Whole rendered output string (byte/line comparison) | Per‑cell parsing & typed normalization |
+| Failure cause | Rendered output differs from saved snapshot | Any cell cannot be parsed/mapped to its declared datatype |
+| Typical CI use | Lock down formatting & inference behavior so docs/tests stay stable | Block ingestion of malformed or schema‑incompatible data |
+| Performance profile | Very fast (sample + render) | Potentially heavy for large files; optimized via streaming |
+| Update workflow | Rerun with `--snapshot` intentionally to refresh after accepted changes | Update schema file separately as data definitions evolve |
+
+#### When to Use Which
+
+Use a snapshot when you want to ensure the *presentation and inference logic* of schema discovery has not drifted (e.g., after refactors or heuristic tweaks). Use `schema verify` when validating real datasets prior to append, stats, indexing, joins, or downstream ML pipelines.
+
+#### Example Workflow
+
+```powershell
+# 1. Infer schema and create/update snapshot of inference layout
+./target/release/csv-managed.exe schema infer -i data.csv -o data.schema --snapshot infer.snap --sample-rows 0
+
+# 2. Commit both data.schema and infer.snap
+
+# 3. Later, validate new extracts against the frozen schema
+./target/release/csv-managed.exe schema verify -m data.schema -i new_extract.csv --report-invalid:detail:summary 25
+```
+
+If inference heuristics or display formatting changes intentionally, refresh the snapshot:
+
+```powershell
+./target/release/csv-managed.exe schema probe -i data.csv --snapshot infer.snap --sample-rows 10
+```
+
+This will overwrite (if removed first) or fail (if differing) to prompt a conscious review. Keep snapshots small by combining them with modest `--sample-rows` values—full scans are unnecessary for layout regression.
+
+#### Summary
+
+*Snapshot = regression guard on inferred schema presentation.*  
+*Verify = runtime enforcement of data correctness against a schema.*
 
 ### preview
 
@@ -345,6 +534,7 @@ They are rendered back to canonical forms; standard deviation for Date reports `
 | `--frequency` | Emit distinct value counts instead of summary statistics. |
 | `--top <N>` | Limit to the top N values per column when `--frequency` is used (0 = all). |
 | `--limit <N>` | Scan at most N rows (0 = all). |
+| (see Expression Reference) | Extended filter / temporal helper functions. |
 
 #### Temporal stats example
 
@@ -479,62 +669,6 @@ Example:
 ./target/release/csv-managed.exe install --locked
 ```
 
-#### Derived Column Expression Notes
-
-| Access Pattern | Example | Meaning |
-|----------------|---------|---------|
-| Normalized header | `total_with_tax=amount*1.0825` | Uses inferred numeric type. |
-| Positional alias | `c3*1.1` | Fourth column (0-based). |
-| String literal (PS) | `'tag="promo"'` | Single quotes wrap inner quotes. |
-| String literal (cmd) | `"tag=\"promo\""` | Escaped inner quotes. |
-| Row number | `row_index=row_number` | Available when `--row-numbers` enabled. |
-
-#### Filter Syntax Examples
-
-PowerShell:
-
-```powershell
---filter "status = shipped" --filter "amount >= 100" --filter "customer_id startswith 1"
-```
-
-Mixed operators:
-
-```powershell
---filter "order_date >= 2024-01-01" --filter "description contains urgent" --filter "region != US"
-```
-
-### Temporal Expression Helpers
-
-`--filter-expr` and derived column expressions can use built-in helpers for manipulating dates, times, and datetimes:
-
-| Function | Description |
-|----------|-------------|
-| `date_add(date, days)` / `date_sub(date, days)` | Shift a date forward or backward by whole days. |
-| `date_diff_days(end, start)` | Difference in days between two dates (can be negative). |
-| `date_format(date, "%d %b %Y")` | Render a date with a custom chrono-compatible format string. |
-| `datetime_add_seconds(ts, seconds)` | Shift a datetime by an offset in seconds. |
-| `datetime_diff_seconds(end, start)` | Difference between datetimes in seconds. |
-| `datetime_to_date(ts)` / `datetime_to_time(ts)` | Extract date or time portions from a datetime. |
-| `datetime_format(ts, "%Y-%m-%dT%H:%M")` | Custom formatting for datetimes. |
-| `time_add_seconds(time, seconds)` | Shift an `HH:MM[:SS]` time of day by seconds. |
-| `time_diff_seconds(end, start)` | Difference between two times (seconds). |
-
-All helpers accept and return canonical strings (e.g., `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, `HH:MM:SS`). Time arguments also accept `HH:MM` shorthand. Integer offsets accept either integers or floats (fractional parts truncated).
-
-PowerShell example:
-
-```powershell
-./target/release/csv-managed.exe process `
-  -i ./data/orders.csv `
-  -m ./data/orders.schema `
-  --filter-expr "date_diff_days(shipped_at, ordered_at) >= 1" `
-  --derive 'ship_eta=date_add(ordered_at, 2)' `
-  --derive 'ship_window=time_diff_seconds(ship_time, "06:00:00")' `
-  --columns id,ordered_at,shipped_at,ship_eta,ship_window `
-  --limit 5
-```
-
-String literals in expressions must use double quotes (`""`) to distinguish them from column identifiers; the surrounding CLI quoting can use single quotes (recommended on PowerShell) or escaped double quotes as needed by the shell.
 
 ### Data Types
 
@@ -550,6 +684,8 @@ String literals in expressions must use double quotes (`""`) to distinguish them
 | Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
 
 Future work: Decimal, Currency.
+
+> See the [Expression Reference](#expression-reference) for temporal helper usage (date/time arithmetic & formatting), boolean output formatting considerations, and quoting rules affecting String, Date, DateTime, Time parsing in derived expressions and filters.
 
 ### Stdin/Stdout Usage
 
