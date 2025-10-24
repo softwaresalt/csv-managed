@@ -14,6 +14,7 @@ use crate::{
     io_utils,
     rows::{evaluate_filter_expressions, parse_typed_row},
     schema::{ColumnMeta, ColumnType, Schema},
+    table,
 };
 
 use encoding_rs::Encoding;
@@ -21,17 +22,28 @@ use encoding_rs::Encoding;
 pub fn execute(args: &ProcessArgs) -> Result<()> {
     let delimiter = io_utils::resolve_input_delimiter(&args.input, args.delimiter);
     let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
-    let output_delimiter = io_utils::resolve_output_delimiter(
-        args.output.as_deref(),
-        args.output_delimiter,
-        delimiter,
-    );
+    let output_path = args.output.as_deref();
+    let writing_to_stdout = output_path.is_none_or(io_utils::is_dash);
+
+    if args.preview && args.output.is_some() {
+        return Err(anyhow!("--preview cannot be combined with --output"));
+    }
+    let mut limit = args.limit;
+    if args.preview && limit.is_none() {
+        limit = Some(10);
+    }
+    let use_table_output = if args.preview {
+        true
+    } else {
+        args.table && writing_to_stdout
+    };
+    let output_delimiter =
+        io_utils::resolve_output_delimiter(output_path, args.output_delimiter, delimiter);
     let output_encoding = io_utils::resolve_encoding(args.output_encoding.as_deref())?;
     info!(
         "Processing '{}' -> {:?} (delimiter '{}', output '{}')",
         args.input.display(),
-        args.output
-            .as_ref()
+        output_path
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "stdout".into()),
         crate::printable_delimiter(delimiter),
@@ -128,9 +140,6 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         None
     };
 
-    let output_path = args.output.as_deref();
-    let mut writer = io_utils::open_csv_writer(output_path, output_delimiter, output_encoding)?;
-
     let column_map = build_column_map(&headers, &schema);
     let sort_plan = build_sort_plan(&sorts, &schema, &column_map)?;
     let filter_conditions = filters;
@@ -144,49 +153,111 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         args.boolean_format,
     )?;
 
-    write_headers(&mut writer, &output_plan)?;
-    {
-        let mut engine = ProcessEngine {
-            schema: &schema,
-            headers: &headers,
-            filters: &filter_conditions,
-            filter_exprs: &args.filter_exprs,
-            derived_columns: &derived_columns,
-            output_plan: &output_plan,
-            writer: &mut writer,
-            limit: args.limit,
-        };
-
-        if let Some(variant) = matching_variant {
-            if io_utils::is_dash(&args.input) {
-                return Err(anyhow!(
-                    "Index accelerated processing requires a regular file input"
-                ));
-            }
-            let mut seek_reader = io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
-            // Read and discard headers to align reader position with data start.
-            seek_reader.byte_headers()?;
-            let covered = variant.columns().len();
-            let total = sort_signature.len();
-            info!(
-                "Using index {:?} variant '{}' to accelerate sort",
-                args.index,
-                variant.describe()
-            );
-            if covered < total {
-                debug!(
-                    "Index covers {covered}/{total} sort columns; remaining columns will be sorted in-memory"
-                );
-            }
-            engine.process_with_index(&mut seek_reader, input_encoding, variant, &sort_plan)?;
-        } else {
-            if maybe_index.is_some() {
-                debug!("Index present but not used due to incompatible sort signature");
-            }
-            engine.process_in_memory(reader, input_encoding, sort_plan)?;
-        }
+    if args.table && !use_table_output && !args.preview {
+        debug!("--table requested but output will remain CSV because a file path was provided");
     }
-    writer.flush().context("Flushing output")
+
+    if use_table_output {
+        let mut rows_for_table = Vec::new();
+        {
+            let mut engine = ProcessEngine {
+                schema: &schema,
+                headers: &headers,
+                filters: &filter_conditions,
+                filter_exprs: &args.filter_exprs,
+                derived_columns: &derived_columns,
+                output_plan: &output_plan,
+                sink: OutputSink::Table(&mut rows_for_table),
+                limit,
+            };
+
+            if let Some(variant) = matching_variant {
+                if io_utils::is_dash(&args.input) {
+                    return Err(anyhow!(
+                        "Index accelerated processing requires a regular file input"
+                    ));
+                }
+                let mut seek_reader =
+                    io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
+                // Read and discard headers to align reader position with data start.
+                seek_reader.byte_headers()?;
+                let covered = variant.columns().len();
+                let total = sort_signature.len();
+                info!(
+                    "Using index {:?} variant '{}' to accelerate sort",
+                    args.index,
+                    variant.describe()
+                );
+                if covered < total {
+                    debug!(
+                        "Index covers {covered}/{total} sort columns; remaining columns will be sorted in-memory"
+                    );
+                }
+                engine.process_with_index(&mut seek_reader, input_encoding, variant, &sort_plan)?;
+            } else {
+                if maybe_index.is_some() {
+                    debug!("Index present but not used due to incompatible sort signature");
+                }
+                engine.process_in_memory(reader, input_encoding, sort_plan)?;
+            }
+        }
+
+        table::print_table(output_plan.headers(), &rows_for_table);
+        if args.preview {
+            info!(
+                "Displayed {} row(s) from {:?}",
+                rows_for_table.len(),
+                args.input
+            );
+        }
+        Ok(())
+    } else {
+        let mut writer = io_utils::open_csv_writer(output_path, output_delimiter, output_encoding)?;
+        write_headers(&mut writer, &output_plan)?;
+        {
+            let mut engine = ProcessEngine {
+                schema: &schema,
+                headers: &headers,
+                filters: &filter_conditions,
+                filter_exprs: &args.filter_exprs,
+                derived_columns: &derived_columns,
+                output_plan: &output_plan,
+                sink: OutputSink::Csv(&mut writer),
+                limit,
+            };
+
+            if let Some(variant) = matching_variant {
+                if io_utils::is_dash(&args.input) {
+                    return Err(anyhow!(
+                        "Index accelerated processing requires a regular file input"
+                    ));
+                }
+                let mut seek_reader =
+                    io_utils::open_seekable_csv_reader(&args.input, delimiter, true)?;
+                // Read and discard headers to align reader position with data start.
+                seek_reader.byte_headers()?;
+                let covered = variant.columns().len();
+                let total = sort_signature.len();
+                info!(
+                    "Using index {:?} variant '{}' to accelerate sort",
+                    args.index,
+                    variant.describe()
+                );
+                if covered < total {
+                    debug!(
+                        "Index covers {covered}/{total} sort columns; remaining columns will be sorted in-memory"
+                    );
+                }
+                engine.process_with_index(&mut seek_reader, input_encoding, variant, &sort_plan)?;
+            } else {
+                if maybe_index.is_some() {
+                    debug!("Index present but not used due to incompatible sort signature");
+                }
+                engine.process_in_memory(reader, input_encoding, sort_plan)?;
+            }
+        }
+        writer.flush().context("Flushing output")
+    }
 }
 
 fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) -> Result<()> {
@@ -256,18 +327,23 @@ fn write_headers(
         .context("Writing output headers")
 }
 
-struct ProcessEngine<'a> {
+enum OutputSink<'a> {
+    Csv(&'a mut csv::Writer<Box<dyn std::io::Write>>),
+    Table(&'a mut Vec<Vec<String>>),
+}
+
+struct ProcessEngine<'a, 'b> {
     schema: &'a Schema,
     headers: &'a [String],
     filters: &'a [crate::filter::FilterCondition],
     filter_exprs: &'a [String],
     derived_columns: &'a [DerivedColumn],
     output_plan: &'a OutputPlan,
-    writer: &'a mut csv::Writer<Box<dyn std::io::Write>>,
+    sink: OutputSink<'b>,
     limit: Option<usize>,
 }
 
-impl<'a> ProcessEngine<'a> {
+impl<'a, 'b> ProcessEngine<'a, 'b> {
     fn process_in_memory(
         &mut self,
         reader: csv::Reader<Box<dyn std::io::Read>>,
@@ -311,14 +387,14 @@ impl<'a> ProcessEngine<'a> {
             rows.sort_by(|a, b| compare_rows(a, b, &sort_plan));
         }
 
-        emit_rows(
-            rows.into_iter(),
-            self.headers,
-            self.derived_columns,
-            self.output_plan,
-            self.writer,
-            self.limit,
-        )
+        for (written, row) in rows.into_iter().enumerate() {
+            if self.limit.is_some_and(|limit| written >= limit) {
+                break;
+            }
+            self.emit_row(&row.raw, &row.typed, written + 1)?;
+        }
+
+        Ok(())
     }
 
     fn process_with_index(
@@ -418,19 +494,37 @@ impl<'a> ProcessEngine<'a> {
             if self.limit.is_some_and(|limit| *emitted >= limit) {
                 return Ok(true);
             }
-            emit_single_row(
-                &row.raw,
-                &row.typed,
-                *emitted + 1,
-                self.headers,
-                self.derived_columns,
-                self.output_plan,
-                self.writer,
-            )?;
+            self.emit_row(&row.raw, &row.typed, *emitted + 1)?;
             *emitted += 1;
         }
 
         Ok(false)
+    }
+
+    fn emit_row(
+        &mut self,
+        raw: &[String],
+        typed: &[Option<Value>],
+        row_number: usize,
+    ) -> Result<()> {
+        let record = build_output_record(
+            raw,
+            typed,
+            row_number,
+            self.headers,
+            self.derived_columns,
+            self.output_plan,
+        )?;
+
+        match &mut self.sink {
+            OutputSink::Csv(writer) => writer
+                .write_record(record.iter())
+                .context("Writing output row"),
+            OutputSink::Table(rows) => {
+                rows.push(record);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -447,43 +541,14 @@ fn build_prefix_key(
         .collect()
 }
 
-fn emit_rows<I>(
-    rows: I,
-    headers: &[String],
-    derived_columns: &[DerivedColumn],
-    output_plan: &OutputPlan,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
-    limit: Option<usize>,
-) -> Result<()>
-where
-    I: Iterator<Item = RowData>,
-{
-    for (written, row) in rows.enumerate() {
-        if limit.is_some_and(|limit| written >= limit) {
-            break;
-        }
-        emit_single_row(
-            &row.raw,
-            &row.typed,
-            written + 1,
-            headers,
-            derived_columns,
-            output_plan,
-            writer,
-        )?;
-    }
-    Ok(())
-}
-
-fn emit_single_row(
+fn build_output_record(
     raw: &[String],
     typed: &[Option<Value>],
     row_number: usize,
     headers: &[String],
     derived_columns: &[DerivedColumn],
     output_plan: &OutputPlan,
-    writer: &mut csv::Writer<Box<dyn std::io::Write>>,
-) -> Result<()> {
+) -> Result<Vec<String>> {
     let mut record = Vec::with_capacity(output_plan.fields.len());
     for field in &output_plan.fields {
         match field {
@@ -501,9 +566,7 @@ fn emit_single_row(
             }
         }
     }
-    writer
-        .write_record(record.iter())
-        .context("Writing output row")
+    Ok(record)
 }
 
 fn compare_rows(a: &RowData, b: &RowData, plan: &[SortInstruction]) -> std::cmp::Ordering {
@@ -619,6 +682,10 @@ impl OutputPlan {
             (BooleanFormat::OneZero, Some(Value::Boolean(false))) => "0".to_string(),
             _ => raw.to_string(),
         }
+    }
+
+    fn headers(&self) -> &[String] {
+        &self.headers
     }
 }
 

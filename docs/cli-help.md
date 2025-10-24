@@ -13,8 +13,7 @@ Commands:
   schema   Create a .schema file from explicit column definitions
   index    Create a B-Tree index (.idx) for one or more columns
   process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
-  append   Append multiple CSV files into a single output
-  preview  Preview the first few rows of a CSV file in a formatted table
+    append   Append multiple CSV files into a single output
   stats    Produce summary statistics for numeric columns or frequency counts via --frequency
   join     Join two CSV files on common columns
   install  Install the csv-managed binary via cargo install
@@ -212,8 +211,10 @@ Options:
           Character encoding for the output file/stdout (defaults to utf-8)
       --boolean-format <BOOLEAN_FORMAT>
           Normalize boolean columns in output [default: original] [possible values: original, true-false, one-zero]
+      --preview
+          Render results as an elastic table on stdout (disables --output and defaults --limit to 10)
       --table
-          Render output as an elastic table to stdout
+          Render output as an elastic table to stdout when writing to stdout
   -h, --help
           Print help
 ```
@@ -240,21 +241,6 @@ Options:
           Character encoding for the output file/stdout (defaults to utf-8)
   -h, --help
           Print help
-```
-
-## preview
-
-```text
-Preview the first few rows of a CSV file in a formatted table
-
-Usage: csv-managed.exe preview [OPTIONS] --input <INPUT>
-
-Options:
-  -i, --input <INPUT>                    Input CSV file to preview
-      --rows <ROWS>                      Number of rows to display [default: 10]
-      --delimiter <DELIMITER>            CSV delimiter character
-      --input-encoding <INPUT_ENCODING>  Character encoding for input file (defaults to utf-8)
-  -h, --help                             Print help
 ```
 
 ## stats

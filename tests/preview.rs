@@ -6,6 +6,7 @@ use std::{
 use assert_cmd::Command;
 use csv::{ReaderBuilder, WriterBuilder};
 use encoding_rs::WINDOWS_1252;
+use predicates::str::contains;
 use tempfile::{TempDir, tempdir};
 
 const DATA_FILE: &str = "big_5_players_stats_2023_2024.csv";
@@ -132,7 +133,7 @@ fn preview_limits_to_default_row_count() {
     let input = fixture_path(DATA_FILE);
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args(["preview", "-i", input.to_str().unwrap()])
+        .args(["process", "-i", input.to_str().unwrap(), "--preview"])
         .assert()
         .success();
 
@@ -171,7 +172,14 @@ fn preview_respects_rows_argument() {
     let input = fixture_path(DATA_FILE);
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args(["preview", "-i", input.to_str().unwrap(), "--rows", "5"])
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--preview",
+            "--limit",
+            "5",
+        ])
         .assert()
         .success();
 
@@ -187,7 +195,12 @@ fn preview_detects_tab_delimiter_from_extension() {
     let subset = write_subset_with_delimiter(PREVIEW_COLUMNS, 3, b'\t', "tsv");
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args(["preview", "-i", subset.path().to_str().unwrap()])
+        .args([
+            "process",
+            "-i",
+            subset.path().to_str().unwrap(),
+            "--preview",
+        ])
         .assert()
         .success();
 
@@ -211,9 +224,10 @@ fn preview_honors_explicit_delimiter() {
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "preview",
+            "process",
             "-i",
             subset.path().to_str().unwrap(),
+            "--preview",
             "--delimiter",
             "|",
         ])
@@ -234,12 +248,13 @@ fn preview_decodes_using_provided_encoding() {
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
-            "preview",
+            "process",
             "-i",
             subset.path().to_str().unwrap(),
+            "--preview",
             "--input-encoding",
             "windows-1252",
-            "--rows",
+            "--limit",
             "25",
         ])
         .assert()
@@ -248,4 +263,22 @@ fn preview_decodes_using_provided_encoding() {
     let output = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout");
     assert!(output.contains("Bénie Adama Traore"));
     assert!(!output.contains("BÃ©nie"));
+}
+
+#[test]
+fn preview_with_output_fails() {
+    let input = fixture_path(DATA_FILE);
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--preview",
+            "-o",
+            "ignored.csv",
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("--preview cannot be combined with --output"));
 }

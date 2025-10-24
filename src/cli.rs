@@ -19,8 +19,6 @@ pub enum Commands {
     Process(ProcessArgs),
     /// Append multiple CSV files into a single output
     Append(AppendArgs),
-    /// Preview the first few rows of a CSV file in a formatted table
-    Preview(PreviewArgs),
     /// Produce summary statistics for numeric columns or frequency counts via --frequency
     Stats(StatsArgs),
     /// Join two CSV files on common columns
@@ -200,6 +198,9 @@ pub struct ProcessArgs {
     /// Normalize boolean columns in output
     #[arg(long = "boolean-format", default_value = "original")]
     pub boolean_format: BooleanFormat,
+    /// Render results as a preview table on stdout (disables --output and defaults the row limit)
+    #[arg(long = "preview")]
+    pub preview: bool,
     /// Render output as an elastic table to stdout
     #[arg(long = "table")]
     pub table: bool,
@@ -234,22 +235,6 @@ pub struct AppendArgs {
     /// Character encoding for the output file/stdout (defaults to utf-8)
     #[arg(long = "output-encoding")]
     pub output_encoding: Option<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct PreviewArgs {
-    /// Input CSV file to preview
-    #[arg(short = 'i', long = "input")]
-    pub input: PathBuf,
-    /// Number of rows to display
-    #[arg(long, default_value_t = 10)]
-    pub rows: usize,
-    /// CSV delimiter character
-    #[arg(long, value_parser = parse_delimiter)]
-    pub delimiter: Option<u8>,
-    /// Character encoding for input file (defaults to utf-8)
-    #[arg(long = "input-encoding")]
-    pub input_encoding: Option<String>,
 }
 
 #[derive(Debug, Args)]

@@ -10,7 +10,6 @@ pub mod index;
 pub mod install;
 pub mod io_utils;
 pub mod join;
-pub mod preview;
 pub mod process;
 pub mod rows;
 pub mod schema;
@@ -48,7 +47,6 @@ pub fn run() -> Result<()> {
         Commands::Schema(args) => run_operation("schema", || schema_cmd::execute(&args)),
         Commands::Process(args) => run_operation("process", || process::execute(&args)),
         Commands::Append(args) => run_operation("append", || append::execute(&args)),
-        Commands::Preview(args) => run_operation("preview", || preview::execute(&args)),
         Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
         Commands::Join(args) => run_operation("join", || join::execute(&args)),
         Commands::Install(args) => run_operation("install", || install::execute(&args)),

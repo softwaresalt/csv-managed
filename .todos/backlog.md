@@ -58,7 +58,7 @@
 - [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
 - [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 
-## Version 1.1.0
+## Version 1.1.0: The Stats, Schema, Datatype, and Transformation Edition
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
@@ -69,19 +69,18 @@
 - [x] Refactor the probe command into the schema command to simplify the command-line interface: probe and inference should become new subcommands of the schema command that allow it to probe and display candidate schema definitions and to infer data types into a schema file; inference should allow the user to override an inferred type with extra arguments.
 - [x] Refactor the verify command into a subcommand of the schema command to simplify the command-line interface; implement as schema verify.
 - [x] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
-- [ ] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
+- [x] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
 - [ ] Would it be a better design to combine the join command into the process command?
 - [ ] Expand schema infer --snapshot to include: hash of header sequence + datatype assignments and summary histograms or min/max ranges of sampled values.  Append a “Snapshot Internals” subsection to the README.  Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
-- [ ] Add the ability to define a currency datatype that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
+- [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
-- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
-- [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
 - [ ] Add fast hash signatures per row for indexes defined on primary keys.
 - [ ] Handle fixed-precision decimal datatypes with configurable scale.
-- [ ] Transform fields between datatypes (e.g., string → date/datetime) in a controlled manner.
-- [ ] Define a currency datatype with enforced precision and standardized formatting/transforms.
+- [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
+- [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
+
 
 ## Version 1.2.0: The Index Edition
 
@@ -90,6 +89,8 @@
 
 ## Version 1.3.0: Bulk Operations Edition
 
+- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
+- [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
 - [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
 - [ ] Union and sort all files in a directory, splitting output by row count or file size.

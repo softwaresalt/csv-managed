@@ -51,19 +51,19 @@ rem Prepare preview subsets derived from the Big 5 stats dataset
 .\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --limit 5 --columns Rank --columns Player --columns Squad --output-delimiter "|" -o .\tmp\big_5_preview_pipe.csv
 
 rem Preview default row count (10 rows) from the primary dataset
-.\target\release\csv-managed.exe preview -i .\tests\data\big_5_players_stats_2023_2024.csv
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --preview
 
 rem Preview with an explicit row limit
-.\target\release\csv-managed.exe preview -i .\tests\data\big_5_players_stats_2023_2024.csv --rows 5
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv --preview --limit 5
 
 rem Preview auto-detects tab-delimited files via extension
-.\target\release\csv-managed.exe preview -i .\tmp\big_5_preview.tsv
+.\target\release\csv-managed.exe process -i .\tmp\big_5_preview.tsv --preview
 
 rem Preview with a custom delimiter override (pipe-separated values)
-.\target\release\csv-managed.exe preview -i .\tmp\big_5_preview_pipe.csv --delimiter "|"
+.\target\release\csv-managed.exe process -i .\tmp\big_5_preview_pipe.csv --preview --delimiter "|"
 
 rem Preview using explicit input encoding for Windows-1252 data
-.\target\release\csv-managed.exe preview -i .\tmp\big_5_windows1252.csv --input-encoding windows-1252
+.\target\release\csv-managed.exe process -i .\tmp\big_5_windows1252.csv --preview --input-encoding windows-1252
 
 rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_infer.csv

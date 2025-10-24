@@ -1043,7 +1043,14 @@ fn preview_renders_requested_rows() {
     let input = primary_dataset();
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
-        .args(["preview", "-i", input.to_str().unwrap(), "--rows", "3"])
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--preview",
+            "--limit",
+            "3",
+        ])
         .assert()
         .success();
 

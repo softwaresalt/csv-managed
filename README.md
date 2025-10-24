@@ -20,7 +20,7 @@
 | Append | Concatenate multiple inputs with header (and optional schema) validation, enforcing consistent types pre-merge. See: [append](#append). |
 | Verification | `schema verify` streams each row against declared types; rich reports via `--report-invalid:detail[:summary] [LIMIT]`. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Statistics & Frequency | `stats` computes count, mean, median, min, max, std dev for numeric & temporal columns; `--frequency` distinct counts with optional `--top`; filters apply prior to aggregation. See: [stats](#stats). |
-| Preview & Table Rendering | `preview` elastic table for first N rows; `process --table` formatted output without writing a file. See: [preview](#preview), [process](#process). |
+| Preview & Table Rendering | `process --preview` elastic table for quick inspection (defaults `--limit` to 10); `process --table` formatted output when streaming to stdout. See: [process](#process). |
 | Joins | Inner/left/right/full outer hash joins; schema-driven parsing and replacement normalization for join keys. See: [join](#join). |
 | Installation & Tooling | `install` convenience wrapper around `cargo install`; tag-based release workflow; logging via `RUST_LOG`. See: [install](#install). |
 | Streaming & Memory Efficiency | Forward-only iteration for verify, stats, filtering, projection, and indexed sorted reads; minimizes heap usage for large files. See: [process](#process), [schema](#schema). |
@@ -247,7 +247,7 @@ set RUST_LOG=info
 # 6. Frequency counts (top 10)
 ./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema --frequency --top 10
 # 7. Preview first 15 rows
-./target/release/csv-managed.exe preview -i ./data/orders.csv --rows 15
+./target/release/csv-managed.exe process -i ./data/orders.csv --preview --limit 15
 # 8. Join customers with orders
 ./target/release/csv-managed.exe join --left ./data/orders.csv --right ./data/customers.csv --left-key customer_id --right-key id --type inner -o joined.csv
 # 9. Append monthly extracts
@@ -389,7 +389,8 @@ Transform pipeline: sort, filter, derive, project, exclude, boolean formatting, 
 | `--delimiter <VAL>` | Input delimiter. |
 | `--output-delimiter <VAL>` | Output delimiter override. |
 | `--boolean-format <FORMAT>` | Normalize boolean output. Formats: `original`, `true-false`, `one-zero`. |
-| `--table` | Render as formatted table (stdout only; incompatible with `--output`). |
+| `--preview` | Render a preview table on stdout (defaults `--limit` to 10; cannot be combined with `--output`). |
+| `--table` | Render as formatted table when streaming to stdout (ignored when writing to a file). |
 | (see Expression Reference) | Advanced derived, filter, and temporal helper syntax. |
 
 PowerShell:
