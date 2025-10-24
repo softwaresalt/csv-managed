@@ -29,8 +29,11 @@ rem This command performs a full scan (`--sample-rows 0`) before writing `tmp/bi
 .\target\release\csv-managed.exe schema infer --mapping --override Performance_Gls:integer --override "Per 90 Minutes_Gls:string" ^
   -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_overrides.schema --sample-rows 10
 
-rem Capture the current probe table rendering and fail future runs if the layout changes unexpectedly:
-.\target\release\csv-managed.exe schema probe -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 5 --snapshot tmp/big5_probe.snap
+rem Capture a schema probe snapshot with header/type hash and sampled value summaries for regression review
+.\target\release\csv-managed.exe schema probe -i .\tests\data\big_5_players_stats_2023_2024.csv --sample-rows 10 --snapshot .\tmp\big5_probe.snap
+
+rem Validate the snapshot by rerunning infer; this fails on header/type drift
+.\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv --sample-rows 0 --snapshot .\tmp\big5_probe.snap
 
 rem Create a Windows-1252 encoded CSV derived from the Big 5 stats dataset
 powershell -NoProfile -Command "$lines = Get-Content .\tests\data\big_5_players_stats_2023_2024.csv | Select-Object -First 25; $text = ($lines -join [Environment]::NewLine) + [Environment]::NewLine; $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($text); [System.IO.File]::WriteAllBytes('.\tmp\big_5_windows1252.csv', $bytes)"

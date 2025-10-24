@@ -71,18 +71,22 @@
 - [x] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
 - [x] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
 - [x] Remove access to the join command; do not remove core code, just the CLI interface to that code that allows that feature to be used.  This feature will be further developed in a later release cycle.
-- [ ] Expand schema infer --snapshot to include: hash of header sequence + datatype assignments and summary histograms or min/max ranges of sampled values.  Append a “Snapshot Internals” subsection to the README.  Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
+- [x] Expand the schema command:
+  - [x] Extend schema infer --snapshot to emit the header-order hash and datatype map.
+  - [x] Add sampled-value summaries (per-column histograms or min/max).
+  - [x] Append a “Snapshot Internals” subsection to the README.
+  - [x] Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
 - [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
-- [ ] Define primary keys (single or composite) that uniquely identify rows.
-- [ ] Add fast hash signatures per row for indexes defined on primary keys.
 - [ ] Handle fixed-precision decimal datatypes with configurable scale.
 - [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
 - [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
 
 ## Version 1.2.0: The Index Edition
 
+- [ ] Define primary keys (single or composite) that uniquely identify rows.
+- [ ] Add fast hash signatures per row for indexes defined on primary keys.
 - [ ] Index all files in a directory that share a schema definition.
 - [ ] Add the ability to index all of the files in a directory matching a single schema file.
 

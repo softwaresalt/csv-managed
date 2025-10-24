@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
 use log::info;
+use sha2::{Digest, Sha256};
 
 use crate::{
     cli::{
@@ -406,6 +407,45 @@ fn render_probe_report(
         output.push_str("No decoding errors encountered.\n");
     }
 
+    let signature = compute_schema_signature(schema);
+    output.push_str(&format!("Header+Type Hash: {signature}\n"));
+
+    output.push_str("\nDatatype Map:\n");
+    for column in &schema.columns {
+        output.push_str(&format!("  • {} -> {}\n", column.name, column.datatype));
+    }
+
+    output.push_str("\nColumn Summaries:\n");
+    for (idx, column) in schema.columns.iter().enumerate() {
+        if let Some(summary) = stats.summary(idx) {
+            let mut fragments = Vec::new();
+            fragments.push(format!("non_empty={}", summary.non_empty));
+            let empty = stats.rows_read().saturating_sub(summary.non_empty);
+            if stats.rows_read() > 0 && empty > 0 {
+                fragments.push(format!("empty={empty}"));
+            }
+            if !summary.tracked_values.is_empty() {
+                let histogram = summary
+                    .tracked_values
+                    .iter()
+                    .map(|(value, count)| {
+                        let display = summarize_histogram_value(value);
+                        format!("{display} ({count})")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                fragments.push(format!("samples=[{histogram}]"));
+            }
+            if summary.other_values > 0 {
+                fragments.push(format!("others={}", summary.other_values));
+            }
+            if fragments.is_empty() {
+                fragments.push("no observed values".to_string());
+            }
+            output.push_str(&format!("  • {}: {}\n", column.name, fragments.join("; ")));
+        }
+    }
+
     output
 }
 
@@ -420,6 +460,28 @@ fn truncate_sample(value: &str) -> String {
         result.push(ch);
     }
     result
+}
+
+fn summarize_histogram_value(value: &str) -> String {
+    let mut sanitized = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\n' | '\r' | '\t' => sanitized.push(' '),
+            _ => sanitized.push(ch),
+        }
+    }
+    truncate_sample(&sanitized)
+}
+
+fn compute_schema_signature(schema: &Schema) -> String {
+    let mut hasher = Sha256::new();
+    for column in &schema.columns {
+        hasher.update(column.name.as_bytes());
+        hasher.update(b":");
+        hasher.update(column.datatype.as_str().as_bytes());
+        hasher.update(b";");
+    }
+    format!("{:x}", hasher.finalize())
 }
 
 fn emit_mappings(schema: &Schema) {

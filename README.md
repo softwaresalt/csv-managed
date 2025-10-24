@@ -282,7 +282,7 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 | `--mapping` | Emit column mapping templates (aliases) to stdout when probing/infering. |
 | `--replace-template` | Inject empty `replace` arrays per column when inferring. |
 | `--override <SPEC>` | Force specific inferred types (`amount:Float`, `id:Integer`). Repeatable. |
-| `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift. |
+| `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift; see [Snapshot Internals](#snapshot-internals). |
 | `--report-invalid[:detail[:summary]] [LIMIT]` | (verify) Add row samples (`:detail`) and/or column summary (`:summary`); optional LIMIT caps sample rows. |
 
 Behavior notes:
@@ -290,7 +290,7 @@ Behavior notes:
 * `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
 * `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding.
 * `schema verify` streams every row, applying replacements before type parsing; failures can produce ANSI-highlighted samples and column summaries.
-* `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see Snapshot vs Schema Verify below).
+* `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
 
 More end-to-end examples: [`docs/schema-examples.md`](docs/schema-examples.md).
 
@@ -364,6 +364,16 @@ cmd.exe:
 ```
 
 `--spec` accepts comma-separated `column:direction` tokens. Prefix with `name=` to label the variant (e.g. `fast=col_a:asc,col_b:desc`). When omitted, the variant is anonymous but still usable for automatic matching.
+
+### Snapshot Internals
+
+Snapshot files captured by `schema probe --snapshot` or `schema infer --snapshot` now contain structured diagnostics to make regression reviews easier:
+
+* **Header+Type Hash** – a SHA-256 digest that locks the column ordering and inferred datatypes. Any change to headers or datatypes produces a new hash even if table formatting stays the same.
+* **Datatype Map** – an expanded list of every column name paired with the inferred datatype icon, making it simple to diff type changes without scanning the table output.
+* **Column Summaries** – for each column, the snapshot records how many non-empty values were seen during sampling, how many empty rows appeared, and a small histogram (up to five representative values plus an “others” bucket). This mirrors the sampling scope shown in the footer so you can spot drift in categorical distributions or sparsity.
+
+When a snapshot mismatch occurs, these sections highlight exactly which aspect changed—structure, type inference, or observed value distribution—before you decide whether to refresh the snapshot.
 
 ### process
 

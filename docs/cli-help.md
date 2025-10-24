@@ -1,8 +1,8 @@
-# CLI Help (Regenerated 2025-10-23)
+# CLI Help
 
 Captured with `./target/release/csv-managed.exe <subcommand> --help` on Windows PowerShell.
 
-## Global Help
+## Global
 
 ```text
 Manage CSV files efficiently
@@ -10,13 +10,13 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-    schema   Create a .schema file from explicit column definitions
-    index    Create a B-Tree index (.idx) for one or more columns
-    process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
-    append   Append multiple CSV files into a single output
-    stats    Produce summary statistics for numeric columns or frequency counts via --frequency
-    install  Install the csv-managed binary via cargo install
-    help     Print this message or the help of the given subcommand(s)
+  schema   Create a .schema file from explicit column definitions
+  index    Create a B-Tree index (.idx) for one or more columns
+  process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
+  append   Append multiple CSV files into a single output
+  stats    Produce summary statistics for numeric columns or frequency counts via --frequency
+  install  Install the csv-managed binary via cargo install
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -31,17 +31,17 @@ Create a .schema file from explicit column definitions
 Usage: csv-managed.exe schema [OPTIONS] [COMMAND]
 
 Commands:
-    probe    Display inferred schema details without writing a file
-    infer    Infer schema metadata and optionally persist a .schema file
-    verify   Verify CSV files against a schema definition
-    columns  List column names and data types from a schema file
-    help     Print this message or the help of the given subcommand(s)
+  probe    Display inferred schema details without writing a file
+  infer    Infer schema metadata and optionally persist a .schema file
+  verify   Verify CSV files against a schema definition
+  columns  List column names and data types from a schema file
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
-    -o, --output <OUTPUT>         Destination .schema file path (alias --schema retained for compatibility)
-    -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
-            --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
-    -h, --help                    Print help
+  -o, --output <OUTPUT>         Destination .schema file path (alias --schema retained for compatibility)
+  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
+      --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
+  -h, --help                    Print help
 ```
 
 ### schema probe
@@ -65,7 +65,7 @@ Options:
       --override <OVERRIDES>
           Override inferred column types using `name:type`
       --snapshot <SNAPSHOT>
-          Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
+          Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
   -h, --help
           Print help
 ```
@@ -91,7 +91,7 @@ Options:
       --override <OVERRIDES>
           Override inferred column types using `name:type`
       --snapshot <SNAPSHOT>
-          Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
+          Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
   -o, --output <OUTPUT>
           Destination .schema file path (alias --schema retained for compatibility)
       --replace-template
@@ -131,9 +131,9 @@ Usage: csv-managed.exe schema columns --schema <SCHEMA>
 
 Options:
   -m, --schema <SCHEMA>
-      Schema file describing the columns to list
+          Schema file describing the columns to list
   -h, --help
-      Print help
+          Print help
 ```
 
 ## index
@@ -211,9 +211,9 @@ Options:
       --boolean-format <BOOLEAN_FORMAT>
           Normalize boolean columns in output [default: original] [possible values: original, true-false, one-zero]
       --preview
-          Render results as an elastic table on stdout (disables --output and defaults --limit to 10)
+          Render results as a preview table on stdout (disables --output and defaults the row limit)
       --table
-          Render output as an elastic table to stdout when writing to stdout
+          Render output as an elastic table to stdout
   -h, --help
           Print help
 ```

@@ -75,7 +75,7 @@ pub struct SchemaProbeArgs {
     /// Override inferred column types using `name:type`
     #[arg(long = "override", action = clap::ArgAction::Append)]
     pub overrides: Vec<String>,
-    /// Verify probe output against the contents of a snapshot file (writes the snapshot if missing)
+    /// Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
     #[arg(long = "snapshot")]
     pub snapshot: Option<PathBuf>,
 }

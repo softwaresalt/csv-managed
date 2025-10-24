@@ -103,11 +103,19 @@ pub struct Schema {
 }
 
 #[derive(Debug, Clone)]
+pub struct ColumnSummary {
+    pub non_empty: usize,
+    pub tracked_values: Vec<(String, usize)>,
+    pub other_values: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct InferenceStats {
     sample_values: Vec<Option<String>>,
     rows_read: usize,
     requested_rows: usize,
     decode_errors: usize,
+    summaries: Vec<ColumnSummary>,
 }
 
 impl InferenceStats {
@@ -115,6 +123,10 @@ impl InferenceStats {
         self.sample_values
             .get(index)
             .and_then(|value| value.as_deref())
+    }
+
+    pub fn summary(&self, index: usize) -> Option<&ColumnSummary> {
+        self.summaries.get(index)
     }
 
     pub fn rows_read(&self) -> usize {
@@ -235,6 +247,42 @@ struct TypeCandidate {
     possible_guid: bool,
 }
 
+const SUMMARY_TRACKED_LIMIT: usize = 5;
+
+#[derive(Clone, Default)]
+struct SummaryAccumulator {
+    non_empty: usize,
+    tracked: Vec<(String, usize)>,
+    other_values: usize,
+}
+
+impl SummaryAccumulator {
+    fn record(&mut self, value: &str) {
+        self.non_empty += 1;
+        if let Some((_, count)) = self
+            .tracked
+            .iter_mut()
+            .find(|(existing, _)| existing == value)
+        {
+            *count += 1;
+            return;
+        }
+        if self.tracked.len() < SUMMARY_TRACKED_LIMIT {
+            self.tracked.push((value.to_string(), 1));
+        } else {
+            self.other_values += 1;
+        }
+    }
+
+    fn finalize(self) -> ColumnSummary {
+        ColumnSummary {
+            non_empty: self.non_empty,
+            tracked_values: self.tracked,
+            other_values: self.other_values,
+        }
+    }
+}
+
 impl TypeCandidate {
     fn new() -> Self {
         Self {
@@ -322,6 +370,7 @@ pub fn infer_schema_with_stats(
     let headers = io_utils::decode_headers(&header_record, encoding)?;
     let mut candidates = vec![TypeCandidate::new(); headers.len()];
     let mut samples = vec![None; headers.len()];
+    let mut summaries = vec![SummaryAccumulator::default(); headers.len()];
 
     let mut record = csv::ByteRecord::new();
     let mut processed = 0usize;
@@ -340,8 +389,9 @@ pub fn infer_schema_with_stats(
                         continue;
                     }
                     candidates[idx].update(&decoded);
+                    summaries[idx].record(&decoded);
                     if samples[idx].is_none() {
-                        samples[idx] = Some(decoded);
+                        samples[idx] = Some(decoded.clone());
                     }
                 }
                 Err(_) => {
@@ -369,6 +419,10 @@ pub fn infer_schema_with_stats(
         rows_read: processed,
         requested_rows: sample_rows,
         decode_errors,
+        summaries: summaries
+            .into_iter()
+            .map(SummaryAccumulator::finalize)
+            .collect(),
     };
 
     Ok((schema, stats))
