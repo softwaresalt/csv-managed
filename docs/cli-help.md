@@ -10,14 +10,13 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-  schema   Create a .schema file from explicit column definitions
-  index    Create a B-Tree index (.idx) for one or more columns
-  process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
+    schema   Create a .schema file from explicit column definitions
+    index    Create a B-Tree index (.idx) for one or more columns
+    process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
     append   Append multiple CSV files into a single output
-  stats    Produce summary statistics for numeric columns or frequency counts via --frequency
-  join     Join two CSV files on common columns
-  install  Install the csv-managed binary via cargo install
-  help     Print this message or the help of the given subcommand(s)
+    stats    Produce summary statistics for numeric columns or frequency counts via --frequency
+    install  Install the csv-managed binary via cargo install
+    help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -275,42 +274,6 @@ Options:
           Print help
 ```
 
-## join
-
-```text
-Join two CSV files on common columns
-
-Usage: csv-managed.exe join [OPTIONS] --left <LEFT> --right <RIGHT> --left-key <LEFT_KEY> --right-key <RIGHT_KEY>
-
-Options:
-      --left <LEFT>
-          Left CSV input
-      --right <RIGHT>
-          Right CSV input
-  -o, --output <OUTPUT>
-          Output CSV file (stdout if omitted)
-      --left-key <LEFT_KEY>
-          Comma-separated key columns from the left file
-      --right-key <RIGHT_KEY>
-          Comma-separated key columns from the right file
-      --type <KIND>
-          Join type (inner, left, right, full) [default: inner] [possible values: inner, left, right, full]
-      --left-schema <LEFT_SCHEMA>
-          Schema for the left file
-      --right-schema <RIGHT_SCHEMA>
-          Schema for the right file
-      --delimiter <DELIMITER>
-          CSV delimiter character for inputs
-      --left-encoding <LEFT_ENCODING>
-          Character encoding for the left input file (defaults to utf-8)
-      --right-encoding <RIGHT_ENCODING>
-          Character encoding for the right input file (defaults to utf-8)
-      --output-encoding <OUTPUT_ENCODING>
-          Character encoding for the output file/stdout (defaults to utf-8)
-  -h, --help
-          Print help
-```
-
 ## install
 
 ```text
@@ -325,4 +288,3 @@ Options:
       --root <ROOT>        Install into an alternate root directory
   -h, --help               Print help
 ```
-

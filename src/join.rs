@@ -5,11 +5,35 @@ use encoding_rs::Encoding;
 use log::info;
 
 use crate::{
-    cli::{JoinArgs, JoinKind},
     data::parse_typed_value,
     io_utils,
     schema::{self, ColumnType, Schema},
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum JoinKind {
+    #[default]
+    Inner,
+    Left,
+    Right,
+    Full,
+}
+
+#[derive(Debug, Clone)]
+pub struct JoinArgs {
+    pub left: PathBuf,
+    pub right: PathBuf,
+    pub output: Option<PathBuf>,
+    pub left_key: String,
+    pub right_key: String,
+    pub kind: JoinKind,
+    pub left_schema: Option<PathBuf>,
+    pub right_schema: Option<PathBuf>,
+    pub delimiter: Option<u8>,
+    pub left_encoding: Option<String>,
+    pub right_encoding: Option<String>,
+    pub output_encoding: Option<String>,
+}
 
 const KEY_SEPARATOR: &str = "\u{1f}";
 

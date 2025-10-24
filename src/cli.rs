@@ -21,8 +21,8 @@ pub enum Commands {
     Append(AppendArgs),
     /// Produce summary statistics for numeric columns or frequency counts via --frequency
     Stats(StatsArgs),
-    /// Join two CSV files on common columns
-    Join(JoinArgs),
+    // /// Join two CSV files on common columns
+    // Join(JoinArgs),
     /// Install the csv-managed binary via cargo install
     Install(InstallArgs),
 }

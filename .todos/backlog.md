@@ -70,7 +70,7 @@
 - [x] Refactor the verify command into a subcommand of the schema command to simplify the command-line interface; implement as schema verify.
 - [x] Refactor the columns command into a subcommand of the schema command to simplify the command-line interface; implement as schema columns.
 - [x] Refactor the preview command into the process command as a flag to simplify the command-line interface; implement as process --preview.  When --preview is added to the process command, no file output should be allowed as the intended purpose is to preview the processing output only to the console window.
-- [ ] Would it be a better design to combine the join command into the process command?
+- [x] Remove access to the join command; do not remove core code, just the CLI interface to that code that allows that feature to be used.  This feature will be further developed in a later release cycle.
 - [ ] Expand schema infer --snapshot to include: hash of header sequence + datatype assignments and summary histograms or min/max ranges of sampled values.  Append a “Snapshot Internals” subsection to the README.  Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
 - [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
@@ -80,7 +80,6 @@
 - [ ] Handle fixed-precision decimal datatypes with configurable scale.
 - [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
 - [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
-
 
 ## Version 1.2.0: The Index Edition
 
@@ -109,6 +108,8 @@
 
 - [ ] Add the ability to read Parquet files.
 
+## Version 1.6.0: The JOIN Edition
+
 ## Backlog
 
 - [ ] Add the ability to define a primary key (single column or composite) that uniquely identifies each row in a CSV file and expose it through CLI workflows.
@@ -121,4 +122,3 @@
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
 - [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
-- 

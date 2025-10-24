@@ -21,7 +21,7 @@
 | Verification | `schema verify` streams each row against declared types; rich reports via `--report-invalid:detail[:summary] [LIMIT]`. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Statistics & Frequency | `stats` computes count, mean, median, min, max, std dev for numeric & temporal columns; `--frequency` distinct counts with optional `--top`; filters apply prior to aggregation. See: [stats](#stats). |
 | Preview & Table Rendering | `process --preview` elastic table for quick inspection (defaults `--limit` to 10); `process --table` formatted output when streaming to stdout. See: [process](#process). |
-| Joins | Inner/left/right/full outer hash joins; schema-driven parsing and replacement normalization for join keys. See: [join](#join). |
+| Joins (engine) | Hash-join engine retained for upcoming streaming pipelines; CLI command temporarily disabled while v1.6.0 join workflows are redesigned. |
 | Installation & Tooling | `install` convenience wrapper around `cargo install`; tag-based release workflow; logging via `RUST_LOG`. See: [install](#install). |
 | Streaming & Memory Efficiency | Forward-only iteration for verify, stats, filtering, projection, and indexed sorted reads; minimizes heap usage for large files. See: [process](#process), [schema](#schema). |
 | Error Reporting & Diagnostics | Contextual errors (I/O, parsing, schema mismatch, expression eval); highlighted invalid cells; snapshot mismatch failures surface layout drifts early. See: [schema](#schema), [process](#process). |
@@ -248,11 +248,9 @@ set RUST_LOG=info
 ./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema --frequency --top 10
 # 7. Preview first 15 rows
 ./target/release/csv-managed.exe process -i ./data/orders.csv --preview --limit 15
-# 8. Join customers with orders
-./target/release/csv-managed.exe join --left ./data/orders.csv --right ./data/customers.csv --left-key customer_id --right-key id --type inner -o joined.csv
-# 9. Append monthly extracts
+# 8. Append monthly extracts
 ./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
-# 10. Verify integrity (summary default)
+# 9. Verify integrity (summary default)
 ./target/release/csv-managed.exe schema verify -m orders.schema -i q1.csv
 #     Investigate failures with highlighted samples (optional limit)
 ./target/release/csv-managed.exe schema verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
@@ -605,31 +603,7 @@ Sample output (elastic table formatting):
 
 ### join
 
-Join two CSV files on one or more key columns.
-
-| Flag | Description |
-|------|-------------|
-| `--left <FILE or ->` | Left input file or stdin (`-`; requires left schema). |
-| `--right <FILE>` | Right input file (file path). |
-| `-o, --output <FILE>` | Output file (stdout if omitted). |
-| `--left-key <COLS>` | Comma-separated left key columns. |
-| `--right-key <COLS>` | Comma-separated right key columns. |
-| `--type <inner/left/right/full>` | Join type (default inner). |
-| `--left-schema <FILE>` | Left schema (required if left is stdin). |
-| `--right-schema <FILE>` | Right schema. |
-| `--delimiter <VAL>` | Input delimiter. |
-
-Example:
-
-```powershell
-./target/release/csv-managed.exe join `
-  --left orders.csv `
-  --right customers.csv `
-  --left-key customer_id `
-  --right-key id `
-  --type left `
-  -o orders_with_customers.csv
-```
+The hash-join engine remains part of the codebase, but the standalone `join` subcommand has been withdrawn from the CLI while we redesign a streaming-friendly workflow for v1.6.0. Existing scripts should transition to `process`-first pipelines (filters, derives, preview, append) until the new join interface lands. Follow the roadmap in `[.todos/plan-v1.6.0.md](.todos/plan-v1.6.0.md)` for progress updates on the pipeline-oriented join strategy.
 
 ### install
 

@@ -48,7 +48,7 @@ pub fn run() -> Result<()> {
         Commands::Process(args) => run_operation("process", || process::execute(&args)),
         Commands::Append(args) => run_operation("append", || append::execute(&args)),
         Commands::Stats(args) => run_operation("stats", || stats::execute(&args)),
-        Commands::Join(args) => run_operation("join", || join::execute(&args)),
+        // Commands::Join(args) => run_operation("join", || join::execute(&args)),
         Commands::Install(args) => run_operation("install", || install::execute(&args)),
     }
 }
