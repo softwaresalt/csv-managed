@@ -3,14 +3,16 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, fs::File, io::BufReader, path
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use encoding_rs::Encoding;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use uuid::Uuid;
 
 use crate::{
     data::{
-        Value as DataValue, parse_naive_date, parse_naive_datetime, parse_naive_time,
-        parse_typed_value,
+        CurrencyValue, Value as DataValue, parse_currency_decimal, parse_naive_date,
+        parse_naive_datetime, parse_naive_time, parse_typed_value,
     },
     io_utils,
 };
@@ -25,6 +27,7 @@ pub enum ColumnType {
     DateTime,
     Time,
     Guid,
+    Currency,
 }
 
 impl ColumnType {
@@ -38,12 +41,13 @@ impl ColumnType {
             ColumnType::DateTime => "datetime",
             ColumnType::Time => "time",
             ColumnType::Guid => "guid",
+            ColumnType::Currency => "currency",
         }
     }
 
     pub fn variants() -> &'static [&'static str] {
         &[
-            "string", "integer", "float", "boolean", "date", "datetime", "time", "guid",
+            "string", "integer", "float", "boolean", "date", "datetime", "time", "guid", "currency",
         ]
     }
 }
@@ -68,6 +72,7 @@ impl std::str::FromStr for ColumnType {
             "datetime" | "date-time" | "timestamp" => Ok(ColumnType::DateTime),
             "time" => Ok(ColumnType::Time),
             "guid" | "uuid" => Ok(ColumnType::Guid),
+            "currency" => Ok(ColumnType::Currency),
             _ => Err(anyhow!(
                 "Unknown column type '{value}'. Supported types: {}",
                 ColumnType::variants().join(", ")
@@ -232,7 +237,7 @@ impl Schema {
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path).with_context(|| format!("Opening schema file {path:?}"))?;
         let reader = BufReader::new(file);
-    let schema: Schema = serde_yaml::from_reader(reader).context("Parsing schema YAML")?;
+        let schema: Schema = serde_yaml::from_reader(reader).context("Parsing schema YAML")?;
         schema.validate_datatype_mappings()?;
         Ok(schema)
     }
@@ -295,6 +300,7 @@ fn value_column_type(value: &DataValue) -> ColumnType {
         DataValue::DateTime(_) => ColumnType::DateTime,
         DataValue::Time(_) => ColumnType::Time,
         DataValue::Guid(_) => ColumnType::Guid,
+        DataValue::Currency(_) => ColumnType::Currency,
     }
 }
 
@@ -351,6 +357,7 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             Ok(DataValue::String(t.format(fmt).to_string()))
         }
         (ColumnType::String, DataValue::Guid(g)) => Ok(DataValue::String(g.to_string())),
+        (ColumnType::String, DataValue::Currency(c)) => Ok(DataValue::String(c.to_string_fixed())),
         (ColumnType::Integer, DataValue::String(s)) => {
             let parsed = parse_with_type(&s, &ColumnType::Integer)?;
             if let DataValue::Integer(i) = parsed {
@@ -369,6 +376,13 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
                 value = round_float(value, resolve_scale(mapping));
             }
             Ok(DataValue::Float(value))
+        }
+        (ColumnType::Currency, DataValue::String(s)) => {
+            let decimal = parse_currency_decimal(&s)?;
+            let scale = explicit_currency_scale(mapping)?
+                .unwrap_or_else(|| default_currency_scale(&decimal));
+            let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
+            Ok(DataValue::Currency(currency))
         }
         (ColumnType::Boolean, DataValue::String(s)) => {
             let parsed = parse_with_type(&s, &ColumnType::Boolean)?;
@@ -407,6 +421,13 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             }
             Ok(DataValue::Float(value))
         }
+        (ColumnType::Currency, DataValue::Integer(i)) => {
+            let decimal = Decimal::from(i);
+            let scale = explicit_currency_scale(mapping)?
+                .unwrap_or_else(|| default_currency_scale(&decimal));
+            let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
+            Ok(DataValue::Currency(currency))
+        }
         (ColumnType::Integer, DataValue::Float(f)) => {
             let rounded = match strategy.as_deref() {
                 Some("truncate") => f.trunc() as i64,
@@ -420,6 +441,37 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
                 value = round_float(value, resolve_scale(mapping));
             }
             Ok(DataValue::Float(value))
+        }
+        (ColumnType::Currency, DataValue::Float(f)) => {
+            let decimal = Decimal::from_f64(f)
+                .ok_or_else(|| anyhow!("Failed to convert float {f} to decimal"))?;
+            let scale = explicit_currency_scale(mapping)?
+                .unwrap_or_else(|| default_currency_scale(&decimal));
+            let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
+            Ok(DataValue::Currency(currency))
+        }
+        (ColumnType::Float, DataValue::Currency(c)) => {
+            let value = c
+                .to_f64()
+                .ok_or_else(|| anyhow!("Currency value out of f64 range"))?;
+            Ok(DataValue::Float(value))
+        }
+        (ColumnType::Integer, DataValue::Currency(c)) => {
+            let f = c
+                .to_f64()
+                .ok_or_else(|| anyhow!("Currency value out of range for integer conversion"))?;
+            let rounded = match strategy.as_deref() {
+                Some("truncate") => f.trunc() as i64,
+                _ => f.round() as i64,
+            };
+            Ok(DataValue::Integer(rounded))
+        }
+        (ColumnType::Currency, DataValue::Currency(c)) => {
+            let decimal = c.amount().clone();
+            let scale = explicit_currency_scale(mapping)?
+                .unwrap_or_else(|| default_currency_scale(&decimal));
+            let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
+            Ok(DataValue::Currency(currency))
         }
         (ColumnType::Integer, DataValue::Integer(i)) => Ok(DataValue::Integer(i)),
         _ => bail!(
@@ -464,6 +516,7 @@ fn render_mapped_value(value: &DataValue, mapping: &DatatypeMapping) -> Result<S
             Ok(t.format(fmt).to_string())
         }
         (ColumnType::Guid, DataValue::Guid(g)) => Ok(g.to_string()),
+        (ColumnType::Currency, DataValue::Currency(c)) => Ok(c.to_string_fixed()),
         _ => bail!(
             "Mapping output type '{:?}' is incompatible with computed value '{:?}'",
             mapping.to,
@@ -508,6 +561,40 @@ fn resolve_scale(mapping: &DatatypeMapping) -> usize {
                 .or_else(|| value.as_i64().map(|i| i.max(0) as usize))
         })
         .unwrap_or(4)
+}
+
+fn explicit_currency_scale(mapping: &DatatypeMapping) -> Result<Option<u32>> {
+    if let Some(scale) = mapping.options.get("scale") {
+        let numeric = if let Some(value) = scale.as_u64() {
+            value
+        } else if let Some(value) = scale.as_i64() {
+            ensure!(value >= 0, "Currency scale must be non-negative");
+            value as u64
+        } else {
+            bail!("Currency scale must be numeric");
+        };
+        let scale_u32 = numeric as u32;
+        ensure!(
+            crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale_u32),
+            "Currency scale must be 2 or 4"
+        );
+        Ok(Some(scale_u32))
+    } else {
+        Ok(None)
+    }
+}
+
+fn default_currency_scale(decimal: &Decimal) -> u32 {
+    let scale = decimal.scale();
+    if scale == 0 {
+        2
+    } else if crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale) {
+        scale
+    } else if scale > 4 {
+        4
+    } else {
+        2
+    }
 }
 
 fn parse_string_to_date(value: &str, mapping: &DatatypeMapping) -> Result<NaiveDate> {
@@ -579,7 +666,10 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
                 ensure!(
                     matches!(
                         mapping.to,
-                        ColumnType::Float | ColumnType::Integer | ColumnType::String
+                        ColumnType::Float
+                            | ColumnType::Integer
+                            | ColumnType::String
+                            | ColumnType::Currency
                     ),
                     "Column '{}' mapping {} -> {} cannot apply 'round' strategy",
                     column_name,
@@ -589,7 +679,7 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
             }
             if normalized == "truncate" {
                 ensure!(
-                    mapping.to == ColumnType::Integer,
+                    matches!(mapping.to, ColumnType::Integer | ColumnType::Currency),
                     "Column '{}' mapping {} -> {} cannot apply 'truncate' strategy",
                     column_name,
                     mapping.from,
@@ -600,7 +690,9 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
     }
 
     if let Some(scale) = mapping.options.get("scale") {
-        if let Some(value) = scale.as_i64() {
+        let numeric = if let Some(value) = scale.as_u64() {
+            value
+        } else if let Some(value) = scale.as_i64() {
             ensure!(
                 value >= 0,
                 "Column '{}' mapping {} -> {} requires a non-negative scale",
@@ -608,9 +700,20 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
                 mapping.from,
                 mapping.to
             );
-        } else if scale.as_u64().is_none() {
+            value as u64
+        } else {
             bail!(
                 "Column '{}' mapping {} -> {} requires 'scale' to be a number",
+                column_name,
+                mapping.from,
+                mapping.to
+            );
+        };
+
+        if mapping.to == ColumnType::Currency {
+            ensure!(
+                crate::data::CURRENCY_ALLOWED_SCALES.contains(&(numeric as u32)),
+                "Column '{}' mapping {} -> {} requires scale to be 2 or 4",
                 column_name,
                 mapping.from,
                 mapping.to
@@ -640,6 +743,8 @@ struct TypeCandidate {
     possible_datetime: bool,
     possible_time: bool,
     possible_guid: bool,
+    possible_currency: bool,
+    currency_pattern_detected: bool,
 }
 
 const SUMMARY_TRACKED_LIMIT: usize = 5;
@@ -689,6 +794,8 @@ impl TypeCandidate {
             possible_datetime: true,
             possible_time: true,
             possible_guid: true,
+            possible_currency: true,
+            currency_pattern_detected: false,
         }
     }
 
@@ -706,6 +813,32 @@ impl TypeCandidate {
         }
         if self.possible_float && value.parse::<f64>().is_err() {
             self.possible_float = false;
+        }
+        if self.possible_currency {
+            match parse_currency_decimal(value) {
+                Ok(decimal) => {
+                    let scale = decimal.scale();
+                    let has_symbol = value.contains('$')
+                        || value.contains('€')
+                        || value.contains('£')
+                        || value.contains('¥');
+
+                    if scale != 0 && !crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale) {
+                        self.possible_currency = false;
+                    }
+
+                    if has_symbol {
+                        if scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale) {
+                            self.currency_pattern_detected = true;
+                        } else {
+                            self.possible_currency = false;
+                        }
+                    }
+                }
+                Err(_) => {
+                    self.possible_currency = false;
+                }
+            }
         }
         if self.possible_date && parse_naive_date(value).is_err() {
             self.possible_date = false;
@@ -729,6 +862,8 @@ impl TypeCandidate {
             ColumnType::Boolean
         } else if self.possible_integer {
             ColumnType::Integer
+        } else if self.possible_currency && self.currency_pattern_detected {
+            ColumnType::Currency
         } else if self.possible_float {
             ColumnType::Float
         } else if self.possible_date {
@@ -886,6 +1021,7 @@ pub(crate) fn format_hint_for(datatype: &ColumnType, sample: Option<&str>) -> Op
                 Some("Floating number without decimal point".to_string())
             }
         }
+        ColumnType::Currency => Some("Currency amount (2 or 4 decimal places)".to_string()),
         ColumnType::Integer => {
             if sample.starts_with('0') && sample.len() > 1 {
                 Some("Leading zeros preserved".to_string())
@@ -1109,7 +1245,7 @@ mod tests {
 
     #[test]
     fn datatype_mappings_round_float_values() {
-    let mut options = BTreeMap::new();
+        let mut options = BTreeMap::new();
         options.insert("scale".to_string(), Value::from(4));
         let mapping = DatatypeMapping {
             from: ColumnType::String,
@@ -1133,5 +1269,73 @@ mod tests {
             .apply_transformations_to_row(&mut row)
             .expect("round float");
         assert_eq!(row[0], "3.1416");
+    }
+
+    #[test]
+    fn datatype_mappings_round_currency_values() {
+        let mut options = BTreeMap::new();
+        options.insert("scale".to_string(), Value::from(2));
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Currency,
+            strategy: Some("round".to_string()),
+            options,
+        };
+        let column = ColumnMeta {
+            name: "price".to_string(),
+            datatype: ColumnType::Currency,
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["12.345".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("round currency");
+        assert_eq!(row[0], "12.35");
+    }
+
+    #[test]
+    fn datatype_mappings_preserve_currency_scale_when_unspecified() {
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Currency,
+            strategy: None,
+            options: BTreeMap::new(),
+        };
+        let column = ColumnMeta {
+            name: "premium".to_string(),
+            datatype: ColumnType::Currency,
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["123.4567".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("preserve currency scale");
+        assert_eq!(row[0], "123.4567");
+    }
+
+    #[test]
+    fn infer_schema_identifies_currency_columns() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "amount,name").unwrap();
+        writeln!(file, "$12.34,alpha").unwrap();
+        writeln!(file, "56.7800,beta").unwrap();
+
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+        assert_eq!(schema.columns.len(), 2);
+        assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
+        assert_eq!(schema.columns[1].datatype, ColumnType::String);
     }
 }

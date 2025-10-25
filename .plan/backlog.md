@@ -58,7 +58,7 @@
 - [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
 - [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 
-## Version 1.1.0: The Stats, Schema, Datatype, and Transformation Edition
+## Version 1.1.0: The Stats, Schema, Datatype, and Transformation Edition (Core Operations)
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
@@ -78,11 +78,11 @@
   - [x] Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
 - [x] Plan out a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.  Implement the plan.
 - [x] Refactor the solution to implement schema files in YAML format rather than JSON.  Create the plan first and share with me for review.  Once approved, implement the plan along with any adjustments requested from me.
-- [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
-- [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
-- [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
-- [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
-- [ ] Handle fixed-precision decimal datatypes with configurable scale.
+- [x] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
+- [x] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
+- [x] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
+- [ ] Support fixed scale and precision decimal datatypes with configurable scale and precision.
+- [ ] Support sorting by every listed datatype, including high-precision decimal values.
 - [ ] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.
 
 ## Version 1.2.0: The Index Edition
@@ -115,6 +115,8 @@
 - [ ] Add the ability to read Parquet files.
 
 ## Version 1.6.0: The JOIN Edition
+
+## Version 1.7.0: The Performance Edition
 
 ## Backlog
 

@@ -7,7 +7,7 @@
 | Area | Description |
 |------|-------------|
 | Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
-| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
+| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
 | Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
@@ -666,9 +666,10 @@ Example:
 | Date | `2024-08-01`, `08/01/2024`, `01/08/2024` | Canonical output `YYYY-MM-DD`. |
 | DateTime | `2024-08-01T13:45:00`, `2024-08-01 13:45` | Naive (no timezone). |
 | Time | `06:00:00`, `14:30`, `08:01:30` | Canonical output `HH:MM:SS`; inference accepts `HH:MM[:SS]`. |
+| Currency | `$12.34`, `123.4567` | Enforces 2 or 4 decimal places; thousands separators and leading symbols permitted; outputs normalized decimals. |
 | Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
 
-Future work: Decimal, Currency.
+Future work: Decimal.
 
 > See the [Expression Reference](#expression-reference) for temporal helper usage (date/time arithmetic & formatting), boolean output formatting considerations, and quoting rules affecting String, Date, DateTime, Time parsing in derived expressions and filters.
 
@@ -678,12 +679,12 @@ Future work: Decimal, Currency.
 
 Key points:
 
-* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`) in production schema files.
+* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`, `Currency`) in production schema files.
 * File naming: Prefer `<name>-schema.yml` for new schemas; legacy `<name>-schema.yml` loads fine but is deprecated.
 * Replacement arrays: Use `replace` (array of `{ value, replacement }`). Older internal key `value_replacements` is auto-translated to `replace` when saving.
 * Order matters: Each mapping consumes the previous output; declare from raw → intermediate → final.
-* Strategies: `round` (numeric), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer). Rounding scale defaults to `4` unless `options.scale` is provided.
-* Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale.
+* Strategies: `round` (numeric, including Currency), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer, Currency). Rounding scale defaults to `4` for floats and to the detected precision (2 or 4) for currency unless `options.scale` is provided.
+* Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale. Currency mappings accept `options.scale` of `2` or `4` to set precision explicitly.
 * Failure: Any mapping parse error invalidates the row for that column during `schema verify`.
 
 Example converting an ISO‑8601 timestamp with trailing `Z` to a date and rounding a decimal:

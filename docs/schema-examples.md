@@ -53,33 +53,25 @@ On first execution the file `tmp/big5_probe.snap` is created. Subsequent executi
 
 ## Normalize Datatypes With `datatype_mappings`
 
-Schema files can now declare transformation steps that run before value replacements or type parsing. For example, the snippet below converts ISO 8601 timestamps into bare dates and rounds verbose decimals to four places:
+Schema files can declare transformation steps that run before value replacements or final type parsing. Below is the same example expressed in YAML (preferred) converting ISO‑8601 timestamps into bare dates and rounding verbose decimals to four places:
 
-```json
-{
-    "columns": [
-        {
-            "name": "order_ts",
-            "datatype": "date",
-            "datatype_mappings": [
-                { "from": "string", "to": "datetime" },
-                { "from": "datetime", "to": "date" }
-            ]
-        },
-        {
-            "name": "amount",
-            "datatype": "float",
-            "datatype_mappings": [
-                {
-                    "from": "string",
-                    "to": "float",
-                    "strategy": "round",
-                    "options": { "scale": 4 }
-                }
-            ]
-        }
-    ]
-}
+```yaml
+columns:
+    - name: order_ts
+        datatype: Date
+        datatype_mappings:
+            - from: String
+                to: DateTime
+            - from: DateTime
+                to: Date
+    - name: amount
+        datatype: Float
+        datatype_mappings:
+            - from: String
+                to: Float
+                strategy: round
+                options:
+                    scale: 4
 ```
 
 The `process`, `append`, `stats`, and `schema verify` commands automatically apply these mappings unless you opt out with `--skip-mappings`. Use `--apply-mappings` to enforce them when chaining custom workflows.
@@ -88,26 +80,27 @@ The `process`, `append`, `stats`, and `schema verify` commands automatically app
 
 Key rules and capabilities when authoring `datatype_mappings`:
 
-1. Capitalization: Data types in production schema files should be capitalized (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`). The examples above use lowercase for brevity; prefer capitalized forms for clarity and consistency.
+1. Capitalization: Data types in production schema files should be capitalized (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`, `Currency`). All YAML examples below follow this convention.
 2. Ordering: Mappings are applied in declaration order, top to bottom. Each mapping consumes the previous output.
 3. Options: A mapping may include an `options` object to guide parsing or rendering (e.g., a custom datetime `format`).
-4. Strategies: Supported `strategy` values (case-insensitive) by context: `round` (numeric), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer). Rounding uses a `scale` in `options` (defaults to `4`).
+4. Strategies: Supported `strategy` values (case-insensitive) by context: `round` (numeric, including Currency), `truncate` (numeric to Integer or Currency scale adjustment), `trim` / `lowercase` / `uppercase` (String→String). Rounding uses a `scale` in `options` (defaults to `4` for Float; Currency requires an explicit allowed scale of `2` or `4`).
 5. Error handling: If any mapping step fails (e.g., a datetime parse), the entire row fails verification for that column.
 
 #### Custom String → DateTime Parsing
 
 If your timestamp includes a trailing `Z` (UTC designator) or other formatting not covered by the built‑in fallbacks, supply an explicit chrono format string:
 
-```json
-{
-    "name": "ordered_raw",
-    "datatype": "Date",
-    "rename": "ordered_at",
-    "datatype_mappings": [
-        { "from": "String", "to": "DateTime", "options": { "format": "%Y-%m-%dT%H:%M:%SZ" } },
-        { "from": "DateTime", "to": "Date" }
-    ]
-}
+```yaml
+name: ordered_raw
+datatype: Date
+rename: ordered_at
+datatype_mappings:
+    - from: String
+        to: DateTime
+        options:
+            format: "%Y-%m-%dT%H:%M:%SZ"
+    - from: DateTime
+        to: Date
 ```
 
 #### Built-In DateTime Fallback Formats
@@ -149,3 +142,75 @@ For ISO‑8601 with a trailing `Z` (e.g. `2024-04-01T08:30:00Z`), include the li
 4. Final typed parsing validates against the column's declared `datatype`.
 
 Design mappings so the last step produces a representation parsable as the target datatype.
+
+## Currency Mappings And Validation
+
+The `Currency` datatype enforces a fixed scale of either 2 or 4 decimal places. Parsing accepts common symbols (`$`, `€`, `£`, `¥`), thousands separators (`,`), and negative formats (leading `-` or parentheses). Any value not matching an allowed scale is rejected during verification.
+
+### Examples
+
+#### 1. String → Currency (Round to 2 decimal places)
+
+```yaml
+columns:
+    - name: gross_amount_raw
+        datatype: Currency
+        datatype_mappings:
+            - from: String
+                to: Currency
+                strategy: round
+                options:
+                    scale: 2
+```
+
+#### 2. String → Currency (Truncate to 4 decimal places)
+
+```yaml
+columns:
+    - name: fx_rate_raw
+        datatype: Currency
+        datatype_mappings:
+            - from: String
+                to: Currency
+                strategy: truncate
+                options:
+                    scale: 4
+```
+
+#### 3. Float → Currency (Direct conversion)
+
+If upstream processing produced a `Float` and you need a canonical currency with 2 decimals, you can map directly.
+
+```yaml
+columns:
+    - name: net_amount
+        datatype: Currency
+        datatype_mappings:
+            - from: Float
+                to: Currency
+                strategy: round
+                options:
+                    scale: 2
+```
+
+### Strategy Notes
+
+- `round`: Midpoint rounding is applied away from zero to enforce the target scale.
+- `truncate`: Removes excess fractional digits without rounding (e.g., `123.456789` with scale 4 becomes `123.4567`).
+- Scale must be explicitly supplied for Currency mappings (`2` or `4`). Omitting scale yields a validation error.
+
+### Validation & Stats
+
+Currency columns participate in numeric aggregations (min, max, mean, std dev) and frequency displays. The original scale is preserved for consistent formatting during output.
+
+### Error Modes
+
+Common failure conditions for Currency parsing:
+
+1. Invalid symbol placement (e.g., `123$` instead of `$123`).
+2. Unsupported scale (`123.456` → 3 decimals is rejected).
+3. Mixed thousands separators and spaces (e.g., `$1, 234.00`).
+4. Parentheses with a leading minus (`-(123.45)`), double negative.
+5. Trailing or leading stray characters (`$123.45USD`).
+
+Design your mappings to sanitize upstream data before conversion when necessary.

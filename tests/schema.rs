@@ -25,7 +25,7 @@ fn fixture_path(name: &str) -> PathBuf {
 fn column(value: &Value, index: usize) -> &Value {
     value
         .get("columns")
-    .and_then(Value::as_sequence)
+        .and_then(Value::as_sequence)
         .and_then(|cols| cols.get(index))
         .expect("column exists")
 }
@@ -118,7 +118,9 @@ fn schema_command_emits_renames_and_replacements() {
     let status_column = column(&schema, 0);
     assert_eq!(status_column["name"].as_str(), Some("status"));
     assert_eq!(status_column["name_mapping"].as_str(), Some("order_status"));
-    let replacements = status_column["replace"].as_sequence().expect("replace array");
+    let replacements = status_column["replace"]
+        .as_sequence()
+        .expect("replace array");
     assert_eq!(replacements.len(), 3);
     assert!(
         replacements

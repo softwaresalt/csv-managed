@@ -1,12 +1,107 @@
 use std::fmt;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use evalexpr;
+use rust_decimal::Decimal;
+use rust_decimal::RoundingStrategy;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::schema::ColumnType;
+
+pub const CURRENCY_ALLOWED_SCALES: [u32; 2] = [2, 4];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CurrencyValue {
+    amount: Decimal,
+}
+
+impl CurrencyValue {
+    pub fn parse(raw: &str) -> Result<Self> {
+        let decimal = parse_currency_decimal(raw)?;
+        Self::from_decimal(decimal).with_context(|| format!("Parsing '{raw}' as currency"))
+    }
+
+    pub fn from_decimal(mut amount: Decimal) -> Result<Self> {
+        match amount.scale() {
+            0 => {
+                amount.rescale(2);
+            }
+            scale if CURRENCY_ALLOWED_SCALES.contains(&scale) => {}
+            other => {
+                bail!("Currency values must have 2 or 4 decimal places (found {other})");
+            }
+        }
+        Ok(Self { amount })
+    }
+
+    pub fn quantize(mut amount: Decimal, scale: u32, strategy: Option<&str>) -> Result<Self> {
+        ensure!(
+            CURRENCY_ALLOWED_SCALES.contains(&scale),
+            "Currency scale must be 2 or 4"
+        );
+        match strategy {
+            Some("truncate") => {
+                amount = amount.round_dp_with_strategy(scale, RoundingStrategy::ToZero);
+            }
+            Some("round") | Some("round-half-up") | Some("roundhalfup") | None => {
+                amount =
+                    amount.round_dp_with_strategy(scale, RoundingStrategy::MidpointAwayFromZero);
+            }
+            Some(other) => {
+                bail!("Unsupported currency rounding strategy '{other}'");
+            }
+        }
+        Self::from_decimal(amount)
+    }
+
+    pub fn amount(&self) -> &Decimal {
+        &self.amount
+    }
+
+    pub fn scale(&self) -> u32 {
+        self.amount.scale()
+    }
+
+    pub fn to_string_fixed(&self) -> String {
+        let mut value = self.amount;
+        let scale = value.scale();
+        if scale == 0 {
+            value.rescale(2);
+        }
+        let mut rendered = value.to_string();
+        let expected = value.scale() as usize;
+        if expected == 0 {
+            rendered.push_str(".00");
+            return rendered;
+        }
+        let actual = rendered
+            .split_once('.')
+            .map(|(_, frac)| frac.len())
+            .unwrap_or(0);
+        if actual == expected {
+            return rendered;
+        }
+        if let Some((whole, frac)) = rendered.split_once('.') {
+            let mut buf = String::new();
+            buf.push_str(whole);
+            buf.push('.');
+            buf.push_str(frac);
+            for _ in 0..(expected.saturating_sub(actual)) {
+                buf.push('0');
+            }
+            return buf;
+        }
+        rendered
+    }
+
+    pub fn to_f64(&self) -> Option<f64> {
+        self.amount.to_f64()
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Value {
@@ -18,6 +113,7 @@ pub enum Value {
     DateTime(NaiveDateTime),
     Time(NaiveTime),
     Guid(Uuid),
+    Currency(CurrencyValue),
 }
 
 impl Eq for Value {}
@@ -39,6 +135,7 @@ impl Value {
             Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
             Value::Time(t) => t.format("%H:%M:%S").to_string(),
             Value::Guid(g) => g.to_string(),
+            Value::Currency(c) => c.to_string_fixed(),
         }
     }
 }
@@ -54,6 +151,7 @@ impl Ord for Value {
             (Value::DateTime(a), Value::DateTime(b)) => a.cmp(b),
             (Value::Time(a), Value::Time(b)) => a.cmp(b),
             (Value::Guid(a), Value::Guid(b)) => a.cmp(b),
+            (Value::Currency(a), Value::Currency(b)) => a.cmp(b),
             _ => panic!("Cannot compare heterogeneous Value variants"),
         }
     }
@@ -183,6 +281,10 @@ pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> 
                 .with_context(|| format!("Failed to parse '{value}' as GUID"))?;
             Value::Guid(parsed)
         }
+        ColumnType::Currency => {
+            let parsed = CurrencyValue::parse(value)?;
+            Value::Currency(parsed)
+        }
     };
     Ok(Some(parsed))
 }
@@ -197,7 +299,69 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
         Value::DateTime(dt) => evalexpr::Value::String(dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         Value::Time(t) => evalexpr::Value::String(t.format("%H:%M:%S").to_string()),
         Value::Guid(g) => evalexpr::Value::String(g.to_string()),
+        Value::Currency(c) => c
+            .to_f64()
+            .map(evalexpr::Value::Float)
+            .unwrap_or_else(|| evalexpr::Value::String(c.to_string_fixed())),
     }
+}
+
+pub fn parse_currency_decimal(raw: &str) -> Result<Decimal> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        bail!("Currency value is empty");
+    }
+
+    let mut negative = false;
+    let mut body = trimmed;
+    if body.starts_with('(') && body.ends_with(')') {
+        negative = true;
+        body = &body[1..body.len() - 1];
+    }
+
+    body = body.trim();
+    if body.starts_with('-') {
+        negative = true;
+        body = &body[1..];
+    } else if body.starts_with('+') {
+        body = &body[1..];
+    }
+
+    body = body.trim();
+    let mut sanitized = String::with_capacity(body.len() + 1);
+    let mut decimal_seen = false;
+    for ch in body.chars() {
+        match ch {
+            '0'..='9' => sanitized.push(ch),
+            '.' => {
+                if decimal_seen {
+                    bail!("Currency value '{raw}' contains multiple decimal points");
+                }
+                decimal_seen = true;
+                sanitized.push(ch);
+            }
+            ',' | '_' | ' ' => {
+                // Skip common thousands separators and spacing.
+            }
+            '$' | '€' | '£' | '¥' => {
+                // Skip well-known currency symbols.
+            }
+            _ => {
+                bail!("Currency value '{raw}' contains unsupported character '{ch}'");
+            }
+        }
+    }
+
+    ensure!(
+        sanitized.chars().any(|c| c.is_ascii_digit()),
+        "Currency value '{raw}' does not contain digits"
+    );
+
+    if negative {
+        sanitized.insert(0, '-');
+    }
+
+    Decimal::from_str(&sanitized).with_context(|| format!("Parsing '{raw}' as decimal"))
 }
 
 #[cfg(test)]
@@ -301,5 +465,30 @@ mod tests {
         let none = ComparableValue(None);
         let some = ComparableValue(Some(Value::Integer(0)));
         assert!(none < some);
+    }
+
+    #[test]
+    fn parse_currency_values_accepts_two_and_four_decimals() {
+        let two = parse_typed_value("$1,234.56", &ColumnType::Currency)
+            .unwrap()
+            .unwrap();
+        let four = parse_typed_value("123.4567", &ColumnType::Currency)
+            .unwrap()
+            .unwrap();
+        match (two, four) {
+            (Value::Currency(a), Value::Currency(b)) => {
+                assert_eq!(a.scale(), 2);
+                assert_eq!(a.to_string_fixed(), "1234.56");
+                assert_eq!(b.scale(), 4);
+                assert_eq!(b.to_string_fixed(), "123.4567");
+            }
+            _ => panic!("Expected currency values"),
+        }
+    }
+
+    #[test]
+    fn parse_currency_rejects_invalid_precision() {
+        assert!(parse_typed_value("1.234", &ColumnType::Currency).is_err());
+        assert!(parse_typed_value("abc", &ColumnType::Currency).is_err());
     }
 }

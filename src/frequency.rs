@@ -182,6 +182,7 @@ fn display_value(value: &Value) -> String {
         Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
         Value::Time(t) => t.format("%H:%M:%S").to_string(),
         Value::Guid(g) => g.to_string(),
+        Value::Currency(c) => c.to_string_fixed(),
     }
 }
 
