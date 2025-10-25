@@ -550,18 +550,23 @@ They are rendered back to canonical forms; standard deviation for Date reports `
 
 Given a temporal schema file:
 
-```jsonc
-{
-  "columns": [
-    { "name": "id", "datatype": "Integer" },
-    { "name": "ordered_at", "datatype": "Date" },
-    { "name": "ordered_at_ts", "datatype": "DateTime" },
-    { "name": "shipped_at", "datatype": "Date" },
-    { "name": "shipped_at_ts", "datatype": "DateTime" },
-    { "name": "ship_time", "datatype": "Time" },
-    { "name": "status", "datatype": "String" }
-  ]
-}
+```yaml
+schema_version: "1.0"
+columns:
+  - name: id
+    datatype: Integer
+  - name: ordered_at
+    datatype: Date
+  - name: ordered_at_ts
+    datatype: DateTime
+  - name: shipped_at
+    datatype: Date
+  - name: shipped_at_ts
+    datatype: DateTime
+  - name: ship_time
+    datatype: Time
+  - name: status
+    datatype: String
 ```
 
 Run stats over temporal columns:
@@ -689,24 +694,27 @@ Key points:
 
 Example converting an ISO‑8601 timestamp with trailing `Z` to a date and rounding a decimal:
 
-```json
-{
-  "name": "ordered_raw",
-  "datatype": "Date",
-  "rename": "ordered_at",
-  "datatype_mappings": [
-    { "from": "String", "to": "DateTime", "options": { "format": "%Y-%m-%dT%H:%M:%SZ" } },
-    { "from": "DateTime", "to": "Date" }
-  ]
-},
-{
-  "name": "amount_raw",
-  "datatype": "Float",
-  "rename": "amount",
-  "datatype_mappings": [
-    { "from": "String", "to": "Float", "strategy": "round", "options": { "scale": 4 } }
-  ]
-}
+```yaml
+- name: ordered_raw
+  datatype: Date
+  rename: ordered_at
+  datatype_mappings:
+    - from: String
+      to: DateTime
+      options:
+        format: "%Y-%m-%dT%H:%M:%SZ"
+    - from: DateTime
+      to: Date
+
+- name: amount_raw
+  datatype: Float
+  rename: amount
+  datatype_mappings:
+    - from: String
+      to: Float
+      strategy: round
+      options:
+        scale: 4
 ```
 
 Built‑in fallback DateTime formats (used when no explicit `options.format` is specified):

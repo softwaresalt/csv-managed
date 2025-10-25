@@ -21,8 +21,8 @@ Generate a schema file populated with snake_case renames and empty replacement a
 
 ```powershell
 csv-managed schema infer --mapping --replace-template `
-    -i tests/data/big_5_players_stats_2023_2024.csv `
-    -o tmp/big5_inferred-schema.yml --sample-rows 0
+  -i tests/data/big_5_players_stats_2023_2024.csv `
+  -o tmp/big5_inferred-schema.yml --sample-rows 0
 ```
 
 This command performs a full scan (`--sample-rows 0`) before writing `tmp/big5_inferred-schema.yml`.
@@ -33,10 +33,10 @@ Force specific column types while still injecting automatic renames for downstre
 
 ```powershell
 csv-managed schema infer --mapping `
-    --override Performance_Gls:integer `
-    --override "Per 90 Minutes_Gls:string" `
-    -i tests/data/big_5_players_stats_2023_2024.csv `
-    -o tmp/big5_overrides-schema.yml --sample-rows 10
+  --override Performance_Gls:integer `
+  --override "Per 90 Minutes_Gls:string" `
+  -i tests/data/big_5_players_stats_2023_2024.csv `
+  -o tmp/big5_overrides-schema.yml --sample-rows 10
 ```
 
 The resulting schema keeps inferred types for all other columns, but `Performance_Gls` becomes `integer` and `Per 90 Minutes_Gls` becomes `string` with the rename `per_90_minutes_gls`.
@@ -57,21 +57,21 @@ Schema files can declare transformation steps that run before value replacements
 
 ```yaml
 columns:
-    - name: order_ts
-        datatype: Date
-        datatype_mappings:
-            - from: String
-                to: DateTime
-            - from: DateTime
-                to: Date
-    - name: amount
-        datatype: Float
-        datatype_mappings:
-            - from: String
-                to: Float
-                strategy: round
-                options:
-                    scale: 4
+  - name: order_ts
+    datatype: Date
+    datatype_mappings:
+      - from: String
+        to: DateTime
+      - from: DateTime
+        to: Date
+  - name: amount
+    datatype: Float
+    datatype_mappings:
+      - from: String
+        to: Float
+        strategy: round
+        options:
+          scale: 4
 ```
 
 The `process`, `append`, `stats`, and `schema verify` commands automatically apply these mappings unless you opt out with `--skip-mappings`. Use `--apply-mappings` to enforce them when chaining custom workflows.
@@ -95,12 +95,12 @@ name: ordered_raw
 datatype: Date
 rename: ordered_at
 datatype_mappings:
-    - from: String
-        to: DateTime
-        options:
-            format: "%Y-%m-%dT%H:%M:%SZ"
-    - from: DateTime
-        to: Date
+  - from: String
+    to: DateTime
+    options:
+      format: "%Y-%m-%dT%H:%M:%SZ"
+  - from: DateTime
+    to: Date
 ```
 
 #### Built-In DateTime Fallback Formats
@@ -153,28 +153,28 @@ The `Currency` datatype enforces a fixed scale of either 2 or 4 decimal places. 
 
 ```yaml
 columns:
-    - name: gross_amount_raw
-        datatype: Currency
-        datatype_mappings:
-            - from: String
-                to: Currency
-                strategy: round
-                options:
-                    scale: 2
+  - name: gross_amount_raw
+    datatype: Currency
+    datatype_mappings:
+      - from: String
+        to: Currency
+        strategy: round
+        options:
+        scale: 2
 ```
 
 #### 2. String → Currency (Truncate to 4 decimal places)
 
 ```yaml
 columns:
-    - name: fx_rate_raw
-        datatype: Currency
-        datatype_mappings:
-            - from: String
-                to: Currency
-                strategy: truncate
-                options:
-                    scale: 4
+  - name: fx_rate_raw
+    datatype: Currency
+    datatype_mappings:
+      - from: String
+        to: Currency
+        strategy: truncate
+        options:
+        scale: 4
 ```
 
 #### 3. Float → Currency (Direct conversion)
@@ -183,14 +183,14 @@ If upstream processing produced a `Float` and you need a canonical currency with
 
 ```yaml
 columns:
-    - name: net_amount
-        datatype: Currency
-        datatype_mappings:
-            - from: Float
-                to: Currency
-                strategy: round
-                options:
-                    scale: 2
+  - name: net_amount
+    datatype: Currency
+    datatype_mappings:
+      - from: Float
+        to: Currency
+        strategy: round
+        options:
+        scale: 2
 ```
 
 ### Strategy Notes
