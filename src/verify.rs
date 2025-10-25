@@ -124,12 +124,24 @@ fn validate_file_against_schema(
     for (row_idx, record) in reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading row {} in {path:?}", row_idx + 2))?;
         let decoded = io_utils::decode_record(&record, encoding)?;
+        let mut transformed = decoded.clone();
+        if schema.has_transformations() {
+            schema
+                .apply_transformations_to_row(&mut transformed)
+                .with_context(|| {
+                    format!(
+                        "Applying datatype mappings to row {} in {path:?}",
+                        row_idx + 2
+                    )
+                })?;
+        }
+        schema.apply_replacements_to_row(&mut transformed);
         for (col_idx, column) in schema.columns.iter().enumerate() {
             let raw_value = decoded.get(col_idx).map(|s| s.as_str()).unwrap_or("");
-            let normalized = column.normalize_value(raw_value);
-            if let Err(err) = validate_value(normalized.as_ref(), &column.datatype) {
+            let normalized_value = transformed.get(col_idx).map(|s| s.as_str()).unwrap_or("");
+            if let Err(err) = validate_value(normalized_value, &column.datatype) {
                 if !report_enabled {
-                    let message = if normalized.as_ref() == raw_value {
+                    let message = if normalized_value == raw_value {
                         format!(
                             "Row {} column '{}': value {:?}\nReason: {}",
                             row_idx + 2,
@@ -143,14 +155,14 @@ fn validate_file_against_schema(
                             row_idx + 2,
                             column.output_name(),
                             raw_value,
-                            normalized.as_ref(),
+                            normalized_value,
                             err
                         )
                     };
                     return Err(anyhow!(message));
                 }
 
-                let normalized_owned = normalized.into_owned();
+                let normalized_owned = normalized_value.to_string();
                 let normalized_changed = normalized_owned != raw_value;
 
                 total_errors += 1;

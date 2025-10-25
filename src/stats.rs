@@ -80,6 +80,17 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
         }
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
+        if schema.has_transformations() {
+            schema
+                .apply_transformations_to_row(&mut decoded)
+                .with_context(|| {
+                    format!(
+                        "Applying datatype mappings to row {} in {:?}",
+                        row_idx + 2,
+                        args.input
+                    )
+                })?;
+        }
         schema.apply_replacements_to_row(&mut decoded);
         let typed = parse_typed_row(&schema, &decoded)
             .with_context(|| format!("Parsing row {}", row_idx + 2))?;

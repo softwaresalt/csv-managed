@@ -43,7 +43,10 @@ fn execute_manual(args: &SchemaArgs) -> Result<()> {
         args.output.as_deref(),
         "An --output path is required for schema creation",
     )?;
-    let schema = Schema { columns };
+    let schema = Schema {
+        columns,
+        schema_version: None,
+    };
     schema
         .save(output)
         .with_context(|| format!("Writing schema to {output:?}"))?;
@@ -220,6 +223,7 @@ fn parse_columns(specs: &[String]) -> Result<Vec<ColumnMeta>> {
                 datatype: column_type,
                 rename,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             });
         }
     }
@@ -670,7 +674,9 @@ mod tests {
                 datatype: ColumnType::Float,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             }],
+            schema_version: None,
         };
         let overrides = vec!["amount:integer".to_string(), "".to_string()];
         let applied = apply_overrides(&mut schema, &overrides).unwrap();

@@ -204,6 +204,12 @@ pub struct ProcessArgs {
     /// Render output as an elastic table to stdout
     #[arg(long = "table")]
     pub table: bool,
+    /// Apply schema-defined datatype mappings before replacements (auto when available)
+    #[arg(long = "apply-mappings")]
+    pub apply_mappings: bool,
+    /// Skip schema-defined datatype mappings even if they exist
+    #[arg(long = "skip-mappings")]
+    pub skip_mappings: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]

@@ -126,6 +126,17 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
     for (row_idx, record) in left_reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading left row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, left_encoding)?;
+        if left_schema.has_transformations() {
+            left_schema
+                .apply_transformations_to_row(&mut decoded)
+                .with_context(|| {
+                    format!(
+                        "Applying datatype mappings to left row {} in {:?}",
+                        row_idx + 2,
+                        args.left
+                    )
+                })?;
+        }
         left_schema.apply_replacements_to_row(&mut decoded);
         let key = build_key(&decoded, &left_schema, &left_indices)?;
         let mut matched_any = false;
@@ -266,6 +277,13 @@ fn build_right_lookup(
     for (row_idx, record) in reader.byte_records().enumerate() {
         let record = record.with_context(|| format!("Reading right row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
+        if schema.has_transformations() {
+            schema
+                .apply_transformations_to_row(&mut decoded)
+                .with_context(|| {
+                    format!("Applying datatype mappings to right row {}", row_idx + 2)
+                })?;
+        }
         schema.apply_replacements_to_row(&mut decoded);
         let key = build_key(&decoded, schema, key_indices)?;
         map.entry(key).or_default().push(RightRow {

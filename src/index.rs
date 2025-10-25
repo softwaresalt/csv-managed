@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs::File, io::BufWriter, path::Path};
+use std::{borrow::Cow, collections::BTreeMap, fs::File, io::BufWriter, path::Path};
 
 use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
@@ -535,13 +535,25 @@ impl IndexVariantBuilder {
             let comparable = match raw {
                 Some(value) => {
                     let ty = &self.column_types[idx];
-                    let normalized = self
-                        .column_meta
-                        .get(idx)
-                        .and_then(|meta| meta.as_ref())
-                        .map(|meta| meta.normalize_value(&value))
-                        .unwrap_or_else(|| std::borrow::Cow::Borrowed(value.as_str()));
-                    let parsed = parse_typed_value(normalized.as_ref(), ty)?;
+                    let final_value = if let Some(meta) =
+                        self.column_meta.get(idx).and_then(|meta| meta.as_ref())
+                    {
+                        let mut current: Cow<'_, str> = Cow::Borrowed(value.as_str());
+                        if meta.has_mappings() {
+                            current = match meta.apply_mappings_to_value(current.as_ref())? {
+                                Some(mapped) => Cow::Owned(mapped),
+                                None => Cow::Owned(String::new()),
+                            };
+                        }
+                        current = match meta.normalize_value(current.as_ref()) {
+                            Cow::Borrowed(_) => current,
+                            Cow::Owned(replaced) => Cow::Owned(replaced),
+                        };
+                        current
+                    } else {
+                        Cow::Borrowed(value.as_str())
+                    };
+                    let parsed = parse_typed_value(final_value.as_ref(), ty)?;
                     ComparableValue(parsed)
                 }
                 None => ComparableValue(None),

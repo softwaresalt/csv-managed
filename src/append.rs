@@ -108,6 +108,16 @@ fn append_single(
         let record = record.with_context(|| format!("Reading row {} in {path:?}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, context.encoding)?;
         if let Some(schema) = context.schema {
+            if schema.has_transformations() {
+                schema
+                    .apply_transformations_to_row(&mut decoded)
+                    .with_context(|| {
+                        format!(
+                            "Applying datatype mappings to row {} in {path:?}",
+                            row_idx + 2
+                        )
+                    })?;
+            }
             schema.apply_replacements_to_row(&mut decoded);
             validate_record(schema, &decoded, row_idx + 2)?;
         }

@@ -1,13 +1,17 @@
 use std::{borrow::Cow, fmt, fs::File, io::BufReader, path::Path};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail, ensure};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map as JsonMap, Value};
 use uuid::Uuid;
 
 use crate::{
-    data::{parse_naive_date, parse_naive_datetime, parse_naive_time},
+    data::{
+        Value as DataValue, parse_naive_date, parse_naive_datetime, parse_naive_time,
+        parse_typed_value,
+    },
     io_utils,
 };
 
@@ -78,6 +82,16 @@ pub struct ValueReplacement {
     pub to: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DatatypeMapping {
+    pub from: ColumnType,
+    pub to: ColumnType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy: Option<String>,
+    #[serde(default, skip_serializing_if = "JsonMap::is_empty")]
+    pub options: JsonMap<String, Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
@@ -95,11 +109,19 @@ pub struct ColumnMeta {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub value_replacements: Vec<ValueReplacement>,
+    #[serde(
+        default,
+        rename = "datatype_mappings",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub datatype_mappings: Vec<DatatypeMapping>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Schema {
     pub columns: Vec<ColumnMeta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -151,9 +173,13 @@ impl Schema {
                 datatype: ColumnType::String,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             })
             .collect();
-        Schema { columns }
+        Schema {
+            columns,
+            schema_version: None,
+        }
     }
 
     pub fn column_index(&self, name: &str) -> Option<usize> {
@@ -206,17 +232,24 @@ impl Schema {
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path).with_context(|| format!("Opening schema file {path:?}"))?;
         let reader = BufReader::new(file);
-        let schema = serde_json::from_reader(reader).context("Parsing schema JSON")?;
+        let schema: Schema = serde_json::from_reader(reader).context("Parsing schema JSON")?;
+        schema.validate_datatype_mappings()?;
         Ok(schema)
     }
 
     fn save_internal(&self, path: &Path, include_replace_template: bool) -> Result<()> {
+        let mut schema = self.clone();
+        if schema.schema_version.is_none() {
+            schema.schema_version = Some(CURRENT_SCHEMA_VERSION.to_string());
+        }
+        schema.validate_datatype_mappings()?;
+
         let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
         if !include_replace_template {
-            serde_json::to_writer_pretty(file, self).context("Writing schema JSON")
+            serde_json::to_writer_pretty(file, &schema).context("Writing schema JSON")
         } else {
             let mut value =
-                serde_json::to_value(self).context("Serializing schema to JSON value")?;
+                serde_json::to_value(&schema).context("Serializing schema to JSON value")?;
             if let Some(columns) = value
                 .get_mut("columns")
                 .and_then(|columns| columns.as_array_mut())
@@ -236,6 +269,370 @@ impl Schema {
     }
 }
 
+fn parse_initial_value(raw: &str, mapping: &DatatypeMapping) -> Result<DataValue> {
+    match mapping.from {
+        ColumnType::String => Ok(DataValue::String(raw.to_string())),
+        _ => parse_with_type(raw, &mapping.from),
+    }
+}
+
+fn parse_with_type(value: &str, ty: &ColumnType) -> Result<DataValue> {
+    let trimmed = value.trim();
+    parse_typed_value(trimmed, ty)
+        .with_context(|| format!("Parsing '{trimmed}' as {ty}"))?
+        .ok_or_else(|| anyhow!("Value is empty after trimming"))
+}
+
+fn value_column_type(value: &DataValue) -> ColumnType {
+    match value {
+        DataValue::String(_) => ColumnType::String,
+        DataValue::Integer(_) => ColumnType::Integer,
+        DataValue::Float(_) => ColumnType::Float,
+        DataValue::Boolean(_) => ColumnType::Boolean,
+        DataValue::Date(_) => ColumnType::Date,
+        DataValue::DateTime(_) => ColumnType::DateTime,
+        DataValue::Time(_) => ColumnType::Time,
+        DataValue::Guid(_) => ColumnType::Guid,
+    }
+}
+
+fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<DataValue> {
+    let strategy = normalized_strategy(mapping);
+    match (&mapping.to, value) {
+        (ColumnType::String, DataValue::String(mut s)) => {
+            if let Some(strategy) = strategy.as_deref() {
+                match strategy {
+                    "trim" => s = s.trim().to_string(),
+                    "lowercase" => s = s.to_ascii_lowercase(),
+                    "uppercase" => s = s.to_ascii_uppercase(),
+                    other => {
+                        bail!("Strategy '{other}' is not valid for string -> string mappings");
+                    }
+                }
+            }
+            Ok(DataValue::String(s))
+        }
+        (ColumnType::String, DataValue::Integer(i)) => Ok(DataValue::String(i.to_string())),
+        (ColumnType::String, DataValue::Float(f)) => {
+            let scale = resolve_scale(mapping);
+            let formatted =
+                if strategy.as_deref() == Some("round") || mapping.from == ColumnType::Float {
+                    format_float_with_scale(f, scale)
+                } else {
+                    f.to_string()
+                };
+            Ok(DataValue::String(formatted))
+        }
+        (ColumnType::String, DataValue::Boolean(b)) => Ok(DataValue::String(b.to_string())),
+        (ColumnType::String, DataValue::Date(d)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%Y-%m-%d");
+            Ok(DataValue::String(d.format(fmt).to_string()))
+        }
+        (ColumnType::String, DataValue::DateTime(dt)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%Y-%m-%d %H:%M:%S");
+            Ok(DataValue::String(dt.format(fmt).to_string()))
+        }
+        (ColumnType::String, DataValue::Time(t)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%H:%M:%S");
+            Ok(DataValue::String(t.format(fmt).to_string()))
+        }
+        (ColumnType::String, DataValue::Guid(g)) => Ok(DataValue::String(g.to_string())),
+        (ColumnType::Integer, DataValue::String(s)) => {
+            let parsed = parse_with_type(&s, &ColumnType::Integer)?;
+            if let DataValue::Integer(i) = parsed {
+                Ok(DataValue::Integer(i))
+            } else {
+                unreachable!()
+            }
+        }
+        (ColumnType::Float, DataValue::String(s)) => {
+            let parsed = parse_with_type(&s, &ColumnType::Float)?;
+            let mut value = match parsed {
+                DataValue::Float(f) => f,
+                _ => unreachable!(),
+            };
+            if should_round_float(mapping, strategy.as_deref()) {
+                value = round_float(value, resolve_scale(mapping));
+            }
+            Ok(DataValue::Float(value))
+        }
+        (ColumnType::Boolean, DataValue::String(s)) => {
+            let parsed = parse_with_type(&s, &ColumnType::Boolean)?;
+            if let DataValue::Boolean(b) = parsed {
+                Ok(DataValue::Boolean(b))
+            } else {
+                unreachable!()
+            }
+        }
+        (ColumnType::Date, DataValue::String(s)) => {
+            let parsed = parse_string_to_date(&s, mapping)?;
+            Ok(DataValue::Date(parsed))
+        }
+        (ColumnType::DateTime, DataValue::String(s)) => {
+            let parsed = parse_string_to_datetime(&s, mapping)?;
+            Ok(DataValue::DateTime(parsed))
+        }
+        (ColumnType::Time, DataValue::String(s)) => {
+            let parsed = parse_string_to_time(&s, mapping)?;
+            Ok(DataValue::Time(parsed))
+        }
+        (ColumnType::Guid, DataValue::String(s)) => {
+            let parsed = parse_with_type(&s, &ColumnType::Guid)?;
+            if let DataValue::Guid(g) = parsed {
+                Ok(DataValue::Guid(g))
+            } else {
+                unreachable!()
+            }
+        }
+        (ColumnType::Date, DataValue::DateTime(dt)) => Ok(DataValue::Date(dt.date())),
+        (ColumnType::Time, DataValue::DateTime(dt)) => Ok(DataValue::Time(dt.time())),
+        (ColumnType::Float, DataValue::Integer(i)) => {
+            let mut value = i as f64;
+            if should_round_float(mapping, strategy.as_deref()) {
+                value = round_float(value, resolve_scale(mapping));
+            }
+            Ok(DataValue::Float(value))
+        }
+        (ColumnType::Integer, DataValue::Float(f)) => {
+            let rounded = match strategy.as_deref() {
+                Some("truncate") => f.trunc() as i64,
+                _ => f.round() as i64,
+            };
+            Ok(DataValue::Integer(rounded))
+        }
+        (ColumnType::Float, DataValue::Float(f)) => {
+            let mut value = f;
+            if should_round_float(mapping, strategy.as_deref()) {
+                value = round_float(value, resolve_scale(mapping));
+            }
+            Ok(DataValue::Float(value))
+        }
+        (ColumnType::Integer, DataValue::Integer(i)) => Ok(DataValue::Integer(i)),
+        _ => bail!(
+            "Datatype mapping '{}' -> '{}' is not supported",
+            mapping.from,
+            mapping.to
+        ),
+    }
+}
+
+fn render_mapped_value(value: &DataValue, mapping: &DatatypeMapping) -> Result<String> {
+    match (&mapping.to, value) {
+        (ColumnType::String, DataValue::String(s)) => Ok(s.clone()),
+        (ColumnType::Integer, DataValue::Integer(i)) => Ok(i.to_string()),
+        (ColumnType::Float, DataValue::Float(f)) => {
+            let scale = resolve_scale(mapping);
+            Ok(format_float_with_scale(*f, scale))
+        }
+        (ColumnType::Boolean, DataValue::Boolean(b)) => Ok(b.to_string()),
+        (ColumnType::Date, DataValue::Date(d)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%Y-%m-%d");
+            Ok(d.format(fmt).to_string())
+        }
+        (ColumnType::DateTime, DataValue::DateTime(dt)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%Y-%m-%d %H:%M:%S");
+            Ok(dt.format(fmt).to_string())
+        }
+        (ColumnType::Time, DataValue::Time(t)) => {
+            let fmt = mapping
+                .options
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("%H:%M:%S");
+            Ok(t.format(fmt).to_string())
+        }
+        (ColumnType::Guid, DataValue::Guid(g)) => Ok(g.to_string()),
+        _ => bail!(
+            "Mapping output type '{:?}' is incompatible with computed value '{:?}'",
+            mapping.to,
+            value_column_type(value)
+        ),
+    }
+}
+
+fn format_float_with_scale(value: f64, scale: usize) -> String {
+    if scale == 0 {
+        format!("{value:.0}")
+    } else {
+        format!("{:.precision$}", value, precision = scale)
+    }
+}
+
+fn should_round_float(mapping: &DatatypeMapping, strategy: Option<&str>) -> bool {
+    match strategy {
+        Some("round") => true,
+        Some(_) => false,
+        None => mapping.from == ColumnType::Float && mapping.to == ColumnType::Float,
+    }
+}
+
+fn round_float(value: f64, scale: usize) -> f64 {
+    if scale == 0 {
+        value.round()
+    } else {
+        let factor = 10f64.powi(scale as i32);
+        (value * factor).round() / factor
+    }
+}
+
+fn resolve_scale(mapping: &DatatypeMapping) -> usize {
+    mapping
+        .options
+        .get("scale")
+        .and_then(|value| {
+            if value.is_u64() {
+                Some(value.as_u64().unwrap() as usize)
+            } else if value.is_i64() {
+                Some(value.as_i64().unwrap().max(0) as usize)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(4)
+}
+
+fn parse_string_to_date(value: &str, mapping: &DatatypeMapping) -> Result<NaiveDate> {
+    let trimmed = value.trim();
+    if let Some(fmt) = mapping.options.get("format").and_then(|v| v.as_str()) {
+        NaiveDate::parse_from_str(trimmed, fmt)
+            .with_context(|| format!("Parsing '{trimmed}' with format '{fmt}'"))
+    } else {
+        parse_naive_date(trimmed)
+    }
+}
+
+fn parse_string_to_datetime(value: &str, mapping: &DatatypeMapping) -> Result<NaiveDateTime> {
+    let trimmed = value.trim();
+    if let Some(fmt) = mapping.options.get("format").and_then(|v| v.as_str()) {
+        NaiveDateTime::parse_from_str(trimmed, fmt)
+            .with_context(|| format!("Parsing '{trimmed}' with format '{fmt}'"))
+    } else {
+        parse_naive_datetime(trimmed)
+    }
+}
+
+fn parse_string_to_time(value: &str, mapping: &DatatypeMapping) -> Result<NaiveTime> {
+    let trimmed = value.trim();
+    if let Some(fmt) = mapping.options.get("format").and_then(|v| v.as_str()) {
+        NaiveTime::parse_from_str(trimmed, fmt)
+            .with_context(|| format!("Parsing '{trimmed}' with format '{fmt}'"))
+    } else {
+        parse_naive_time(trimmed)
+    }
+}
+
+fn normalized_strategy(mapping: &DatatypeMapping) -> Option<String> {
+    mapping
+        .strategy
+        .as_ref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+}
+
+fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Result<()> {
+    if let Some(strategy_raw) = mapping.strategy.as_ref() {
+        let strategy = strategy_raw.trim();
+        if !strategy.is_empty() {
+            let normalized = strategy.to_ascii_lowercase();
+            match normalized.as_str() {
+                "round" | "trim" | "lowercase" | "uppercase" | "truncate" => {}
+                other => {
+                    bail!(
+                        "Column '{}' mapping {} -> {} uses unsupported strategy '{}'",
+                        column_name,
+                        mapping.from,
+                        mapping.to,
+                        other
+                    );
+                }
+            }
+            if matches!(normalized.as_str(), "trim" | "lowercase" | "uppercase") {
+                ensure!(
+                    mapping.from == ColumnType::String && mapping.to == ColumnType::String,
+                    "Column '{}' mapping {} -> {} cannot apply '{}' strategy",
+                    column_name,
+                    mapping.from,
+                    mapping.to,
+                    strategy
+                );
+            }
+            if normalized == "round" {
+                ensure!(
+                    matches!(
+                        mapping.to,
+                        ColumnType::Float | ColumnType::Integer | ColumnType::String
+                    ),
+                    "Column '{}' mapping {} -> {} cannot apply 'round' strategy",
+                    column_name,
+                    mapping.from,
+                    mapping.to
+                );
+            }
+            if normalized == "truncate" {
+                ensure!(
+                    mapping.to == ColumnType::Integer,
+                    "Column '{}' mapping {} -> {} cannot apply 'truncate' strategy",
+                    column_name,
+                    mapping.from,
+                    mapping.to
+                );
+            }
+        }
+    }
+
+    if let Some(scale) = mapping.options.get("scale") {
+        if scale.is_i64() {
+            let value = scale.as_i64().unwrap();
+            ensure!(
+                value >= 0,
+                "Column '{}' mapping {} -> {} requires a non-negative scale",
+                column_name,
+                mapping.from,
+                mapping.to
+            );
+        } else if !scale.is_u64() {
+            bail!(
+                "Column '{}' mapping {} -> {} requires 'scale' to be a number",
+                column_name,
+                mapping.from,
+                mapping.to
+            );
+        }
+    }
+
+    if let Some(format_value) = mapping.options.get("format") {
+        ensure!(
+            format_value.is_string(),
+            "Column '{}' mapping {} -> {} requires 'format' to be a string",
+            column_name,
+            mapping.from,
+            mapping.to
+        );
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 struct TypeCandidate {
     possible_integer: bool,
@@ -248,6 +645,7 @@ struct TypeCandidate {
 }
 
 const SUMMARY_TRACKED_LIMIT: usize = 5;
+const CURRENT_SCHEMA_VERSION: &str = "1.1.0";
 
 #[derive(Clone, Default)]
 struct SummaryAccumulator {
@@ -410,10 +808,14 @@ pub fn infer_schema_with_stats(
             datatype: candidates[idx].decide(),
             rename: None,
             value_replacements: Vec::new(),
+            datatype_mappings: Vec::new(),
         })
         .collect();
 
-    let schema = Schema { columns };
+    let schema = Schema {
+        columns,
+        schema_version: None,
+    };
     let stats = InferenceStats {
         sample_values: samples,
         rows_read: processed,
@@ -507,11 +909,52 @@ pub(crate) fn format_hint_for(datatype: &ColumnType, sample: Option<&str>) -> Op
 }
 
 impl ColumnMeta {
+    pub fn has_mappings(&self) -> bool {
+        !self.datatype_mappings.is_empty()
+    }
+
     pub fn output_name(&self) -> &str {
         self.rename
             .as_deref()
             .filter(|value| !value.is_empty())
             .unwrap_or(&self.name)
+    }
+
+    pub fn apply_mappings_to_value(&self, value: &str) -> Result<Option<String>> {
+        if value.is_empty() {
+            return Ok(None);
+        }
+        if !self.has_mappings() {
+            return Ok(Some(value.to_string()));
+        }
+
+        let first_mapping = self
+            .datatype_mappings
+            .first()
+            .expect("has_mappings() guarantees at least one mapping");
+
+        let mut current = parse_initial_value(value, first_mapping)?;
+        for mapping in &self.datatype_mappings {
+            let current_type = value_column_type(&current);
+            ensure!(
+                current_type == mapping.from,
+                "Datatype mapping chain expects '{:?}' but encountered '{:?}'",
+                mapping.from,
+                current_type
+            );
+            current = apply_single_mapping(mapping, current)?;
+        }
+
+        let last_mapping = self
+            .datatype_mappings
+            .last()
+            .expect("non-empty mapping chain");
+        let rendered = render_mapped_value(&current, last_mapping)?;
+        if rendered.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(rendered))
+        }
     }
 
     pub fn normalize_value<'a>(&self, value: &'a str) -> Cow<'a, str> {
@@ -525,6 +968,29 @@ impl ColumnMeta {
 }
 
 impl Schema {
+    pub fn has_transformations(&self) -> bool {
+        self.columns.iter().any(|column| column.has_mappings())
+    }
+
+    pub fn apply_transformations_to_row(&self, row: &mut [String]) -> Result<()> {
+        for (idx, column) in self.columns.iter().enumerate() {
+            if !column.has_mappings() {
+                continue;
+            }
+            if let Some(cell) = row.get_mut(idx) {
+                let original = cell.clone();
+                match column
+                    .apply_mappings_to_value(&original)
+                    .with_context(|| format!("Column '{}'", column.name))?
+                {
+                    Some(mapped) => *cell = mapped,
+                    None => cell.clear(),
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn apply_replacements_to_row(&self, row: &mut [String]) {
         for (idx, column) in self.columns.iter().enumerate() {
             if let Some(value) = row.get_mut(idx)
@@ -533,6 +999,38 @@ impl Schema {
                 *value = normalized;
             }
         }
+    }
+
+    pub fn validate_datatype_mappings(&self) -> Result<()> {
+        for column in &self.columns {
+            if column.datatype_mappings.is_empty() {
+                continue;
+            }
+            let mut previous_to = None;
+            for (step_index, mapping) in column.datatype_mappings.iter().enumerate() {
+                if let Some(expected) = previous_to.as_ref() {
+                    ensure!(
+                        mapping.from == *expected,
+                        "Column '{}' mapping step {} expects input '{:?}' but prior step outputs '{:?}'",
+                        column.name,
+                        step_index + 1,
+                        mapping.from,
+                        expected
+                    );
+                }
+                validate_mapping_options(&column.name, mapping)?;
+                previous_to = Some(mapping.to.clone());
+            }
+            let terminal = previous_to.expect("mapping chain must have terminal type");
+            ensure!(
+                terminal == column.datatype,
+                "Column '{}' mappings terminate at '{:?}' but column datatype is '{:?}'",
+                column.name,
+                terminal,
+                column.datatype
+            );
+        }
+        Ok(())
     }
 }
 
@@ -573,5 +1071,69 @@ mod tests {
             Some("{ABCDEF12-3456-7890-ABCD-EF1234567890}"),
         );
         assert_eq!(guid_hint.as_deref(), Some("GUID with braces"));
+    }
+
+    #[test]
+    fn datatype_mappings_convert_string_to_date() {
+        let mappings = vec![
+            DatatypeMapping {
+                from: ColumnType::String,
+                to: ColumnType::DateTime,
+                strategy: None,
+                options: JsonMap::new(),
+            },
+            DatatypeMapping {
+                from: ColumnType::DateTime,
+                to: ColumnType::Date,
+                strategy: None,
+                options: JsonMap::new(),
+            },
+        ];
+
+        let column = ColumnMeta {
+            name: "event_date".to_string(),
+            datatype: ColumnType::Date,
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: mappings,
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+
+        let mut row = vec!["2024-05-10T13:45:00".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("apply datatype mappings");
+        assert_eq!(row[0], "2024-05-10");
+    }
+
+    #[test]
+    fn datatype_mappings_round_float_values() {
+        let mut options = JsonMap::new();
+        options.insert("scale".to_string(), Value::from(4));
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Float,
+            strategy: Some("round".to_string()),
+            options,
+        };
+        let column = ColumnMeta {
+            name: "measurement".to_string(),
+            datatype: ColumnType::Float,
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["3.1415926535".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("round float");
+        assert_eq!(row[0], "3.1416");
     }
 }

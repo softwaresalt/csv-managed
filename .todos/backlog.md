@@ -76,12 +76,13 @@
   - [x] Add sampled-value summaries (per-column histograms or min/max).
   - [x] Append a “Snapshot Internals” subsection to the README.
   - [x] Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
-- [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
-- [ ] Add a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.
-- [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
-- [ ] Handle fixed-precision decimal datatypes with configurable scale.
+- [x] Plan out a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.  Implement the plan.
 - [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
 - [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
+- [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
+- [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
+- [ ] Handle fixed-precision decimal datatypes with configurable scale.
+- [ ] Refactor the solution to implement schema files in YAML format rather than JSON.  Create the plan first and share with me for review.  Once approved, implement the plan along with any adjustments requested from me.
 
 ## Version 1.2.0: The Index Edition
 
@@ -126,3 +127,4 @@
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
 - [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
+- [ ] Consider creating a new version that focuses on locale specific input/output.

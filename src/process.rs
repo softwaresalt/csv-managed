@@ -79,6 +79,23 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
 
     reconcile_schema_with_headers(&mut schema, &headers)?;
 
+    if args.apply_mappings && args.skip_mappings {
+        return Err(anyhow!(
+            "--apply-mappings and --skip-mappings cannot be used together"
+        ));
+    }
+    let schema_has_mappings = schema.has_transformations();
+    let apply_mappings = if args.skip_mappings {
+        false
+    } else if args.apply_mappings {
+        if !schema_has_mappings {
+            debug!("--apply-mappings requested but schema defines no datatype mappings");
+        }
+        schema_has_mappings
+    } else {
+        schema_has_mappings
+    };
+
     let maybe_index = if let Some(index_path) = &args.index {
         Some(CsvIndex::load(index_path)?)
     } else {
@@ -169,6 +186,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
                 output_plan: &output_plan,
                 sink: OutputSink::Table(&mut rows_for_table),
                 limit,
+                apply_mappings,
             };
 
             if let Some(variant) = matching_variant {
@@ -224,6 +242,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
                 output_plan: &output_plan,
                 sink: OutputSink::Csv(&mut writer),
                 limit,
+                apply_mappings,
             };
 
             if let Some(variant) = matching_variant {
@@ -269,6 +288,7 @@ fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) -> Res
                 datatype: ColumnType::String,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             })
             .collect();
         return Ok(());
@@ -341,6 +361,7 @@ struct ProcessEngine<'a, 'b> {
     output_plan: &'a OutputPlan,
     sink: OutputSink<'b>,
     limit: Option<usize>,
+    apply_mappings: bool,
 }
 
 impl<'a, 'b> ProcessEngine<'a, 'b> {
@@ -355,6 +376,13 @@ impl<'a, 'b> ProcessEngine<'a, 'b> {
         for (ordinal, result) in reader.into_byte_records().enumerate() {
             let record = result.with_context(|| format!("Reading row {}", ordinal + 2))?;
             let mut raw = io_utils::decode_record(&record, encoding)?;
+            if self.apply_mappings {
+                self.schema
+                    .apply_transformations_to_row(&mut raw)
+                    .with_context(|| {
+                        format!("Applying datatype mappings to row {}", ordinal + 2)
+                    })?;
+            }
             self.schema.apply_replacements_to_row(&mut raw);
             let typed = parse_typed_row(self.schema, &raw)?;
 
@@ -422,6 +450,16 @@ impl<'a, 'b> ProcessEngine<'a, 'b> {
                 break;
             }
             let mut raw = io_utils::decode_record(&record, encoding)?;
+            if self.apply_mappings {
+                self.schema
+                    .apply_transformations_to_row(&mut raw)
+                    .with_context(|| {
+                        format!(
+                            "Applying datatype mappings to indexed row at byte offset {}",
+                            offset
+                        )
+                    })?;
+            }
             self.schema.apply_replacements_to_row(&mut raw);
             let typed = parse_typed_row(self.schema, &raw)?;
             if !self.filters.is_empty()

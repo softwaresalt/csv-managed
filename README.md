@@ -12,6 +12,7 @@
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
 | Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
+| Datatype Transformations | Schema-driven `datatype_mappings` chains convert and standardize values (string→datetime→date, float rounding, string casing) before replacements; toggle via `process --apply-mappings` / `--skip-mappings`. See: [schema](#schema), [process](#process). |
 | Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and combo expansion (`--combo`) for prefix/direction permutations. See: [index](#index). |
 | Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
 | Filtering & Projection | Typed comparison filters (`= != > >= < <= contains startswith endswith`), multi-flag AND semantics; Evalexpr predicates (`--filter-expr`) with temporal helpers; column include/exclude; row limiting; optional 1-based row numbers. See: [process](#process), [Expression Reference](#expression-reference). |
@@ -116,7 +117,7 @@ All helpers accept canonical strings (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, `HH:M
 | Mixed filter logic | Multiple --filter flags AND together; to OR conditions use --filter-expr with (a OR b). |
 | Row number usage | `row_number` available only if `--row-numbers` was set before derives/filters execute. |
 | Temporal comparisons | Prefer helpers (e.g. `date_diff_days`) over manual string comparison for correctness across formats. |
-| Replacements ordering | Schema `replace` mappings are applied before type parsing & expression evaluation; design expressions based on normalized values. |
+| Transform vs replace ordering | `datatype_mappings` run first, followed by schema `replace` mappings, then typed parsing & expressions; design expressions based on the fully normalized values. |
 | Boolean output format | `--boolean-format` affects derived boolean rendering; logic still works with internal canonical bool. |
 | Performance & median | Median and large numeric derives may retain many values; limit columns or avoid heavy expressions for huge files. |
 | Using snapshots | Snapshots guard inference output only; they do not validate expression correctness. |
@@ -670,6 +671,74 @@ Example:
 Future work: Decimal, Currency.
 
 > See the [Expression Reference](#expression-reference) for temporal helper usage (date/time arithmetic & formatting), boolean output formatting considerations, and quoting rules affecting String, Date, DateTime, Time parsing in derived expressions and filters.
+
+### Datatype Mappings
+
+`datatype_mappings` let you declare an ordered chain of conversions that run **before** value replacements and final type parsing. Author them inside each column object in the schema file.
+
+Key points:
+
+* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`) in production schema files.
+* Order matters: Each mapping consumes the previous output; declare from raw → intermediate → final.
+* Strategies: `round` (numeric), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer). Rounding scale defaults to `4` unless `options.scale` is provided.
+* Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale.
+* Failure: Any mapping parse error invalidates the row for that column during `schema verify`.
+
+Example converting an ISO‑8601 timestamp with trailing `Z` to a date and rounding a decimal:
+
+```json
+{
+  "name": "ordered_raw",
+  "datatype": "Date",
+  "rename": "ordered_at",
+  "datatype_mappings": [
+    { "from": "String", "to": "DateTime", "options": { "format": "%Y-%m-%dT%H:%M:%SZ" } },
+    { "from": "DateTime", "to": "Date" }
+  ]
+},
+{
+  "name": "amount_raw",
+  "datatype": "Float",
+  "rename": "amount",
+  "datatype_mappings": [
+    { "from": "String", "to": "Float", "strategy": "round", "options": { "scale": 4 } }
+  ]
+}
+```
+
+Built‑in fallback DateTime formats (used when no explicit `options.format` is specified):
+
+```text
+%Y-%m-%d %H:%M:%S
+%Y-%m-%dT%H:%M:%S
+%d/%m/%Y %H:%M:%S
+%m/%d/%Y %H:%M:%S
+%Y-%m-%d %H:%M
+%Y-%m-%dT%H:%M
+```
+
+To parse timestamps with a trailing `Z`, offsets, or fractional seconds, supply a matching `options.format` (e.g., `%Y-%m-%dT%H:%M:%SZ`, `%Y-%m-%dT%H:%M:%S%.f`).
+
+Common chrono tokens:
+
+| Token | Meaning |
+|-------|---------|
+| `%Y`  | 4‑digit year |
+| `%m`  | Month (01–12) |
+| `%d`  | Day of month (01–31) |
+| `%H`  | Hour (00–23) |
+| `%M`  | Minute (00–59) |
+| `%S`  | Second (00–60) |
+| `%f`  | Fractional seconds (nanoseconds) |
+
+Validation flow:
+
+1. Raw value ingested.
+2. `datatype_mappings` chain executes.
+3. Value replacements apply.
+4. Final parsing validates against the declared column `datatype`.
+
+See extended examples in `docs/schema-examples.md`.
 
 ### Stdin/Stdout Usage
 

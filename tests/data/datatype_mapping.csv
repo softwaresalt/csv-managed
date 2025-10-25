@@ -1,0 +1,4 @@
+order_id,ordered_raw,amount_raw,status_raw
+1,2024-04-01T08:30:00Z,123.456789,Pending
+2,2024-05-02T09:45:00Z,78.1,READY
+3,2024-06-03T10:15:00Z,45.987654,shipped

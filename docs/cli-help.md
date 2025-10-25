@@ -210,6 +210,10 @@ Options:
           Character encoding for the output file/stdout (defaults to utf-8)
       --boolean-format <BOOLEAN_FORMAT>
           Normalize boolean columns in output [default: original] [possible values: original, true-false, one-zero]
+      --apply-mappings
+          Apply schema-defined datatype mappings before replacements (automatic when mappings exist)
+      --skip-mappings
+          Skip schema-defined datatype mappings even if they are present
       --preview
           Render results as a preview table on stdout (disables --output and defaults the row limit)
       --table

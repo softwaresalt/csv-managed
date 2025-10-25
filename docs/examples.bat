@@ -44,6 +44,22 @@ rem Probe using explicit input encoding support
 .\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tests\data\big_5_players_stats.schema --mapping --replace-template
 .\target\release\csv-managed.exe schema verify -m .\tests\data\big_5_players_stats.schema -i .\tests\data\big_5_players_stats_2023_2024.csv
 
+rem Datatype mapping feature: reuse sample data and schema from tests/data
+.\target\release\csv-managed.exe schema columns --schema .\tests\data\datatype_mapping.schema
+.\target\release\csv-managed.exe schema verify -m .\tests\data\datatype_mapping.schema -i .\tests\data\datatype_mapping.csv --report-invalid
+
+rem Apply mappings and view normalized values (date truncation, float rounding, lowercase + replacement)
+.\target\release\csv-managed.exe process -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping.schema --apply-mappings --preview
+.\target\release\csv-managed.exe process -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping.schema --apply-mappings -o .\tmp\datatype_mapping_clean.csv
+type .\tmp\datatype_mapping_clean.csv
+
+rem Compute statistics and frequency counts on transformed data (mappings run automatically)
+.\target\release\csv-managed.exe stats -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping.schema --columns amount
+.\target\release\csv-managed.exe stats -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping.schema --frequency -C status
+
+:: To observe the failure mode without datatype mappings, uncomment the command below (order_ts will not parse as a date)
+:: .\target\release\csv-managed.exe process -i .\tmp\datatype_mapping.csv -m .\tmp\datatype_mapping.schema --skip-mappings --preview
+
 .\target\debug\csv-managed.exe schema verify -m .\tests\data\orders.schema -i .\tests\data\orders_invalid.csv --report-invalid
 .\target\debug\csv-managed.exe schema verify -m .\tests\data\orders.schema -i .\tests\data\orders_invalid.csv --report-invalid:detail 5
 .\target\debug\csv-managed.exe schema verify -m .\tests\data\orders.schema -i .\tests\data\orders_invalid.csv --report-invalid:detail:summary

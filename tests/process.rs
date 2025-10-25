@@ -268,20 +268,24 @@ fn create_boolean_subset(
                 datatype: ColumnType::String,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             },
             ColumnMeta {
                 name: GOALS_COL.to_string(),
                 datatype: ColumnType::Integer,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             },
             ColumnMeta {
                 name: BOOLEAN_COL.to_string(),
                 datatype: ColumnType::Boolean,
                 rename: None,
                 value_replacements: Vec::new(),
+                datatype_mappings: Vec::new(),
             },
         ],
+        schema_version: None,
     };
     schema.save(&schema_path).expect("write boolean schema");
 
