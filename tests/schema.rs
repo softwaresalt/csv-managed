@@ -449,3 +449,42 @@ fn schema_infer_snapshot_writes_and_validates_layout() {
         .failure()
         .stderr(contains("Probe output does not match snapshot"));
 }
+
+#[test]
+fn schema_verify_accepts_currency_dataset() {
+    let csv_path = fixture_path("currency_transactions.csv");
+    let schema_path = fixture_path("currency_transactions-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn schema_verify_rejects_invalid_currency_precision() {
+    let csv_path = fixture_path("currency_transactions_invalid.csv");
+    let schema_path = fixture_path("currency_transactions-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("Currency values must have 2 or 4 decimal places"));
+}

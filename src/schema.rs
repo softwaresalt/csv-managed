@@ -467,7 +467,7 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             Ok(DataValue::Integer(rounded))
         }
         (ColumnType::Currency, DataValue::Currency(c)) => {
-            let decimal = c.amount().clone();
+            let decimal = *c.amount();
             let scale = explicit_currency_scale(mapping)?
                 .unwrap_or_else(|| default_currency_scale(&decimal));
             let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;

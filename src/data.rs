@@ -369,6 +369,8 @@ mod tests {
     use super::*;
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use evalexpr::Value as EvalValue;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
     use uuid::Uuid;
 
     #[test]
@@ -490,5 +492,38 @@ mod tests {
     fn parse_currency_rejects_invalid_precision() {
         assert!(parse_typed_value("1.234", &ColumnType::Currency).is_err());
         assert!(parse_typed_value("abc", &ColumnType::Currency).is_err());
+    }
+
+    #[test]
+    fn currency_quantize_rounds_half_away_from_zero() {
+        let decimal = Decimal::from_str("10.005").unwrap();
+        let value = CurrencyValue::quantize(decimal, 2, None).expect("round currency");
+        assert_eq!(value.to_string_fixed(), "10.01");
+    }
+
+    #[test]
+    fn currency_quantize_truncates_values() {
+        let decimal = Decimal::from_str("7.899").unwrap();
+        let value =
+            CurrencyValue::quantize(decimal, 2, Some("truncate")).expect("truncate currency");
+        assert_eq!(value.to_string_fixed(), "7.89");
+    }
+
+    #[test]
+    fn currency_quantize_rejects_invalid_strategy() {
+        let decimal = Decimal::from_str("1.00").unwrap();
+        assert!(CurrencyValue::quantize(decimal, 2, Some("ceil")).is_err());
+    }
+
+    #[test]
+    fn currency_quantize_rejects_invalid_scale() {
+        let decimal = Decimal::from_str("1.00").unwrap();
+        assert!(CurrencyValue::quantize(decimal, 3, None).is_err());
+    }
+
+    #[test]
+    fn currency_to_string_fixed_pads_fractional_zeros() {
+        let value = CurrencyValue::parse("42").expect("parse integer currency");
+        assert_eq!(value.to_string_fixed(), "42.00");
     }
 }

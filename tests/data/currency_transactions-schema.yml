@@ -1,0 +1,40 @@
+columns:
+- name: transaction_id
+  datatype: String
+  name_mapping: transaction_id
+  replace: []
+- name: gross_amount_raw
+  datatype: Currency
+  name_mapping: gross_amount_raw
+  replace: []
+  datatype_mappings:
+  - from: String
+    to: Currency
+    strategy: round
+    options:
+      scale: 2
+- name: tax_raw
+  datatype: Currency
+  name_mapping: tax_raw
+  replace: []
+  datatype_mappings:
+  - from: String
+    to: Currency
+    strategy: truncate
+    options:
+      scale: 4
+- name: net_amount_float
+  datatype: Currency
+  name_mapping: net_amount_float
+  replace: []
+  datatype_mappings:
+  - from: Float
+    to: Currency
+    strategy: round
+    options:
+      scale: 2
+- name: rebate_currency
+  datatype: Currency
+  name_mapping: rebate_currency
+  replace: []
+schema_version: 1.1.0

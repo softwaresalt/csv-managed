@@ -1062,3 +1062,49 @@ fn preview_renders_requested_rows() {
     assert!(output.contains(PLAYER_COL));
     assert!(output.contains(FIRST_PLAYER));
 }
+
+#[test]
+fn process_applies_currency_mappings() {
+    let temp = tempdir().expect("tempdir");
+    let output_path = temp.path().join("currency_output.csv");
+    let input = fixture_path("currency_transactions.csv");
+    let schema_path = fixture_path("currency_transactions-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--apply-mappings",
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    assert_eq!(headers.len(), 5);
+    assert_eq!(rows.len(), 3);
+
+    let first = &rows[0];
+    assert_eq!(first.get(0), Some("TX-001"));
+    assert_eq!(first.get(1), Some("1234.57"));
+    assert_eq!(first.get(2), Some("12.3456"));
+    assert_eq!(first.get(3), Some("1234.57"));
+    assert_eq!(first.get(4), Some("10.5000"));
+
+    let second = &rows[1];
+    assert_eq!(second.get(1), Some("2500.57"));
+    assert_eq!(second.get(2), Some("0.9999"));
+    assert_eq!(second.get(3), Some("2500.57"));
+    assert_eq!(second.get(4), Some("0.1250"));
+
+    let third = &rows[2];
+    assert_eq!(third.get(1), Some("0.00"));
+    assert_eq!(third.get(2), Some("0.0000"));
+    assert_eq!(third.get(3), Some("0.00"));
+    assert_eq!(third.get(4), Some("0.0000"));
+}

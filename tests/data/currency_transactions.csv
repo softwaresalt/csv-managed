@@ -1,0 +1,4 @@
+transaction_id,gross_amount_raw,tax_raw,net_amount_float,rebate_currency
+TX-001,"$1,234.567",12.3456,1234.567,10.5000
+TX-002,2500.567,0.9999,2500.567,0.1250
+TX-003,0,0.0000,0.0,0.0000
