@@ -11,12 +11,12 @@ const BIG5_DATA: &str = "big_5_players_stats_2023_2024.csv";
 const GOALS_COLUMN: &str = "Performance_Gls";
 const ASSISTS_COLUMN: &str = "Performance_Ast";
 const ORDERS_TEMPORAL_DATA: &str = "orders_temporal.csv";
-const ORDERS_TEMPORAL_SCHEMA: &str = "orders_temporal.schema";
+const ORDERS_TEMPORAL_SCHEMA: &str = "orders_temporal-schema.yml";
 const ORDERED_AT_COL: &str = "ordered_at";
 const ORDERED_AT_TS_COL: &str = "ordered_at_ts";
 const SHIP_TIME_COL: &str = "ship_time";
 const STATS_TEMPORAL_DATA: &str = "stats_temporal.csv";
-const STATS_TEMPORAL_SCHEMA: &str = "stats_temporal.schema";
+const STATS_TEMPORAL_SCHEMA: &str = "stats_temporal-schema.yml";
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -130,7 +130,7 @@ fn stats_columns_flag_limits_output_with_big5_schema() {
     let temp = tempdir().expect("temp dir");
     let subset_path = temp.path().join("big5_numeric.csv");
     write_big5_numeric_subset(&csv_path, &subset_path, 5, false);
-    let schema_path = temp.path().join("big5.schema");
+    let schema_path = temp.path().join("big5-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -180,7 +180,7 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
     let temp = tempdir().expect("temp dir");
     let clean_subset_path = temp.path().join("big5_clean.csv");
     let subset_path = temp.path().join("big5_subset.csv");
-    let schema_path = temp.path().join("big5.schema");
+    let schema_path = temp.path().join("big5-schema.yml");
 
     write_big5_numeric_subset(&csv_path, &clean_subset_path, 3, false);
     Command::cargo_bin("csv-managed")
@@ -261,7 +261,7 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
 #[test]
 fn stats_frequency_reports_categorical_counts() {
     let csv_path = fixture_path("stats_schema.csv");
-    let schema_path = fixture_path("stats_schema.schema");
+    let schema_path = fixture_path("stats_schema-schema.yml");
     let assert = Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([

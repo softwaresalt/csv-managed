@@ -6,7 +6,7 @@
 - [x] Allow subsequent commands to select a prebuilt index file (and variant) during processing.
 - [x] Support sorting CSV output by specified columns, including columns present in an index.
 - [x] Support ascending and descending sort directions across multiple columns.
-- [x] Allow explicit column name and datatype declarations to be stored in `.schema` files.
+- [x] Allow explicit column name and datatype declarations to be stored in `-schema.yml` files.
 - [x] Probe CSV files to infer column datatypes and persist them to a schema file.
 - [x] Emit sorted results to new files via the `-o/--output` argument.
 - [x] Add row numbers to output rows when requested.
@@ -44,9 +44,9 @@
 - [x] Document install command usage and multi-index support in README.
 - [x] Add tests covering install command argument plumbing and multi-index selection logic.
 - [x] Add GUID data type support.
-- [x] Refactor the solution to use .schema instead of .meta and rename metadata.rs to schema.rs.
+- [x] Refactor the solution to use -schema.yml instead of .meta and rename metadata.rs to schema.rs.
 - [x] Add the ability to specify the column names along with the data types of a CSV file in the schema file.
-- [x] Add the ability to specify in the .schema file a mapping of existing column names to new column names to be used in all outputs from the file.
+- [x] Add the ability to specify in the -schema.yml file a mapping of existing column names to new column names to be used in all outputs from the file.
 - [x] Add GitHub pipeline build and deployment capability using build and deployment definitions or actions.
 - [x] Add deployment of the executable as a binary for easy access from the command line from the cargo package store.
 - [x] Add the ability to index a file on multiple combinations of columns and store multiple indexes for the same file and mixed sort directions (ascending/descending) per column.
@@ -77,12 +77,13 @@
   - [x] Append a “Snapshot Internals” subsection to the README.
   - [x] Add a cross-link from the schema command section near the --snapshot flag to the new comparison section.
 - [x] Plan out a datatype_mapping feature to the schema file and the ability to transform one data type to another where possible.  Implement the plan.
+- [x] Refactor the solution to implement schema files in YAML format rather than JSON.  Create the plan first and share with me for review.  Once approved, implement the plan along with any adjustments requested from me.
 - [ ] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
 - [ ] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
 - [ ] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values (decimal pending).
 - [ ] Handle fixed-precision decimal datatypes with configurable scale.
-- [ ] Refactor the solution to implement schema files in YAML format rather than JSON.  Create the plan first and share with me for review.  Once approved, implement the plan along with any adjustments requested from me.
+- [ ] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.
 
 ## Version 1.2.0: The Index Edition
 
@@ -96,7 +97,7 @@
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
 - [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
 - [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
-- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
+- [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a -schema.yml file schema definition including data type verification.
 - [ ] Union and sort all files in a directory, splitting output by row count or file size.
 - [ ] Perform a union across multiple files with deduplication.
 - [ ] Probe files to suggest candidate primary (or composite) keys.

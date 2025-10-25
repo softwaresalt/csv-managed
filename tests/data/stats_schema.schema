@@ -1,8 +1,0 @@
-{
-  "columns": [
-    { "name": "id", "datatype": "Integer" },
-    { "name": "quantity", "datatype": "Integer", "replace": [ { "from": "NA", "to": "0" } ] },
-    { "name": "price", "datatype": "Float" },
-    { "name": "status", "datatype": "String" }
-  ]
-}

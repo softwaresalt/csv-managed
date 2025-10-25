@@ -11,7 +11,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Create a .schema file from explicit column definitions
+    /// Create a -schema.yml file from explicit column definitions
     Schema(SchemaArgs),
     /// Create a B-Tree index (.idx) for one or more columns
     Index(IndexArgs),
@@ -32,7 +32,7 @@ pub struct SchemaArgs {
     /// Manual schema creation and shared options
     #[command(subcommand)]
     pub mode: Option<SchemaMode>,
-    /// Destination .schema file path (alias --schema retained for compatibility)
+    /// Destination -schema.yml file path (alias --schema retained for compatibility)
     #[arg(short = 'o', long = "output", alias = "schema", short_alias = 'm')]
     pub output: Option<PathBuf>,
     /// Column definitions using `name:type` syntax (comma-separated or repeatable)
@@ -47,7 +47,7 @@ pub struct SchemaArgs {
 pub enum SchemaMode {
     /// Display inferred schema details without writing a file
     Probe(SchemaProbeArgs),
-    /// Infer schema metadata and optionally persist a .schema file
+    /// Infer schema metadata and optionally persist a -schema.yml file
     Infer(SchemaInferArgs),
     /// Verify CSV files against a schema definition
     Verify(SchemaVerifyArgs),
@@ -84,7 +84,7 @@ pub struct SchemaProbeArgs {
 pub struct SchemaInferArgs {
     #[command(flatten)]
     pub probe: SchemaProbeArgs,
-    /// Destination .schema file path (alias --schema retained for compatibility)
+    /// Destination -schema.yml file path (alias --schema retained for compatibility)
     #[arg(short = 'o', long = "output", alias = "schema", short_alias = 'm')]
     pub output: Option<PathBuf>,
     /// Inject empty replace arrays into the generated schema as a template when inferring

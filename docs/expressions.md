@@ -21,7 +21,7 @@ Use two `--filter` flags to express inclusive ranges:
 PowerShell (use backtick for continuation) and cmd.exe (use caret `^`). Examples below show PowerShell style.
 
 ```powershell
-./target/release/csv-managed.exe process -i sales.csv -m sales.schema `
+./target/release/csv-managed.exe process -i sales.csv -m sales-schema.yml `
   --filter "order_date >= 2024-01-01" `
   --filter "order_date <= 2024-03-31" `
   -C order_id,order_date,amount,status
@@ -44,7 +44,7 @@ Range with `--filter-expr` (allows complex branching):
 Chain concise comparisons with one richer expression:
 
 ```powershell
-./target/release/csv-managed.exe process -i sales.csv -m sales.schema `
+./target/release/csv-managed.exe process -i sales.csv -m sales-schema.yml `
   --filter "region = US" `
   --filter "status != cancelled" `
   --filter-expr 'if(priority = "high" && amount > 750, true, amount > 1500)' `
@@ -54,7 +54,7 @@ Chain concise comparisons with one richer expression:
 ## 3. Temporal Calculations
 
 ```powershell
-./target/release/csv-managed.exe process -i orders.csv -m orders.schema `
+./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml `
   --derive 'lag_days=date_diff_days(shipped_at, ordered_at)' `
   --derive 'eta_plus2=date_add(ordered_at,2)' `
   --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 1' `
@@ -141,7 +141,7 @@ Minimal cross-shell safe pattern:
 ## Combined Example (Full)
 
 ```powershell
-./target/release/csv-managed.exe process -i orders.csv -m orders.schema `
+./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml `
   --filter "status != cancelled" `
   --filter "amount >= 50" `
   --filter-expr 'date_diff_days(shipped_at, ordered_at) <= 10' `

@@ -1,0 +1,30 @@
+columns:
+- name: id
+  datatype: Integer
+  name_mapping: id
+  replace: []
+- name: ordered_at
+  datatype: Date
+  name_mapping: ordered_at
+  replace: []
+- name: ordered_at_ts
+  datatype: DateTime
+  name_mapping: ordered_at_ts
+  replace: []
+- name: shipped_at
+  datatype: Date
+  name_mapping: shipped_at
+  replace: []
+- name: shipped_at_ts
+  datatype: DateTime
+  name_mapping: shipped_at_ts
+  replace: []
+- name: ship_time
+  datatype: Time
+  name_mapping: ship_time
+  replace: []
+- name: status
+  datatype: String
+  name_mapping: status
+  replace: []
+schema_version: 1.1.0

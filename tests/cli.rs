@@ -6,7 +6,7 @@ use csv_managed::{
     schema::{ColumnType, Schema, ValueReplacement},
 };
 use predicates::{prelude::PredicateBooleanExt, str::contains};
-use serde_json::Value;
+use serde_yaml::Value;
 use tempfile::tempdir;
 
 fn write_sample_csv(delimiter: u8) -> (tempfile::TempDir, std::path::PathBuf) {
@@ -44,7 +44,7 @@ fn fixture_path(name: &str) -> PathBuf {
 #[test]
 fn probe_creates_schema_with_custom_delimiter() {
     let (dir, csv_path) = write_sample_csv(b';');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -61,10 +61,15 @@ fn probe_creates_schema_with_custom_delimiter() {
         .success();
 
     let contents = fs::read_to_string(&schema_path).expect("read schema");
-    let json: Value = serde_json::from_str(&contents).expect("parse schema json");
-    let columns = json["columns"].as_array().expect("columns array");
-    assert!(columns.iter().all(|column| column.get("replace").is_none()));
-    let schema: Schema = serde_json::from_str(&contents).expect("parse schema");
+    let json: Value = serde_yaml::from_str(&contents).expect("parse schema yaml");
+    let columns = json["columns"].as_sequence().expect("columns array");
+    assert!(columns.iter().all(|column| {
+        column
+            .as_mapping()
+            .and_then(|mapping| mapping.get(Value::from("replace")))
+            .is_none()
+    }));
+    let schema: Schema = serde_yaml::from_str(&contents).expect("parse schema");
     assert_eq!(schema.columns.len(), 5);
     assert_eq!(schema.columns[0].name, "id");
 }
@@ -72,7 +77,7 @@ fn probe_creates_schema_with_custom_delimiter() {
 #[test]
 fn schema_command_writes_manual_schema() {
     let dir = tempdir().expect("temp dir");
-    let schema_path = dir.path().join("manual.schema");
+    let schema_path = dir.path().join("manual-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -89,10 +94,15 @@ fn schema_command_writes_manual_schema() {
         .success();
 
     let contents = fs::read_to_string(&schema_path).expect("read manual schema");
-    let json: Value = serde_json::from_str(&contents).expect("parse manual schema json");
-    let columns = json["columns"].as_array().expect("columns array");
-    assert!(columns.iter().all(|column| column.get("replace").is_none()));
-    let schema: Schema = serde_json::from_str(&contents).expect("parse manual schema");
+    let json: Value = serde_yaml::from_str(&contents).expect("parse manual schema yaml");
+    let columns = json["columns"].as_sequence().expect("columns array");
+    assert!(columns.iter().all(|column| {
+        column
+            .as_mapping()
+            .and_then(|mapping| mapping.get(Value::from("replace")))
+            .is_none()
+    }));
+    let schema: Schema = serde_yaml::from_str(&contents).expect("parse manual schema");
     assert_eq!(schema.columns.len(), 4);
     assert_eq!(schema.columns[0].name, "id");
     assert_eq!(schema.columns[0].rename.as_deref(), Some("Identifier"));
@@ -106,7 +116,7 @@ fn schema_command_writes_manual_schema() {
 #[test]
 fn probe_includes_replace_template_when_requested() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -122,12 +132,14 @@ fn probe_includes_replace_template_when_requested() {
         .success();
 
     let contents = fs::read_to_string(&schema_path).expect("read schema");
-    let json: Value = serde_json::from_str(&contents).expect("parse schema json");
-    let columns = json["columns"].as_array().expect("columns array");
+    let json: Value = serde_yaml::from_str(&contents).expect("parse schema yaml");
+    let columns = json["columns"].as_sequence().expect("columns array");
     assert!(columns.iter().all(|column| {
-        column["replace"]
-            .as_array()
-            .map(|arr| arr.is_empty())
+        column
+            .as_mapping()
+            .and_then(|mapping| mapping.get(Value::from("replace")))
+            .and_then(|value| value.as_sequence())
+            .map(|sequence| sequence.is_empty())
             .unwrap_or(false)
     }));
 }
@@ -135,7 +147,7 @@ fn probe_includes_replace_template_when_requested() {
 #[test]
 fn schema_columns_subcommand_prints_schema_listing() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -190,7 +202,7 @@ fn schema_columns_requires_schema_argument() {
 #[test]
 fn probe_emits_mappings_into_schema_and_stdout() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -212,7 +224,7 @@ fn probe_emits_mappings_into_schema_and_stdout() {
         );
 
     let contents = fs::read_to_string(&schema_path).expect("schema output");
-    let schema: Schema = serde_json::from_str(&contents).expect("parse schema");
+    let schema: Schema = serde_yaml::from_str(&contents).expect("parse schema");
     let mapping_values: Vec<Option<String>> = schema
         .columns
         .iter()
@@ -260,7 +272,7 @@ fn schema_probe_outputs_enhanced_table() {
 #[test]
 fn process_sorts_filters_and_derives_output() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -304,7 +316,7 @@ fn process_sorts_filters_and_derives_output() {
 #[test]
 fn process_applies_value_replacements_from_schema() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -356,7 +368,7 @@ fn process_applies_value_replacements_from_schema() {
 #[test]
 fn verify_reports_header_mismatch_detail() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
@@ -400,7 +412,7 @@ fn verify_reports_header_mismatch_detail() {
 
 #[test]
 fn verify_reports_summary_only_by_default() {
-    let schema_path = fixture_path("orders.schema");
+    let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
     Command::cargo_bin("csv-managed")
@@ -428,7 +440,7 @@ fn verify_reports_summary_only_by_default() {
 
 #[test]
 fn verify_reports_invalid_rows_with_limit_using_fixture() {
-    let schema_path = fixture_path("orders.schema");
+    let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
     Command::cargo_bin("csv-managed")
@@ -457,7 +469,7 @@ fn verify_reports_invalid_rows_with_limit_using_fixture() {
 
 #[test]
 fn verify_reports_all_invalid_rows_without_limit() {
-    let schema_path = fixture_path("orders.schema");
+    let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
     Command::cargo_bin("csv-managed")
@@ -488,7 +500,7 @@ fn verify_reports_all_invalid_rows_without_limit() {
 #[test]
 fn index_is_used_for_sorted_output() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -551,7 +563,7 @@ fn index_is_used_for_sorted_output() {
 #[test]
 fn index_combo_spec_generates_multiple_variants() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -657,7 +669,7 @@ fn install_command_passes_arguments_to_cargo() {
 #[test]
 fn process_accepts_named_index_variant() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -721,7 +733,7 @@ fn process_accepts_named_index_variant() {
 #[test]
 fn process_errors_when_variant_missing() {
     let (dir, csv_path) = write_sample_csv(b',');
-    let schema_path = dir.path().join("schema.schema");
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([

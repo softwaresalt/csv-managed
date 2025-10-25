@@ -1,10 +1,10 @@
-use std::{borrow::Cow, fmt, fs::File, io::BufReader, path::Path};
+use std::{borrow::Cow, collections::BTreeMap, fmt, fs::File, io::BufReader, path::Path};
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map as JsonMap, Value};
+use serde_yaml::Value;
 use uuid::Uuid;
 
 use crate::{
@@ -88,8 +88,8 @@ pub struct DatatypeMapping {
     pub to: ColumnType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy: Option<String>,
-    #[serde(default, skip_serializing_if = "JsonMap::is_empty")]
-    pub options: JsonMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub options: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ impl Schema {
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path).with_context(|| format!("Opening schema file {path:?}"))?;
         let reader = BufReader::new(file);
-        let schema: Schema = serde_json::from_reader(reader).context("Parsing schema JSON")?;
+    let schema: Schema = serde_yaml::from_reader(reader).context("Parsing schema YAML")?;
         schema.validate_datatype_mappings()?;
         Ok(schema)
     }
@@ -246,25 +246,27 @@ impl Schema {
 
         let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
         if !include_replace_template {
-            serde_json::to_writer_pretty(file, &schema).context("Writing schema JSON")
+            serde_yaml::to_writer(file, &schema).context("Writing schema YAML")
         } else {
             let mut value =
-                serde_json::to_value(&schema).context("Serializing schema to JSON value")?;
+                serde_yaml::to_value(&schema).context("Serializing schema to YAML value")?;
             if let Some(columns) = value
                 .get_mut("columns")
-                .and_then(|columns| columns.as_array_mut())
+                .and_then(|columns| columns.as_sequence_mut())
             {
                 for column in columns {
-                    if let Some(obj) = column.as_object_mut() {
-                        if let Some(existing) = obj.remove("value_replacements") {
-                            obj.insert("replace".to_string(), existing);
+                    if let Some(obj) = column.as_mapping_mut() {
+                        if let Some(existing) = obj.remove(Value::from("value_replacements")) {
+                            obj.insert(Value::from("replace"), existing);
                         }
-                        obj.entry("replace".to_string())
-                            .or_insert_with(|| Value::Array(Vec::new()));
+                        let replace_key = Value::from("replace");
+                        if !obj.contains_key(&replace_key) {
+                            obj.insert(replace_key, Value::Sequence(Vec::new()));
+                        }
                     }
                 }
             }
-            serde_json::to_writer_pretty(file, &value).context("Writing schema JSON")
+            serde_yaml::to_writer(file, &value).context("Writing schema YAML")
         }
     }
 }
@@ -500,13 +502,10 @@ fn resolve_scale(mapping: &DatatypeMapping) -> usize {
         .options
         .get("scale")
         .and_then(|value| {
-            if value.is_u64() {
-                Some(value.as_u64().unwrap() as usize)
-            } else if value.is_i64() {
-                Some(value.as_i64().unwrap().max(0) as usize)
-            } else {
-                None
-            }
+            value
+                .as_u64()
+                .map(|u| u as usize)
+                .or_else(|| value.as_i64().map(|i| i.max(0) as usize))
         })
         .unwrap_or(4)
 }
@@ -601,8 +600,7 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
     }
 
     if let Some(scale) = mapping.options.get("scale") {
-        if scale.is_i64() {
-            let value = scale.as_i64().unwrap();
+        if let Some(value) = scale.as_i64() {
             ensure!(
                 value >= 0,
                 "Column '{}' mapping {} -> {} requires a non-negative scale",
@@ -610,7 +608,7 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
                 mapping.from,
                 mapping.to
             );
-        } else if !scale.is_u64() {
+        } else if scale.as_u64().is_none() {
             bail!(
                 "Column '{}' mapping {} -> {} requires 'scale' to be a number",
                 column_name,
@@ -622,7 +620,7 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
 
     if let Some(format_value) = mapping.options.get("format") {
         ensure!(
-            format_value.is_string(),
+            format_value.as_str().is_some(),
             "Column '{}' mapping {} -> {} requires 'format' to be a string",
             column_name,
             mapping.from,
@@ -1080,13 +1078,13 @@ mod tests {
                 from: ColumnType::String,
                 to: ColumnType::DateTime,
                 strategy: None,
-                options: JsonMap::new(),
+                options: BTreeMap::new(),
             },
             DatatypeMapping {
                 from: ColumnType::DateTime,
                 to: ColumnType::Date,
                 strategy: None,
-                options: JsonMap::new(),
+                options: BTreeMap::new(),
             },
         ];
 
@@ -1111,7 +1109,7 @@ mod tests {
 
     #[test]
     fn datatype_mappings_round_float_values() {
-        let mut options = JsonMap::new();
+    let mut options = BTreeMap::new();
         options.insert("scale".to_string(), Value::from(4));
         let mapping = DatatypeMapping {
             from: ColumnType::String,

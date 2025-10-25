@@ -58,7 +58,7 @@ fn create_schema_internal(
     input: &Path,
     overrides: &[(&str, ColumnType)],
 ) -> PathBuf {
-    let schema = dir.path().join("schema.schema");
+    let schema = dir.path().join("schema-schema.yml");
     let input_str = input.to_str().expect("input path utf-8");
     let schema_str = schema.to_str().expect("schema path utf-8");
     let delimiter = delimiter_for(input);
@@ -211,7 +211,7 @@ fn create_boolean_subset(
     limit: usize,
 ) -> (PathBuf, PathBuf) {
     let path = dir.path().join("boolean_subset.csv");
-    let schema_path = dir.path().join("boolean_subset.schema");
+    let schema_path = dir.path().join("boolean_subset-schema.yml");
     let mut reader = ReaderBuilder::new()
         .has_headers(true)
         .from_path(input)

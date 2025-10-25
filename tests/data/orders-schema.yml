@@ -1,0 +1,22 @@
+columns:
+- name: id
+  datatype: Integer
+  name_mapping: id
+  replace: []
+- name: name
+  datatype: String
+  name_mapping: name
+  replace: []
+- name: amount
+  datatype: Float
+  name_mapping: amount
+  replace: []
+- name: status
+  datatype: String
+  name_mapping: status
+  replace: []
+- name: ordered_at
+  datatype: Date
+  name_mapping: ordered_at
+  replace: []
+schema_version: 1.1.0

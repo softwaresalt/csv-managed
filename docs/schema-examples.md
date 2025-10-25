@@ -22,10 +22,10 @@ Generate a schema file populated with snake_case renames and empty replacement a
 ```powershell
 csv-managed schema infer --mapping --replace-template `
     -i tests/data/big_5_players_stats_2023_2024.csv `
-    -o tmp/big5_inferred.schema --sample-rows 0
+    -o tmp/big5_inferred-schema.yml --sample-rows 0
 ```
 
-This command performs a full scan (`--sample-rows 0`) before writing `tmp/big5_inferred.schema`.
+This command performs a full scan (`--sample-rows 0`) before writing `tmp/big5_inferred-schema.yml`.
 
 ## Override Inferred Types
 
@@ -36,7 +36,7 @@ csv-managed schema infer --mapping `
     --override Performance_Gls:integer `
     --override "Per 90 Minutes_Gls:string" `
     -i tests/data/big_5_players_stats_2023_2024.csv `
-    -o tmp/big5_overrides.schema --sample-rows 10
+    -o tmp/big5_overrides-schema.yml --sample-rows 10
 ```
 
 The resulting schema keeps inferred types for all other columns, but `Performance_Gls` becomes `integer` and `Per 90 Minutes_Gls` becomes `string` with the rename `per_90_minutes_gls`.

@@ -10,7 +10,7 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-  schema   Create a .schema file from explicit column definitions
+  schema   Create a -schema.yml file from explicit column definitions
   index    Create a B-Tree index (.idx) for one or more columns
   process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
   append   Append multiple CSV files into a single output
@@ -26,19 +26,19 @@ Options:
 ## schema
 
 ```text
-Create a .schema file from explicit column definitions
+Create a -schema.yml file from explicit column definitions
 
 Usage: csv-managed.exe schema [OPTIONS] [COMMAND]
 
 Commands:
   probe    Display inferred schema details without writing a file
-  infer    Infer schema metadata and optionally persist a .schema file
+  infer    Infer schema metadata and optionally persist a -schema.yml file
   verify   Verify CSV files against a schema definition
   columns  List column names and data types from a schema file
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -o, --output <OUTPUT>         Destination .schema file path (alias --schema retained for compatibility)
+  -o, --output <OUTPUT>         Destination -schema.yml file path (alias --schema retained for compatibility)
   -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
       --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
   -h, --help                    Print help
@@ -73,7 +73,7 @@ Options:
 ### schema infer
 
 ```text
-Infer schema metadata and optionally persist a .schema file
+Infer schema metadata and optionally persist a -schema.yml file
 
 Usage: csv-managed.exe schema infer [OPTIONS] --input <INPUT>
 
@@ -93,7 +93,7 @@ Options:
       --snapshot <SNAPSHOT>
           Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
   -o, --output <OUTPUT>
-          Destination .schema file path (alias --schema retained for compatibility)
+          Destination -schema.yml file path (alias --schema retained for compatibility)
       --replace-template
           Inject empty replace arrays into the generated schema as a template when inferring
   -h, --help

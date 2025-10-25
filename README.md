@@ -1,6 +1,6 @@
 # csv-managed
 
-`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema (`.schema`) and index (`.idx`) files.
+`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema files (`-schema.yml`) and index (`.idx`) files.
 
 ## Implemented Features
 
@@ -8,7 +8,7 @@
 |------|-------------|
 | Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
 | Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
-| Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `.schema`. See: [schema](#schema). |
+| Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
 | Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
@@ -19,7 +19,7 @@
 | Temporal Expression Helpers | Functions like `date_diff_days`, `datetime_format`, `time_diff_seconds` usable in derives and `--filter-expr`. See: [process](#process), [Expression Reference](#expression-reference). |
 | Derived Columns | Evalexpr-based expressions referencing header names or positional aliases (`cN`); arithmetic, string, conditional, temporal operations. See: [process](#process), [Expression Reference](#expression-reference). |
 | Append | Concatenate multiple inputs with header (and optional schema) validation, enforcing consistent types pre-merge. See: [append](#append). |
-| Verification | `schema verify` streams each row against declared types; rich reports via `--report-invalid:detail[:summary] [LIMIT]`. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
+| Verification | `schema verify` streams each row against declared types; reporting tiers via `--report-invalid[:detail[:summary]] [LIMIT]`. Non‑zero exit code when any invalid value encountered. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Statistics & Frequency | `stats` computes count, mean, median, min, max, std dev for numeric & temporal columns; `--frequency` distinct counts with optional `--top`; filters apply prior to aggregation. See: [stats](#stats). |
 | Preview & Table Rendering | `process --preview` elastic table for quick inspection (defaults `--limit` to 10); `process --table` formatted output when streaming to stdout. See: [process](#process). |
 | Joins (engine) | Hash-join engine retained for upcoming streaming pipelines; CLI command temporarily disabled while v1.6.0 join workflows are redesigned. |
@@ -129,7 +129,7 @@ Example mixing concise filters and one complex temporal expression:
 ```powershell
 ./target/release/csv-managed.exe process \
   -i ./data/orders.csv \
-  -m ./data/orders.schema \
+  -m ./data/orders-schema.yml \
   --filter "status = shipped" \
   --filter "amount >= 100" \
   --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 2 && (region = "US" || region = "CA")' \
@@ -172,7 +172,7 @@ cmd.exe:
 ```batch
 ./target/release/csv-managed.exe process ^
   -i ./data/orders.csv ^
-  -m ./data/orders.schema ^
+  -m ./data/orders-schema.yml ^
   -x ./data/orders.idx ^
   --index-variant default ^
   --sort order_date:asc,customer_id:asc ^
@@ -234,27 +234,27 @@ set RUST_LOG=info
 
 ```powershell
 # 1. Infer schema
-./target/release/csv-managed.exe schema infer -i ./data/orders.csv -o ./data/orders.schema --sample-rows 0
+./target/release/csv-managed.exe schema infer -i ./data/orders.csv -o ./data/orders-schema.yml --sample-rows 0
 # 2. Build index (optional for sorted reads)
-./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders.schema
+./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders-schema.yml
 # 3. Process with filters / derives / sort
-./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders.schema -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
+./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders-schema.yml -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
 # 4. Normalize legacy tokens via schema replacements
-./target/release/csv-managed.exe process -i ./data/orders.csv -o ./data/orders_clean.csv --schema ./data/orders.schema
+./target/release/csv-managed.exe process -i ./data/orders.csv -o ./data/orders_clean.csv --schema ./data/orders-schema.yml
 # 5. Summary statistics
-./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml
 # 5b. Temporal summary statistics
-./target/release/csv-managed.exe stats -i ./tests/data/stats_temporal.csv -m ./tests/data/stats_temporal.schema --columns ordered_at --columns ordered_at_ts --columns ship_time
+./target/release/csv-managed.exe stats -i ./tests/data/stats_temporal.csv -m ./tests/data/stats_temporal-schema.yml --columns ordered_at --columns ordered_at_ts --columns ship_time
 # 6. Frequency counts (top 10)
-./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders.schema --frequency --top 10
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml --frequency --top 10
 # 7. Preview first 15 rows
 ./target/release/csv-managed.exe process -i ./data/orders.csv --preview --limit 15
 # 8. Append monthly extracts
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
+./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders-schema.yml -o q1.csv
 # 9. Verify integrity (summary default)
-./target/release/csv-managed.exe schema verify -m orders.schema -i q1.csv
+./target/release/csv-managed.exe schema verify -m orders-schema.yml -i q1.csv
 #     Investigate failures with highlighted samples (optional limit)
-./target/release/csv-managed.exe schema verify -m orders.schema -i orders_invalid.csv --report-invalid:detail:summary 5
+./target/release/csv-managed.exe schema verify -m orders-schema.yml -i orders_invalid.csv --report-invalid:detail:summary 5
 ```
 
 For more advanced derived column and filtering patterns (bucketing, temporal calculations, chained logic), see `docs/expressions.md`.
@@ -270,10 +270,10 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 | Subcommand / Flag | Description |
 |-------------------|-------------|
 | `schema probe` | Display inferred columns and types in a console table (no file written). |
-| `schema infer` | Infer and optionally persist a `.schema` file (`-o/--output`). |
+| `schema infer` | Infer and optionally persist a `-schema.yml` file (`-o/--output`). Legacy `*-schema.yml` written only if explicitly requested. |
 | `schema verify` | Stream-validate one or more files against a schema (`-m/--schema`). |
 | `-i, --input <FILE>` | Input CSV for `probe` or `infer`. Repeat `-i` for multiple inputs in `verify`. |
-| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained for compatibility). |
+| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained). Prefer `-schema.yml` for new files; legacy `*-schema.yml` still accepted. |
 | `-m, --schema <FILE>` | Schema file to use with `verify` (or as destination alias with `infer`). |
 | `-c, --column <SPEC>` | Manual column definitions (`name:type`, or `name:type->Alias`). Repeatable / comma list. |
 | `--replace <SPEC>` | Value replacement directive (`column=value->replacement`) for manual schema authoring. |
@@ -284,13 +284,13 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 | `--replace-template` | Inject empty `replace` arrays per column when inferring. |
 | `--override <SPEC>` | Force specific inferred types (`amount:Float`, `id:Integer`). Repeatable. |
 | `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift; see [Snapshot Internals](#snapshot-internals). |
-| `--report-invalid[:detail[:summary]] [LIMIT]` | (verify) Add row samples (`:detail`) and/or column summary (`:summary`); optional LIMIT caps sample rows. |
+| `--report-invalid[:detail[:summary]] [LIMIT]` | (verify) Base flag adds summary of invalid columns; `:detail` adds ANSI highlighted row samples; `:summary` adds aggregate column violation counts (combine both as needed). LIMIT (after flags) caps row samples when `:detail` present. |
 
 Behavior notes:
 
 * `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
 * `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding.
-* `schema verify` streams every row, applying replacements before type parsing; failures can produce ANSI-highlighted samples and column summaries.
+* `schema verify` streams every row, applying `replace` mappings before type parsing; any invalid value triggers non‑zero exit code. Reporting tiers: base (`--report-invalid`), detail (`--report-invalid:detail [LIMIT]`), combined (`--report-invalid:detail:summary [LIMIT]`).
 * `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
 
 More end-to-end examples: [`docs/schema-examples.md`](docs/schema-examples.md).
@@ -300,7 +300,7 @@ PowerShell (inference mode):
 ```powershell
 ./target/release/csv-managed.exe schema infer `
   -i ./data/orders.csv `
-  -o ./data/orders.schema `
+  -o ./data/orders-schema.yml `
   --delimiter tab `
   --sample-rows 0 `
   --mapping `
@@ -311,7 +311,7 @@ PowerShell (explicit columns with replacements):
 
 ```powershell
 ./target/release/csv-managed.exe schema `
-  -o ./schemas/orders.schema `
+  -o ./schemas/orders-schema.yml `
   -c id:integer->Identifier `
   -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string `
   --replace status=Pending->Open `
@@ -322,7 +322,7 @@ cmd.exe:
 
 ```batch
 ./target/release/csv-managed.exe schema ^
-  -o ./schemas/orders.schema ^
+  -o ./schemas/orders-schema.yml ^
   -c id:integer->Identifier ^
   -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string
 ```
@@ -350,7 +350,7 @@ PowerShell:
   -o ./data/orders.idx `
   --spec default=order_date:asc,customer_id:asc `
   --spec recent=order_date:desc `
-  -m ./data/orders.schema
+  -m ./data/orders-schema.yml
 ```
 
 cmd.exe:
@@ -361,7 +361,7 @@ cmd.exe:
   -o ./data/orders.idx ^
   --spec default=order_date:asc,customer_id:asc ^
   --spec recent=order_date:desc ^
-  -m ./data/orders.schema
+  -m ./data/orders-schema.yml
 ```
 
 `--spec` accepts comma-separated `column:direction` tokens. Prefix with `name=` to label the variant (e.g. `fast=col_a:asc,col_b:desc`). When omitted, the variant is anonymous but still usable for automatic matching.
@@ -407,7 +407,7 @@ PowerShell:
 ```powershell
 ./target/release/csv-managed.exe process `
   -i ./data/orders.csv `
-  -m ./data/orders.schema `
+  -m ./data/orders-schema.yml `
   -x ./data/orders.idx `
   --index-variant default `
   --sort order_date:asc,customer_id:asc `
@@ -427,7 +427,7 @@ cmd.exe:
 ```batch
 ./target/release/csv-managed.exe process ^
   -i ./data/orders.csv ^
-  -m ./data/orders.schema ^
+  -m ./data/orders-schema.yml ^
   -x ./data/orders.idx ^
   --index-variant default ^
   --sort order_date:asc,customer_id:asc ^
@@ -444,7 +444,7 @@ cmd.exe:
 
 If `--index-variant` is omitted, `process` automatically chooses the variant that covers the longest prefix of the requested `--sort` columns and directions.
 
-Schema-driven replacements defined in the `.schema` file are always applied before parsing, so `process` can clean and transform data in a single pass.
+Schema-driven replacements defined in the `-schema.yml` file are always applied before parsing, so `process` can clean and transform data in a single pass.
 
 ### append
 
@@ -460,7 +460,7 @@ Append multiple CSV files into a single output. Ensures consistent headers (base
 Example:
 
 ```powershell
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders.schema -o q1.csv
+./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders-schema.yml -o q1.csv
 ```
 
 ### Snapshot vs Schema Verify
@@ -487,12 +487,12 @@ Use a snapshot when you want to ensure the *presentation and inference logic* of
 
 ```powershell
 # 1. Infer schema and create/update snapshot of inference layout
-./target/release/csv-managed.exe schema infer -i data.csv -o data.schema --snapshot infer.snap --sample-rows 0
+./target/release/csv-managed.exe schema infer -i data.csv -o data-schema.yml --snapshot infer.snap --sample-rows 0
 
-# 2. Commit both data.schema and infer.snap
+# 2. Commit both data-schema.yml and infer.snap
 
 # 3. Later, validate new extracts against the frozen schema
-./target/release/csv-managed.exe schema verify -m data.schema -i new_extract.csv --report-invalid:detail:summary 25
+./target/release/csv-managed.exe schema verify -m data-schema.yml -i new_extract.csv --report-invalid:detail:summary 25
 ```
 
 If inference heuristics or display formatting changes intentionally, refresh the snapshot:
@@ -567,7 +567,7 @@ Given a temporal schema file:
 Run stats over temporal columns:
 
 ```powershell
-./target/release/csv-managed.exe stats -i ./data/orders_temporal.csv -m ./data/orders_temporal.schema \
+./target/release/csv-managed.exe stats -i ./data/orders_temporal.csv -m ./data/orders_temporal-schema.yml \
   --columns ordered_at --columns ordered_at_ts --columns ship_time
 ```
 
@@ -585,7 +585,7 @@ Mean and median for Time represent the central tendency of seconds-from-midnight
 Apply filters to restrict the rows included in the calculation:
 
 ```powershell
-./target/release/csv-managed.exe stats -i ./data/stats_schema.csv -m ./data/stats_schema.schema \
+./target/release/csv-managed.exe stats -i ./data/stats_schema.csv -m ./data/stats_schema-schema.yml \
   --columns quantity --filter "status=good"
 ```
 
@@ -630,14 +630,14 @@ PowerShell:
 
 ```powershell
 ./target/release/csv-managed.exe schema columns `
-  --schema ./data/orders.schema
+  --schema ./data/orders-schema.yml
 ```
 
 cmd.exe:
 
 ```batch
 ./target/release/csv-managed.exe schema columns ^
-  --schema ./data/orders.schema
+  --schema ./data/orders-schema.yml
 ```
 
 Wrapper around `cargo install csv-managed` with a friendlier interface.
@@ -679,6 +679,8 @@ Future work: Decimal, Currency.
 Key points:
 
 * Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`) in production schema files.
+* File naming: Prefer `<name>-schema.yml` for new schemas; legacy `<name>-schema.yml` loads fine but is deprecated.
+* Replacement arrays: Use `replace` (array of `{ value, replacement }`). Older internal key `value_replacements` is auto-translated to `replace` when saving.
 * Order matters: Each mapping consumes the previous output; declare from raw → intermediate → final.
 * Strategies: `round` (numeric), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer). Rounding scale defaults to `4` unless `options.scale` is provided.
 * Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale.
@@ -740,19 +742,78 @@ Validation flow:
 
 See extended examples in `docs/schema-examples.md`.
 
+#### Schema File Format (Overview)
+
+Minimal `-schema.yml` example (YAML):
+
+```yaml
+schema_version: 1.0
+columns:
+  - name: id
+    datatype: Integer
+  - name: ordered_raw
+    rename: ordered_at
+    datatype: Date
+    datatype_mappings:
+      - from: String
+        to: DateTime
+        options:
+          format: "%Y-%m-%dT%H:%M:%SZ"
+      - from: DateTime
+        to: Date
+  - name: amount_raw
+    rename: amount
+    datatype: Float
+    datatype_mappings:
+      - from: String
+        to: Float
+        strategy: round
+        options:
+          scale: 4
+    replace:
+      - value: "N/A"
+        replacement: "0"
+```
+
+Transformation order per cell:
+
+1. Raw string value read.
+2. `datatype_mappings` chain executes sequentially.
+3. `replace` entries apply (exact match, case-sensitive for strings).
+4. Final parse into declared `datatype`.
+
+
+`round` uses `options.scale` (default 4). `truncate` converts Float→Integer removing fractional part (toward zero). String→String strategies: `trim`, `lowercase`, `uppercase`. Invalid strategy/type pairing marks the row invalid during `schema verify`.
+
+#### Verify Reporting Tiers
+
+| Flag Example | Exit Code | Row Samples | Column Summary | Notes |
+|--------------|-----------|-------------|----------------|-------|
+| `--report-invalid` | non-zero if any invalid | no | yes | Fast overview of violating columns. |
+| `--report-invalid:detail` | non-zero | yes (all or limited) | no | Shows `row \| column` (and raw value when combined with `:summary`). |
+| `--report-invalid:detail:summary` | non-zero | yes | yes | Combines row samples + aggregate counts. |
+| `--report-invalid:detail 5` | non-zero | yes (5 rows) | no | Limit only affects samples. |
+| `--report-invalid:detail:summary 5` | non-zero | yes (5 rows) | yes | Summary counts remain total, not truncated. |
+
+Base operation without any `--report-invalid` flag logs overall invalid count to stderr when failures occur.
+
+#### Upcoming Schema Enhancements (Roadmap)
+
+Planned (not yet implemented): primary key & hashed signature indexes, decimal/currency datatypes, date/time format re-writing transforms, automatic candidate key suggestion, batch JSON definition ingestion.
+
 ### Stdin/Stdout Usage
 
 Use `-` for streaming input where supported. Example:
 
 ```powershell
-Get-Content orders.csv | ./target/release/csv-managed.exe stats -i - -m orders.schema
+Get-Content orders.csv | ./target/release/csv-managed.exe stats -i - -m orders-schema.yml
 ```
 
 ### Boolean Formatting Examples
 
 ```powershell
-./target/release/csv-managed.exe process -i orders.csv -m orders.schema --boolean-format one-zero -C shipped_flag -o shipped.csv
-./target/release/csv-managed.exe process -i orders.csv -m orders.schema --boolean-format true-false --table -C shipped_flag
+./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml --boolean-format one-zero -C shipped_flag -o shipped.csv
+./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml --boolean-format true-false --table -C shipped_flag
 ```
 
 ### Table Output

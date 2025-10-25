@@ -15,7 +15,7 @@ fn fixture_path(name: &str) -> PathBuf {
 #[test]
 fn probe_full_scan_detects_string_in_mixed_column() {
     let temp = tempdir().expect("temp dir");
-    let schema_path = temp.path().join("mixed_full.schema");
+    let schema_path = temp.path().join("mixed_full-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -43,7 +43,7 @@ fn probe_full_scan_detects_string_in_mixed_column() {
 #[test]
 fn probe_sampling_can_limit_type_detection() {
     let temp = tempdir().expect("temp dir");
-    let schema_path = temp.path().join("mixed_sampled.schema");
+    let schema_path = temp.path().join("mixed_sampled-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -72,7 +72,7 @@ fn probe_sampling_can_limit_type_detection() {
 fn probe_honors_input_encoding() {
     let dir = tempdir().expect("temp dir");
     let input_path = dir.path().join("encoded.csv");
-    let schema_path = dir.path().join("encoded.schema");
+    let schema_path = dir.path().join("encoded-schema.yml");
 
     let content = "id,name\n1,Caf\u{e9}\n";
     let (encoded, _, _) = WINDOWS_1252.encode(content);

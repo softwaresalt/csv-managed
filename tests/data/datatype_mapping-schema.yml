@@ -1,0 +1,18 @@
+columns:
+- name: order_id
+  datatype: Integer
+  name_mapping: order_id
+  replace: []
+- name: ordered_raw
+  datatype: String
+  name_mapping: ordered_raw
+  replace: []
+- name: amount_raw
+  datatype: Float
+  name_mapping: amount_raw
+  replace: []
+- name: status_raw
+  datatype: String
+  name_mapping: status_raw
+  replace: []
+schema_version: 1.1.0

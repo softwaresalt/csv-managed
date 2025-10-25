@@ -1,0 +1,150 @@
+columns:
+- name: Rank
+  datatype: String
+  name_mapping: rank
+  replace: []
+- name: Player
+  datatype: String
+  name_mapping: player
+  replace: []
+- name: Nation
+  datatype: String
+  name_mapping: nation
+  replace: []
+- name: Position
+  datatype: String
+  name_mapping: position
+  replace: []
+- name: Squad
+  datatype: String
+  name_mapping: squad
+  replace: []
+- name: Competition
+  datatype: String
+  name_mapping: competition
+  replace: []
+- name: Age
+  datatype: String
+  name_mapping: age
+  replace: []
+- name: Year_Born
+  datatype: String
+  name_mapping: year_born
+  replace: []
+- name: Playing Time_MP
+  datatype: String
+  name_mapping: playing_time_mp
+  replace: []
+- name: Playing Time_Starts
+  datatype: String
+  name_mapping: playing_time_starts
+  replace: []
+- name: Playing Time_Min
+  datatype: String
+  name_mapping: playing_time_min
+  replace: []
+- name: Playing Time_90s
+  datatype: String
+  name_mapping: playing_time_90s
+  replace: []
+- name: Performance_Gls
+  datatype: String
+  name_mapping: performance_gls
+  replace: []
+- name: Performance_Ast
+  datatype: String
+  name_mapping: performance_ast
+  replace: []
+- name: Performance_G+A
+  datatype: String
+  name_mapping: performance_g_a
+  replace: []
+- name: Performance_G-PK
+  datatype: String
+  name_mapping: performance_g_pk
+  replace: []
+- name: Performance_PK
+  datatype: String
+  name_mapping: performance_pk
+  replace: []
+- name: Performance_PKatt
+  datatype: String
+  name_mapping: performance_p_katt
+  replace: []
+- name: Performance_CrdY
+  datatype: String
+  name_mapping: performance_crd_y
+  replace: []
+- name: Performance_CrdR
+  datatype: String
+  name_mapping: performance_crd_r
+  replace: []
+- name: Expected_xG
+  datatype: String
+  name_mapping: expected_x_g
+  replace: []
+- name: Expected_npxG
+  datatype: String
+  name_mapping: expected_npx_g
+  replace: []
+- name: Expected_xAG
+  datatype: String
+  name_mapping: expected_x_ag
+  replace: []
+- name: Expected_npxG+xAG
+  datatype: String
+  name_mapping: expected_npx_g_x_ag
+  replace: []
+- name: Progression_PrgC
+  datatype: String
+  name_mapping: progression_prg_c
+  replace: []
+- name: Progression_PrgP
+  datatype: String
+  name_mapping: progression_prg_p
+  replace: []
+- name: Progression_PrgR
+  datatype: String
+  name_mapping: progression_prg_r
+  replace: []
+- name: Per 90 Minutes_Gls
+  datatype: String
+  name_mapping: per_90_minutes_gls
+  replace: []
+- name: Per 90 Minutes_Ast
+  datatype: String
+  name_mapping: per_90_minutes_ast
+  replace: []
+- name: Per 90 Minutes_G+A
+  datatype: String
+  name_mapping: per_90_minutes_g_a
+  replace: []
+- name: Per 90 Minutes_G-PK
+  datatype: String
+  name_mapping: per_90_minutes_g_pk
+  replace: []
+- name: Per 90 Minutes_G+A-PK
+  datatype: String
+  name_mapping: per_90_minutes_g_a_pk
+  replace: []
+- name: Per 90 Minutes_xG
+  datatype: String
+  name_mapping: per_90_minutes_x_g
+  replace: []
+- name: Per 90 Minutes_xAG
+  datatype: String
+  name_mapping: per_90_minutes_x_ag
+  replace: []
+- name: Per 90 Minutes_xG+xAG
+  datatype: String
+  name_mapping: per_90_minutes_x_g_x_ag
+  replace: []
+- name: Per 90 Minutes_npxG
+  datatype: String
+  name_mapping: per_90_minutes_npx_g
+  replace: []
+- name: Per 90 Minutes_npxG+xAG
+  datatype: String
+  name_mapping: per_90_minutes_npx_g_x_ag
+  replace: []
+schema_version: 1.1.0

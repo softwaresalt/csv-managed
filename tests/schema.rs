@@ -7,12 +7,12 @@ use std::{
 use assert_cmd::Command;
 use csv_managed::schema::{ColumnType, Schema};
 use predicates::str::contains;
-use serde_json::Value;
+use serde_yaml::Value;
 use tempfile::tempdir;
 
 fn load_schema(path: &Path) -> Value {
     let file = File::open(path).expect("open schema output");
-    serde_json::from_reader(file).expect("parse schema json")
+    serde_yaml::from_reader(file).expect("parse schema yaml")
 }
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -25,7 +25,7 @@ fn fixture_path(name: &str) -> PathBuf {
 fn column(value: &Value, index: usize) -> &Value {
     value
         .get("columns")
-        .and_then(Value::as_array)
+    .and_then(Value::as_sequence)
         .and_then(|cols| cols.get(index))
         .expect("column exists")
 }
@@ -33,7 +33,7 @@ fn column(value: &Value, index: usize) -> &Value {
 #[test]
 fn schema_command_creates_schema_from_repeated_columns() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("basic.schema");
+    let output = temp.path().join("basic-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -67,7 +67,7 @@ fn schema_command_creates_schema_from_repeated_columns() {
 #[test]
 fn schema_command_supports_comma_delimited_columns() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("comma.schema");
+    let output = temp.path().join("comma-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -84,7 +84,7 @@ fn schema_command_supports_comma_delimited_columns() {
         .success();
 
     let schema = load_schema(&output);
-    assert_eq!(schema["columns"].as_array().map(Vec::len), Some(3));
+    assert_eq!(schema["columns"].as_sequence().map(Vec::len), Some(3));
     assert_eq!(column(&schema, 1)["name"].as_str(), Some("name"));
     assert_eq!(column(&schema, 2)["datatype"].as_str(), Some("DateTime"));
 }
@@ -92,7 +92,7 @@ fn schema_command_supports_comma_delimited_columns() {
 #[test]
 fn schema_command_emits_renames_and_replacements() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("renamed.schema");
+    let output = temp.path().join("renamed-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -118,7 +118,7 @@ fn schema_command_emits_renames_and_replacements() {
     let status_column = column(&schema, 0);
     assert_eq!(status_column["name"].as_str(), Some("status"));
     assert_eq!(status_column["name_mapping"].as_str(), Some("order_status"));
-    let replacements = status_column["replace"].as_array().expect("replace array");
+    let replacements = status_column["replace"].as_sequence().expect("replace array");
     assert_eq!(replacements.len(), 3);
     assert!(
         replacements
@@ -143,7 +143,7 @@ fn schema_command_emits_renames_and_replacements() {
 #[test]
 fn schema_command_rejects_duplicate_column_names() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("duplicate.schema");
+    let output = temp.path().join("duplicate-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -164,7 +164,7 @@ fn schema_command_rejects_duplicate_column_names() {
 #[test]
 fn schema_command_rejects_duplicate_output_names() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("duplicate_output.schema");
+    let output = temp.path().join("duplicate_output-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -185,7 +185,7 @@ fn schema_command_rejects_duplicate_output_names() {
 #[test]
 fn schema_command_rejects_unknown_column_type() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("bad_type.schema");
+    let output = temp.path().join("bad_type-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -198,7 +198,7 @@ fn schema_command_rejects_unknown_column_type() {
 #[test]
 fn schema_command_validates_replacement_column_names() {
     let temp = tempdir().expect("temp dir");
-    let output = temp.path().join("bad_replace.schema");
+    let output = temp.path().join("bad_replace-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -260,7 +260,7 @@ fn schema_probe_on_big5_reports_samples_and_formats() {
 fn schema_infer_with_overrides_and_mapping_on_big5() {
     let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
     let temp = tempdir().expect("temp dir");
-    let schema_path = temp.path().join("big5_override.schema");
+    let schema_path = temp.path().join("big5_override-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")
@@ -378,7 +378,7 @@ fn schema_infer_snapshot_writes_and_validates_layout() {
     let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
     let temp = tempfile::tempdir().expect("temp dir");
     let snapshot_path = temp.path().join("infer.snap");
-    let schema_path = temp.path().join("infer.schema");
+    let schema_path = temp.path().join("infer-schema.yml");
 
     Command::cargo_bin("csv-managed")
         .expect("binary present")

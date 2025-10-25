@@ -7,40 +7,18 @@ The primary user personas for this tool are data engineers, machine learning (ML
 Use cases:
 - Preparing data for use in training machine learning models.
 - Preparing data for use in data science experiments
-- Wrangling data for a wide array of situations in data engineering
+- Wrangling data for a wide array of situations in data engineering and machine learning workflows.
+- Probing and verifying data files for correctness before use in data pipelines.
+- The tool should be capable of handling very large CSV files (100s of GBs or more) efficiently, with minimal memory usage and high performance. The tool should provide a variety of features to manipulate, validate, and transform CSV data, making it a versatile utility for data professionals.
+- Flagging when data does not conform to expected schema definitions.
+- Generating reports on data quality and integrity based on schema definitions.
+- Transforming data to match specified schema requirements.
+- Generating schema definitions from existing CSV files.
+
 
 Features of this tool include:
-- The ability to create a B-Tree index of one or more columns in a CSV file and store it in a new index file of extension .idx
-- The ability to select an index file for further processing of the CSV file.
-- The ability to sort the contents of the CSV file according to specified columns, including columns in an index file.
-- The ability to specify the direction of sort for both ascending and descending across multiple columns.
-- The ability to specify the column names and data types of a CSV file and store in a separate metadata file with the file extension .schema
-- The ability to probe a CSV file and propose the data types for each column and store them in a .meta file.
-- The ability to sort by those different data types, such as string, date, time, date-time, integer, float, decimal, GUID, and boolean.
-- The ability to output a sorted file to a new file using the -o argument for file output.
-- The ability to add row numbers to the start of each line of an output file.
-- The ability to select a subset of columns from the original file or from a new, sorted file.
-- The ability to derive or add new columns to the output of a file.
-- The ability to output a subset of rows based on search criteria by column and be able to process searches using data type specific criteria.
-- The ability to transform boolean values from various representations to standard true/false values and 1/0 values.
-- The ability to append data from one or more CSV files into a single output file
-- The ability to verify the integrity of a CSV file against its schema file.
-- The ability to verify the schema of multiple CSV file against a single schema file.
-- The ability to verify the schema of multiple CSV files before appending them into a single output file.
-- The ability to stream the processing of CSV files to minimize memory usage and maximize speed.
-- The ability to stdin and stdout for input and output of CSV data so that it can be chained with other command line utilities and itself.
-- The ability to project new columns, such as boolean columns, based on the evaluation of expressions against existing columns.
-- The ability to join two CSV files based on common columns, including support for inner joins, left joins, right joins, and full outer joins.
-- The ability to output to the command window the results of a filter operation without the need to create an output file in table format using elastic tabular formatting.
-- The ability to output a limited number of rows from the start of a CSV file for previewing purposes.
-- The ability to produce summary statistics for numeric columns in a CSV file, including count, mean, median, min, max, and standard deviation.
-- The ability to produce frequency counts for categorical columns in a CSV file.
-- The ability to specify which columns from the original input to NOT output to the output file.
-- The ability to install a released version of the executable as a binary for easy access from the command line from the cargo package store.
-- The ability to index a file on multiple combinations of columns and store multiple indexes for the same file and mixed sort directions (ascending/descending) per column.
-- The ability to list column names and data types as a list to the console output.
-- The ability to specify in the .schema file a mapping of existing column names to new column names to be used in all outputs from the file.
-- The ability to point the app at all files of the same file extension in a directory and verify each file against a .schema file schema definition including data type verification.
+- The ability to specify in the -schema.yml file a mapping of existing column names to new column names to be used in all outputs from the file.
+- The ability to point the app at all files of the same file extension in a directory and verify each file against a -schema.yml file schema definition including data type verification.
 - The ability to output the schema definition for a CSV file in a human-readable list format to the console output.
 - The ability to index all of the files in a directory matching a single schema file.
 - The ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
@@ -51,9 +29,6 @@ Features of this tool include:
 - The ability to probe a file for candidate primary key or composite key and print to console window candidate key(s)
 - The ability to handle decimal data types of defined scope and precision
 - The ability to transform fields from one data type to another; for example, a string to date, time, or datetime.
-- The ability to change the format of a date, time, or datetime field to a custom formatted string output.
-- The ability to replace values by column in the original input file; this should be tied to verification using the schema file; the schema file should allow you to define multiple value/replace pairs per column.
-- When running the verify command, the tool should provide a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 - The ability to define a currency datatype that restricts decimal precision to 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - Enhance data verification capabilities so that it can be used as an effective cloud implemented data validation tool for customers.
 
