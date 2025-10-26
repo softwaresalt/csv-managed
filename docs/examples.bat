@@ -67,13 +67,13 @@ powershell -NoProfile -Command "$lines = Get-Content .\tests\data\big_5_players_
 rem Probe using explicit input encoding support
 .\target\release\csv-managed.exe schema infer -i .\tmp\big_5_windows1252.csv -o .\tmp\probe_windows-schema.yml --input-encoding windows-1252
 
-.\target\release\csv-managed.exe schema infer -i .\tests\data\datatype_mapping.csv -o .\tests\data\datatype_mapping-schema.yml --mapping --replace-template
-.\target\release\csv-managed.exe schema infer -i .\tests\data\orders_invalid.csv -o .\tests\data\orders-schema.yml --mapping --replace-template
-.\target\release\csv-managed.exe schema infer -i .\tests\data\orders_temporal.csv -o .\tests\data\orders_temporal-schema.yml --mapping --replace-template
-.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_schema.csv -o .\tests\data\stats_schema-schema.yml --mapping --replace-template
-.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_temporal.csv -o .\tests\data\stats_temporal-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\datatype_mapping.csv -o .\tmp\datatype_mapping-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\orders_invalid.csv -o .\tmp\orders-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_schema.csv -o .\tmp\stats_schema-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_temporal.csv -o .\tmp\stats_temporal-schema.yml --mapping --replace-template
 
-.\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tests\data\big_5_players_stats-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tmp\big_5_players_stats-schema.yml --mapping --replace-template
 .\target\release\csv-managed.exe schema verify -m .\tests\data\big_5_players_stats-schema.yml -i .\tests\data\big_5_players_stats_2023_2024.csv
 .\target\release\csv-managed.exe schema verify -m .\tests\data\orders-schema.yml -i .\tests\data\orders_invalid.csv --report-invalid
 

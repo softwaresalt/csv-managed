@@ -4,15 +4,36 @@ columns:
   name_mapping: order_id
   replace: []
 - name: ordered_raw
-  datatype: String
-  name_mapping: ordered_raw
+  datatype: Date
+  name_mapping: ordered_at
+  datatype_mappings:
+  - from: String
+    to: DateTime
+    options:
+      format: "%Y-%m-%dT%H:%M:%SZ"
+  - from: DateTime
+    to: Date
   replace: []
 - name: amount_raw
   datatype: Float
-  name_mapping: amount_raw
+  name_mapping: amount
+  datatype_mappings:
+  - from: String
+    to: Float
+    strategy: round
+    options:
+      scale: 4
   replace: []
 - name: status_raw
   datatype: String
-  name_mapping: status_raw
-  replace: []
+  name_mapping: status
+  datatype_mappings:
+  - from: String
+    to: String
+    strategy: lowercase
+  replace:
+  - from: pending
+    to: ready
+  - from: unknown
+    to: ready
 schema_version: 1.1.0

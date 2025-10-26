@@ -326,14 +326,16 @@ impl CsvIndex {
 
     pub fn save(&self, path: &Path) -> Result<()> {
         let file = File::create(path).with_context(|| format!("Creating index file {path:?}"))?;
-        let writer = BufWriter::new(file);
-        bincode::serialize_into(writer, self).context("Writing index file")
+        let mut writer = BufWriter::new(file);
+        bincode::serde::encode_into_std_write(self, &mut writer, bincode::config::legacy())
+            .context("Writing index file")?;
+        Ok(())
     }
 
     pub fn load(path: &Path) -> Result<Self> {
         let bytes = std::fs::read(path).with_context(|| format!("Opening index file {path:?}"))?;
-        match bincode::deserialize::<CsvIndex>(&bytes) {
-            Ok(index) => {
+        match bincode::serde::decode_from_slice::<CsvIndex, _>(&bytes, bincode::config::legacy()) {
+            Ok((index, _)) => {
                 if index.version != INDEX_VERSION {
                     return Err(anyhow!(
                         "Unsupported index version {} (expected {INDEX_VERSION})",
@@ -343,8 +345,11 @@ impl CsvIndex {
                 Ok(index)
             }
             Err(_) => {
-                let legacy: LegacyCsvIndex =
-                    bincode::deserialize(&bytes).context("Reading legacy index file format")?;
+                let (legacy, _) = bincode::serde::decode_from_slice::<LegacyCsvIndex, _>(
+                    &bytes,
+                    bincode::config::legacy(),
+                )
+                .context("Reading legacy index file format")?;
                 Ok(legacy.into())
             }
         }

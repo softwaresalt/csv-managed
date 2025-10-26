@@ -83,14 +83,20 @@
 - [x] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [x] Support fixed scale and precision decimal datatypes with configurable scale and precision.  Update documentation to describe this capability. Include command-line examples in examples.bat that demonstrate this feature.
 - [x] Support sorting by every listed datatype, including high-precision decimal values.
-- [ ] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.
+- [x] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.  First develop a plan and confirm that it will not break the application.  Validate if that code updates can support the latest version of Rust.
+- [ ] Enhance the probe and infer commands to detect and recommend specific non-string datatypes based on the majority of values in the set for declaration in a schema file.
+- [ ] Add a feature in probing and inference processing data to detect and treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."  Probe command should suggest replacements in schema file for these scenarios, especially where the detected datatype is not String.
 
 ## Version 1.2.0: The Index & Benchmark Edition
 
+- [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
 - [ ] Add fast hash signatures per row for indexes defined on primary keys.
 - [ ] Index all files in a directory and subdirectories that share a schema definition.
 - [ ] Add the ability to index all of the files in a directory and subdirectories matching a single schema file.
+- [ ] Add the ability to define a primary key (single column or composite) that uniquely identifies each row in a CSV file and expose it through CLI workflows.
+- [ ] Add the ability to add a fast hash signature for each row in primary-key-backed indexes.
+- [ ] Add the ability to probe a file for candidate primary/composite keys and report them to the console.
 
 ## Version 1.3.0: Bulk Operations Edition
 
@@ -105,6 +111,8 @@
 - [ ] Enhance verification capabilities for cloud-scale data validation scenarios.
 - [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
 - [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
+- [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
+- [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
 
 ## Version 1.4.0: The Excel & JSON File Edition
 
@@ -113,6 +121,7 @@
 ## Version 1.5.0: The Parquet File Edition
 
 - [ ] Add the ability to read Parquet files.
+- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
 
 ## Version 1.6.0: The JOIN Edition
 
@@ -120,14 +129,6 @@
 
 ## Backlog
 
-- [ ] Add the ability to define a primary key (single column or composite) that uniquely identifies each row in a CSV file and expose it through CLI workflows.
-- [ ] Add the ability to add a fast hash signature for each row in primary-key-backed indexes.
-- [ ] Add the ability to probe a file for candidate primary/composite keys and report them to the console.
-- [ ] Add the ability to handle decimal datatypes of configurable precision and scale across parsing, validation, and sorting pipelines.
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
 - [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
-- [ ] Add a feature in processing data to treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."
-- [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
-- [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
-- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
 - [ ] Consider creating a new version that focuses on locale specific input/output.
