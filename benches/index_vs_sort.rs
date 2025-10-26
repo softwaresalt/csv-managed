@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use csv_managed::cli::{BooleanFormat, ProcessArgs};
 use csv_managed::index::{CsvIndex, IndexDefinition};
 use csv_managed::process;
@@ -22,11 +22,7 @@ fn generate_orders(rows: usize) -> (TempDir, PathBuf) {
         };
         let day = (i % 28) + 1;
         let hour = (i % 23) + 1;
-        writeln!(
-            file,
-            "{i},2024-01-{day:02},{hour:02}:00:00,{status}"
-        )
-        .expect("row");
+        writeln!(file, "{i},2024-01-{day:02},{hour:02}:00:00,{status}").expect("row");
     }
     (temp_dir, csv_path)
 }
@@ -37,18 +33,9 @@ fn build_index(csv_path: &Path) -> PathBuf {
         IndexDefinition::parse("recent=ordered_at:desc").expect("parse recent"),
         IndexDefinition::parse("ordered_at:asc,ship_time:asc").expect("parse asc pair"),
     ];
-    let index = CsvIndex::build(
-        csv_path,
-        &definitions,
-        None,
-        None,
-        b',',
-        UTF_8,
-    )
-    .expect("build index");
-    index
-        .save(&index_path)
-        .expect("save index");
+    let index =
+        CsvIndex::build(csv_path, &definitions, None, None, b',', UTF_8).expect("build index");
+    index.save(&index_path).expect("save index");
     index_path
 }
 
