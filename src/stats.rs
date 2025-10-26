@@ -10,7 +10,7 @@ use crate::{
     data::Value,
     filter, frequency, io_utils,
     rows::{evaluate_filter_expressions, parse_typed_row},
-    schema::{self, ColumnType, Schema},
+    schema::{self, ColumnType, DecimalSpec, Schema},
     table,
 };
 
@@ -196,6 +196,7 @@ fn is_supported_datatype(datatype: &ColumnType) -> bool {
         ColumnType::Integer
             | ColumnType::Float
             | ColumnType::Currency
+            | ColumnType::Decimal(_)
             | ColumnType::Date
             | ColumnType::DateTime
             | ColumnType::Time
@@ -258,6 +259,7 @@ struct ColumnStats {
     min: Option<f64>,
     max: Option<f64>,
     currency_scale: Option<u32>,
+    decimal_scale: Option<u32>,
 }
 
 impl ColumnStats {
@@ -272,6 +274,7 @@ impl ColumnStats {
             min: None,
             max: None,
             currency_scale: None,
+            decimal_scale: None,
         }
     }
 
@@ -280,6 +283,13 @@ impl ColumnStats {
             let scale = currency.scale();
             self.currency_scale = Some(
                 self.currency_scale
+                    .map_or(scale, |current| current.max(scale)),
+            );
+        }
+        if let (ColumnType::Decimal(_), Value::Decimal(decimal)) = (&self.datatype, value) {
+            let scale = decimal.scale();
+            self.decimal_scale = Some(
+                self.decimal_scale
                     .map_or(scale, |current| current.max(scale)),
             );
         }
@@ -345,13 +355,27 @@ impl ColumnStats {
 
     fn format_metric(&self, metric: Option<f64>) -> String {
         metric
-            .map(|value| format_metric(value, &self.datatype, self.currency_scale))
+            .map(|value| {
+                format_metric(
+                    value,
+                    &self.datatype,
+                    self.currency_scale,
+                    self.decimal_scale,
+                )
+            })
             .unwrap_or_default()
     }
 
     fn format_std_dev(&self, metric: Option<f64>) -> String {
         metric
-            .map(|value| format_std_dev_value(value, &self.datatype, self.currency_scale))
+            .map(|value| {
+                format_std_dev_value(
+                    value,
+                    &self.datatype,
+                    self.currency_scale,
+                    self.decimal_scale,
+                )
+            })
             .unwrap_or_default()
     }
 }
@@ -372,6 +396,9 @@ fn value_to_metric(value: &Value, datatype: &ColumnType) -> Result<f64> {
         (ColumnType::Currency, Value::Currency(c)) => c
             .to_f64()
             .ok_or_else(|| anyhow!("Currency value out of range for statistics")),
+        (ColumnType::Decimal(_), Value::Decimal(d)) => d
+            .to_f64()
+            .ok_or_else(|| anyhow!("Decimal value out of range for statistics")),
         (ColumnType::Date, Value::Date(d)) => Ok(date_to_metric(d)),
         (ColumnType::DateTime, Value::DateTime(dt)) => Ok(datetime_to_metric(dt)),
         (ColumnType::Time, Value::Time(t)) => Ok(time_to_metric(t)),
@@ -416,10 +443,18 @@ fn metric_to_time(metric: f64) -> Option<NaiveTime> {
     NaiveTime::from_num_seconds_from_midnight_opt(seconds as u32, 0)
 }
 
-fn format_metric(value: f64, datatype: &ColumnType, currency_scale: Option<u32>) -> String {
+fn format_metric(
+    value: f64,
+    datatype: &ColumnType,
+    currency_scale: Option<u32>,
+    decimal_scale: Option<u32>,
+) -> String {
     match datatype {
         ColumnType::Integer | ColumnType::Float => format_number(value),
         ColumnType::Currency => format_currency_number(value, currency_scale),
+        ColumnType::Decimal(spec) => {
+            format_decimal_number(value, spec, decimal_scale)
+        }
         ColumnType::Date => metric_to_date(value)
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default(),
@@ -433,10 +468,16 @@ fn format_metric(value: f64, datatype: &ColumnType, currency_scale: Option<u32>)
     }
 }
 
-fn format_std_dev_value(value: f64, datatype: &ColumnType, currency_scale: Option<u32>) -> String {
+fn format_std_dev_value(
+    value: f64,
+    datatype: &ColumnType,
+    currency_scale: Option<u32>,
+    decimal_scale: Option<u32>,
+) -> String {
     match datatype {
         ColumnType::Integer | ColumnType::Float => format_number(value),
         ColumnType::Currency => format_currency_number(value, currency_scale),
+        ColumnType::Decimal(spec) => format_decimal_number(value, spec, decimal_scale),
         ColumnType::Date => format_duration(value, "days"),
         ColumnType::DateTime | ColumnType::Time => format_duration(value, "seconds"),
         _ => String::new(),
@@ -452,6 +493,18 @@ fn format_currency_number(value: f64, scale: Option<u32>) -> String {
         _ => 2,
     };
     format!("{value:.precision$}", precision = digits as usize)
+}
+
+fn format_decimal_number(value: f64, spec: &DecimalSpec, observed_scale: Option<u32>) -> String {
+    if value.is_nan() || value.is_infinite() {
+        return String::new();
+    }
+    let digits = observed_scale.unwrap_or(spec.scale) as usize;
+    if digits == 0 {
+        format!("{value:.0}")
+    } else {
+        format!("{value:.precision$}", precision = digits)
+    }
 }
 
 fn format_duration(value: f64, unit: &str) -> String {

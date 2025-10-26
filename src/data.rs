@@ -10,9 +10,83 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::schema::ColumnType;
+use crate::schema::{ColumnType, DecimalSpec};
 
 pub const CURRENCY_ALLOWED_SCALES: [u32; 2] = [2, 4];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FixedDecimalValue {
+    amount: Decimal,
+    precision: u32,
+    scale: u32,
+}
+
+impl FixedDecimalValue {
+    pub fn parse(raw: &str, spec: &DecimalSpec) -> Result<Self> {
+        let decimal = parse_decimal_literal(raw)?;
+        Self::from_decimal(decimal, spec, None)
+    }
+
+    pub fn from_decimal(value: Decimal, spec: &DecimalSpec, strategy: Option<&str>) -> Result<Self> {
+        let mut decimal = value;
+        if let Some(strategy) = strategy {
+            decimal = match strategy {
+                "truncate" => decimal.round_dp_with_strategy(spec.scale, RoundingStrategy::ToZero),
+                "round" | "round-half-up" | "roundhalfup" => {
+                    decimal.round_dp_with_strategy(spec.scale, RoundingStrategy::MidpointAwayFromZero)
+                }
+                other => bail!("Unsupported decimal rounding strategy '{other}'"),
+            };
+        }
+        Self::validate_decimal(&decimal, spec)?;
+        let mut quantized = decimal;
+        if quantized.scale() < spec.scale {
+            quantized.rescale(spec.scale);
+        }
+        Ok(Self {
+            amount: quantized,
+            precision: spec.precision,
+            scale: spec.scale,
+        })
+    }
+
+    pub fn amount(&self) -> &Decimal {
+        &self.amount
+    }
+
+    pub fn precision(&self) -> u32 {
+        self.precision
+    }
+
+    pub fn scale(&self) -> u32 {
+        self.scale
+    }
+
+    pub fn to_string_fixed(&self) -> String {
+        format_decimal_with_scale(self.amount, self.scale as usize)
+    }
+
+    pub fn to_f64(&self) -> Option<f64> {
+        self.amount.to_f64()
+    }
+
+    fn validate_decimal(decimal: &Decimal, spec: &DecimalSpec) -> Result<()> {
+        ensure!(
+            decimal.scale() <= spec.scale,
+            "Decimal values must not exceed scale {} (found {})",
+            spec.scale,
+            decimal.scale()
+        );
+        let integer_digits = count_integer_digits(decimal);
+        let max_integer_digits = (spec.precision - spec.scale) as usize;
+        ensure!(
+            integer_digits <= max_integer_digits,
+            "Decimal values must not exceed {} digit(s) to the left of the decimal point",
+            max_integer_digits
+        );
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrencyValue {
@@ -67,35 +141,7 @@ impl CurrencyValue {
     }
 
     pub fn to_string_fixed(&self) -> String {
-        let mut value = self.amount;
-        let scale = value.scale();
-        if scale == 0 {
-            value.rescale(2);
-        }
-        let mut rendered = value.to_string();
-        let expected = value.scale() as usize;
-        if expected == 0 {
-            rendered.push_str(".00");
-            return rendered;
-        }
-        let actual = rendered
-            .split_once('.')
-            .map(|(_, frac)| frac.len())
-            .unwrap_or(0);
-        if actual == expected {
-            return rendered;
-        }
-        if let Some((whole, frac)) = rendered.split_once('.') {
-            let mut buf = String::new();
-            buf.push_str(whole);
-            buf.push('.');
-            buf.push_str(frac);
-            for _ in 0..(expected.saturating_sub(actual)) {
-                buf.push('0');
-            }
-            return buf;
-        }
-        rendered
+        format_decimal_with_scale(self.amount, self.amount.scale() as usize)
     }
 
     pub fn to_f64(&self) -> Option<f64> {
@@ -113,6 +159,7 @@ pub enum Value {
     DateTime(NaiveDateTime),
     Time(NaiveTime),
     Guid(Uuid),
+    Decimal(FixedDecimalValue),
     Currency(CurrencyValue),
 }
 
@@ -135,6 +182,7 @@ impl Value {
             Value::DateTime(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
             Value::Time(t) => t.format("%H:%M:%S").to_string(),
             Value::Guid(g) => g.to_string(),
+            Value::Decimal(d) => d.to_string_fixed(),
             Value::Currency(c) => c.to_string_fixed(),
         }
     }
@@ -151,6 +199,7 @@ impl Ord for Value {
             (Value::DateTime(a), Value::DateTime(b)) => a.cmp(b),
             (Value::Time(a), Value::Time(b)) => a.cmp(b),
             (Value::Guid(a), Value::Guid(b)) => a.cmp(b),
+            (Value::Decimal(a), Value::Decimal(b)) => a.cmp(b),
             (Value::Currency(a), Value::Currency(b)) => a.cmp(b),
             _ => panic!("Cannot compare heterogeneous Value variants"),
         }
@@ -281,6 +330,10 @@ pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> 
                 .with_context(|| format!("Failed to parse '{value}' as GUID"))?;
             Value::Guid(parsed)
         }
+        ColumnType::Decimal(spec) => {
+            let parsed = FixedDecimalValue::parse(value, spec)?;
+            Value::Decimal(parsed)
+        }
         ColumnType::Currency => {
             let parsed = CurrencyValue::parse(value)?;
             Value::Currency(parsed)
@@ -299,11 +352,121 @@ pub fn value_to_evalexpr(value: &Value) -> evalexpr::Value {
         Value::DateTime(dt) => evalexpr::Value::String(dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         Value::Time(t) => evalexpr::Value::String(t.format("%H:%M:%S").to_string()),
         Value::Guid(g) => evalexpr::Value::String(g.to_string()),
+        Value::Decimal(d) => d
+            .to_f64()
+            .map(evalexpr::Value::Float)
+            .unwrap_or_else(|| evalexpr::Value::String(d.to_string_fixed())),
         Value::Currency(c) => c
             .to_f64()
             .map(evalexpr::Value::Float)
             .unwrap_or_else(|| evalexpr::Value::String(c.to_string_fixed())),
     }
+}
+
+pub fn parse_decimal_literal(raw: &str) -> Result<Decimal> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        bail!("Decimal value is empty");
+    }
+
+    let mut negative = false;
+    let mut body = trimmed;
+    if body.starts_with('(') && body.ends_with(')') {
+        negative = true;
+        body = &body[1..body.len() - 1];
+    }
+
+    body = body.trim();
+    if body.starts_with('-') {
+        negative = true;
+        body = &body[1..];
+    } else if body.starts_with('+') {
+        body = &body[1..];
+    }
+
+    body = body.trim();
+    let mut sanitized = String::with_capacity(body.len() + 1);
+    let mut decimal_seen = false;
+    for ch in body.chars() {
+        match ch {
+            '0'..='9' => sanitized.push(ch),
+            '.' => {
+                if decimal_seen {
+                    bail!("Decimal value '{raw}' contains multiple decimal points");
+                }
+                decimal_seen = true;
+                sanitized.push(ch);
+            }
+            ',' | '_' | ' ' => {
+                // Skip common thousands separators and spacing.
+            }
+            _ => {
+                bail!("Decimal value '{raw}' contains unsupported character '{ch}'");
+            }
+        }
+    }
+
+    ensure!(
+        sanitized.chars().any(|c| c.is_ascii_digit()),
+        "Decimal value '{raw}' does not contain digits"
+    );
+
+    if negative {
+        sanitized.insert(0, '-');
+    }
+
+    Decimal::from_str(&sanitized).with_context(|| format!("Parsing '{raw}' as decimal"))
+}
+
+fn format_decimal_with_scale(mut value: Decimal, scale: usize) -> String {
+    let target_scale = scale as u32;
+    if value.scale() < target_scale {
+        value.rescale(target_scale);
+    }
+    if scale == 0 {
+        let mut rendered = value.to_string();
+        if let Some(idx) = rendered.find('.') {
+            rendered.truncate(idx);
+        }
+        return rendered;
+    }
+    let rendered = value.to_string();
+    let actual = rendered
+        .split_once('.')
+        .map(|(_, frac)| frac.len())
+        .unwrap_or(0);
+    if actual == scale {
+        return rendered;
+    }
+    if let Some((whole, frac)) = rendered.split_once('.') {
+        let mut buf = String::new();
+        buf.push_str(whole);
+        buf.push('.');
+        buf.push_str(frac);
+        for _ in 0..(scale.saturating_sub(actual)) {
+            buf.push('0');
+        }
+        return buf;
+    }
+    let mut buf = String::new();
+    buf.push_str(&rendered);
+    buf.push('.');
+    for _ in 0..scale {
+        buf.push('0');
+    }
+    buf
+}
+
+fn count_integer_digits(decimal: &Decimal) -> usize {
+    let abs = decimal.abs();
+    if abs < Decimal::ONE {
+        return 0;
+    }
+    abs.trunc()
+        .to_string()
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .count()
 }
 
 pub fn parse_currency_decimal(raw: &str) -> Result<Decimal> {
@@ -372,6 +535,7 @@ mod tests {
     use rust_decimal::Decimal;
     use std::str::FromStr;
     use uuid::Uuid;
+    use crate::schema::{ColumnType, DecimalSpec};
 
     #[test]
     fn normalize_column_name_replaces_non_alphanumeric() {
@@ -525,5 +689,80 @@ mod tests {
     fn currency_to_string_fixed_pads_fractional_zeros() {
         let value = CurrencyValue::parse("42").expect("parse integer currency");
         assert_eq!(value.to_string_fixed(), "42.00");
+    }
+
+    #[test]
+    fn fixed_decimal_value_truncate_strategy_respects_scale() {
+        let spec = DecimalSpec::new(8, 2).expect("valid decimal spec");
+        let decimal = Decimal::from_str("123.456").expect("valid decimal literal");
+        let value = FixedDecimalValue::from_decimal(decimal, &spec, Some("truncate"))
+            .expect("truncate decimal");
+        assert_eq!(value.to_string_fixed(), "123.45");
+        assert_eq!(value.scale(), 2);
+    }
+
+    #[test]
+    fn fixed_decimal_value_round_strategy_respects_scale() {
+        let spec = DecimalSpec::new(10, 3).expect("valid decimal spec");
+        let decimal = Decimal::from_str("-87.6549").expect("valid decimal literal");
+        let value = FixedDecimalValue::from_decimal(decimal, &spec, Some("round"))
+            .expect("round decimal");
+        assert_eq!(value.to_string_fixed(), "-87.655");
+        assert_eq!(value.scale(), 3);
+    }
+
+    #[test]
+    fn fixed_decimal_value_rescales_short_fractional_parts() {
+        let spec = DecimalSpec::new(12, 4).expect("valid decimal spec");
+        let decimal = Decimal::from_str("42").expect("whole number decimal");
+        let value =
+            FixedDecimalValue::from_decimal(decimal, &spec, None).expect("rescale decimal");
+        assert_eq!(value.to_string_fixed(), "42.0000");
+        assert_eq!(value.scale(), 4);
+    }
+
+    #[test]
+    fn parse_decimal_literal_supports_parentheses_and_separators() {
+        let parsed = parse_decimal_literal("(1,234.50)").expect("parse negative grouped decimal");
+        assert_eq!(parsed, Decimal::from_str("-1234.50").unwrap());
+    }
+
+    #[test]
+    fn parse_decimal_literal_supports_positive_sign_and_underscores() {
+        let parsed = parse_decimal_literal(" +7_654.321 ").expect("parse underscored decimal");
+        assert_eq!(parsed, Decimal::from_str("7654.321").unwrap());
+    }
+
+    #[test]
+    fn parse_decimal_literal_rejects_invalid_characters() {
+        assert!(parse_decimal_literal("12a.34").is_err());
+        assert!(parse_decimal_literal("#42.0").is_err());
+    }
+
+    #[test]
+    fn parse_decimal_literal_rejects_multiple_decimal_points() {
+        assert!(parse_decimal_literal("1.2.3").is_err());
+    }
+
+    #[test]
+    fn parse_decimal_values_enforce_precision_and_scale() {
+        let spec = DecimalSpec::new(10, 4).expect("valid decimal spec");
+        let decimal_type = ColumnType::Decimal(spec.clone());
+        let parsed = parse_typed_value("123.4567", &decimal_type)
+            .expect("parse decimal")
+            .expect("non-empty decimal");
+        match parsed {
+            Value::Decimal(value) => {
+                assert_eq!(value.scale(), 4);
+                assert_eq!(value.precision(), 10);
+                assert_eq!(value.to_string_fixed(), "123.4567");
+            }
+            other => panic!("Expected decimal value, got {other:?}"),
+        }
+
+        let narrow_spec = DecimalSpec::new(6, 2).expect("valid decimal spec");
+        let narrow_type = ColumnType::Decimal(narrow_spec);
+        assert!(parse_typed_value("123.456", &narrow_type).is_err());
+        assert!(parse_typed_value("1234567", &narrow_type).is_err());
     }
 }

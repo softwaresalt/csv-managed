@@ -1,0 +1,26 @@
+columns:
+- name: id
+  datatype: Integer
+  name_mapping: id
+  replace: []
+- name: measurement_round
+  datatype: decimal(10,2)
+  name_mapping: measurement_round
+  replace: []
+  datatype_mappings:
+  - from: String
+    to: decimal(10,2)
+    strategy: round
+- name: measurement_truncate
+  datatype: decimal(10,3)
+  name_mapping: measurement_truncate
+  replace: []
+  datatype_mappings:
+  - from: String
+    to: decimal(10,3)
+    strategy: truncate
+- name: measurement_exact
+  datatype: decimal(12,4)
+  name_mapping: measurement_exact
+  replace: []
+schema_version: 1.1.0

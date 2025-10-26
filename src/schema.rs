@@ -1,23 +1,80 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt, fs::File, io::BufReader, path::Path};
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    fmt,
+    fs::File,
+    io::BufReader,
+    path::Path,
+    str::FromStr,
+};
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use encoding_rs::Encoding;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_yaml::Value;
 use uuid::Uuid;
 
 use crate::{
     data::{
-        CurrencyValue, Value as DataValue, parse_currency_decimal, parse_naive_date,
-        parse_naive_datetime, parse_naive_time, parse_typed_value,
+        CurrencyValue, FixedDecimalValue, Value as DataValue, parse_currency_decimal,
+        parse_decimal_literal, parse_naive_date, parse_naive_datetime, parse_naive_time,
+        parse_typed_value,
     },
     io_utils,
 };
 
+const DECIMAL_MAX_PRECISION: u32 = 28;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DecimalSpec {
+    pub precision: u32,
+    pub scale: u32,
+}
+
+impl DecimalSpec {
+    pub fn new(precision: u32, scale: u32) -> Result<Self> {
+        let spec = Self { precision, scale };
+        spec.ensure_valid()?;
+        Ok(spec)
+    }
+
+    pub fn ensure_valid(&self) -> Result<()> {
+        ensure!(self.precision > 0, "Decimal precision must be positive");
+        ensure!(
+            self.precision <= DECIMAL_MAX_PRECISION,
+            "Decimal precision must be <= {}",
+            DECIMAL_MAX_PRECISION
+        );
+        ensure!(
+            self.scale <= self.precision,
+            "Decimal scale ({}) cannot exceed precision ({})",
+            self.scale,
+            self.precision
+        );
+        ensure!(
+            self.scale <= DECIMAL_MAX_PRECISION,
+            "Decimal scale must be <= {}",
+            DECIMAL_MAX_PRECISION
+        );
+        Ok(())
+    }
+
+    pub fn signature(&self) -> String {
+        format!("decimal({},{})", self.precision, self.scale)
+    }
+
+    pub fn describe(&self) -> String {
+        format!(
+            "decimal(precision={},scale={})",
+            self.precision, self.scale
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColumnType {
     String,
     Integer,
@@ -28,6 +85,120 @@ pub enum ColumnType {
     Time,
     Guid,
     Currency,
+    Decimal(DecimalSpec),
+}
+
+impl Serialize for ColumnType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            ColumnType::String => serializer.serialize_str("String"),
+            ColumnType::Integer => serializer.serialize_str("Integer"),
+            ColumnType::Float => serializer.serialize_str("Float"),
+            ColumnType::Boolean => serializer.serialize_str("Boolean"),
+            ColumnType::Date => serializer.serialize_str("Date"),
+            ColumnType::DateTime => serializer.serialize_str("DateTime"),
+            ColumnType::Time => serializer.serialize_str("Time"),
+            ColumnType::Guid => serializer.serialize_str("Guid"),
+            ColumnType::Currency => serializer.serialize_str("Currency"),
+            ColumnType::Decimal(spec) => serializer.serialize_str(&spec.signature()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ColumnType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ColumnTypeVisitor;
+
+        impl<'de> de::Visitor<'de> for ColumnTypeVisitor {
+            type Value = ColumnType;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str(
+                    "a column datatype token such as 'Integer', 'String', or 'decimal(18,4)'",
+                )
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                ColumnType::from_str(value).map_err(|err| E::custom(err.to_string()))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_str(&value)
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                use serde_yaml::Value as YamlValue;
+
+                if let Some((key, value)) = map.next_entry::<String, YamlValue>()? {
+                    let key_normalized = key.trim().to_ascii_lowercase();
+                    match key_normalized.as_str() {
+                        "decimal" => parse_decimal_from_mapping(value).map_err(de::Error::custom),
+                        other => Err(de::Error::custom(format!(
+                            "Unsupported structured datatype '{other}'"
+                        ))),
+                    }
+                } else {
+                    Err(de::Error::custom("Expected a column datatype entry"))
+                }
+            }
+        }
+
+        fn parse_decimal_from_mapping(value: serde_yaml::Value) -> Result<ColumnType> {
+            let mapping = value
+                .as_mapping()
+                .ok_or_else(|| anyhow!("Decimal mapping must be a map with precision/scale"))?;
+
+            let mut precision: Option<u32> = None;
+            let mut scale: Option<u32> = None;
+
+            for (key, val) in mapping {
+                let key_str = key
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Decimal mapping keys must be strings"))?
+                    .to_ascii_lowercase();
+
+                match key_str.as_str() {
+                    "precision" => {
+                        let parsed = val
+                            .as_u64()
+                            .ok_or_else(|| anyhow!("Decimal precision must be an unsigned integer"))?;
+                        precision = Some(parsed as u32);
+                    }
+                    "scale" => {
+                        let parsed = val
+                            .as_u64()
+                            .ok_or_else(|| anyhow!("Decimal scale must be an unsigned integer"))?;
+                        scale = Some(parsed as u32);
+                    }
+                    other => {
+                        return Err(anyhow!("Unknown decimal key '{other}'"));
+                    }
+                }
+            }
+
+            let precision = precision.ok_or_else(|| anyhow!("Decimal mapping requires precision"))?;
+            let scale = scale.ok_or_else(|| anyhow!("Decimal mapping requires scale"))?;
+            let spec = DecimalSpec::new(precision, scale)?;
+            Ok(ColumnType::Decimal(spec))
+        }
+
+        deserializer.deserialize_any(ColumnTypeVisitor)
+    }
 }
 
 impl ColumnType {
@@ -42,19 +213,57 @@ impl ColumnType {
             ColumnType::Time => "time",
             ColumnType::Guid => "guid",
             ColumnType::Currency => "currency",
+            ColumnType::Decimal(_) => "decimal",
         }
     }
 
     pub fn variants() -> &'static [&'static str] {
         &[
-            "string", "integer", "float", "boolean", "date", "datetime", "time", "guid", "currency",
+            "string",
+            "integer",
+            "float",
+            "boolean",
+            "date",
+            "datetime",
+            "time",
+            "guid",
+            "currency",
+            "decimal(precision,scale)",
         ]
+    }
+
+    pub fn describe(&self) -> String {
+        match self {
+            ColumnType::Decimal(spec) => spec.describe(),
+            _ => self.as_str().to_string(),
+        }
+    }
+
+    pub fn signature_token(&self) -> String {
+        match self {
+            ColumnType::Decimal(spec) => spec.signature(),
+            _ => self.as_str().to_string(),
+        }
+    }
+
+    pub fn cli_token(&self) -> String {
+        match self {
+            ColumnType::Decimal(spec) => format!("decimal({},{})", spec.precision, spec.scale),
+            _ => self.as_str().to_string(),
+        }
+    }
+
+    pub fn decimal_spec(&self) -> Option<&DecimalSpec> {
+        match self {
+            ColumnType::Decimal(spec) => Some(spec),
+            _ => None,
+        }
     }
 }
 
 impl fmt::Display for ColumnType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        write!(f, "{}", self.describe())
     }
 }
 
@@ -73,12 +282,82 @@ impl std::str::FromStr for ColumnType {
             "time" => Ok(ColumnType::Time),
             "guid" | "uuid" => Ok(ColumnType::Guid),
             "currency" => Ok(ColumnType::Currency),
+            other if other.starts_with("decimal") => parse_decimal_type(value),
             _ => Err(anyhow!(
                 "Unknown column type '{value}'. Supported types: {}",
                 ColumnType::variants().join(", ")
             )),
         }
     }
+}
+
+fn parse_decimal_type(value: &str) -> Result<ColumnType> {
+    let trimmed = value.trim();
+    let start = trimmed
+        .find('(')
+        .ok_or_else(|| anyhow!("Decimal type must specify precision and scale, e.g. decimal(18,4)"))?;
+    ensure!(
+        trimmed.ends_with(')'),
+        "Decimal type must close with ')', e.g. decimal(18,4)"
+    );
+    let inner = &trimmed[start + 1..trimmed.len() - 1];
+    let mut precision: Option<u32> = None;
+    let mut scale: Option<u32> = None;
+    let mut positional = Vec::new();
+
+    for part in inner.split(',') {
+        let token = part.trim();
+        if token.is_empty() {
+            continue;
+        }
+        if let Some((key, value)) = token
+            .split_once(['=', ':'])
+            .map(|(k, v)| (k.trim(), v.trim()))
+        {
+            let key_normalized = key.to_ascii_lowercase();
+            let parsed: u32 = value.parse().with_context(|| {
+                format!("Parsing decimal {key}='{value}' in '{token}'")
+            })?;
+            match key_normalized.as_str() {
+                "precision" => {
+                    precision = Some(parsed);
+                }
+                "scale" => {
+                    scale = Some(parsed);
+                }
+                other => {
+                    bail!("Unknown decimal option '{other}' in '{token}'");
+                }
+            }
+        } else {
+            positional.push(token);
+        }
+    }
+
+    if let Some(first) = positional.first() && precision.is_none() {
+        precision = Some(first.parse().with_context(|| {
+            format!("Parsing decimal precision from '{first}' in '{value}'")
+        })?);
+    }
+    if let Some(second) = positional.get(1) && scale.is_none() {
+        scale = Some(second.parse().with_context(|| {
+            format!("Parsing decimal scale from '{second}' in '{value}'")
+        })?);
+    }
+    ensure!(
+        positional.len() <= 2,
+        "Decimal type accepts at most two positional arguments"
+    );
+
+    let precision = precision.ok_or_else(|| {
+        anyhow!("Decimal type requires a precision value, e.g. decimal(18,4)")
+    })?;
+    let scale = scale.ok_or_else(|| {
+        anyhow!("Decimal type requires a scale value, e.g. decimal(18,4)")
+    })?;
+
+    let spec = DecimalSpec::new(precision, scale)?;
+    Ok(ColumnType::Decimal(spec))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -300,6 +579,10 @@ fn value_column_type(value: &DataValue) -> ColumnType {
         DataValue::DateTime(_) => ColumnType::DateTime,
         DataValue::Time(_) => ColumnType::Time,
         DataValue::Guid(_) => ColumnType::Guid,
+        DataValue::Decimal(value) => ColumnType::Decimal(
+            DecimalSpec::new(value.precision(), value.scale())
+                .expect("FixedDecimalValue guarantees valid decimal spec"),
+        ),
         DataValue::Currency(_) => ColumnType::Currency,
     }
 }
@@ -357,6 +640,9 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             Ok(DataValue::String(t.format(fmt).to_string()))
         }
         (ColumnType::String, DataValue::Guid(g)) => Ok(DataValue::String(g.to_string())),
+        (ColumnType::String, DataValue::Decimal(d)) => {
+            Ok(DataValue::String(d.to_string_fixed()))
+        }
         (ColumnType::String, DataValue::Currency(c)) => Ok(DataValue::String(c.to_string_fixed())),
         (ColumnType::Integer, DataValue::String(s)) => {
             let parsed = parse_with_type(&s, &ColumnType::Integer)?;
@@ -383,6 +669,11 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
                 .unwrap_or_else(|| default_currency_scale(&decimal));
             let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
             Ok(DataValue::Currency(currency))
+        }
+        (ColumnType::Decimal(spec), DataValue::String(s)) => {
+            let decimal = parse_decimal_literal(&s)?;
+            let fixed = FixedDecimalValue::from_decimal(decimal, spec, strategy.as_deref())?;
+            Ok(DataValue::Decimal(fixed))
         }
         (ColumnType::Boolean, DataValue::String(s)) => {
             let parsed = parse_with_type(&s, &ColumnType::Boolean)?;
@@ -428,6 +719,11 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
             Ok(DataValue::Currency(currency))
         }
+        (ColumnType::Decimal(spec), DataValue::Integer(i)) => {
+            let decimal = Decimal::from(i);
+            let fixed = FixedDecimalValue::from_decimal(decimal, spec, strategy.as_deref())?;
+            Ok(DataValue::Decimal(fixed))
+        }
         (ColumnType::Integer, DataValue::Float(f)) => {
             let rounded = match strategy.as_deref() {
                 Some("truncate") => f.trunc() as i64,
@@ -449,6 +745,12 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
                 .unwrap_or_else(|| default_currency_scale(&decimal));
             let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
             Ok(DataValue::Currency(currency))
+        }
+        (ColumnType::Decimal(spec), DataValue::Float(f)) => {
+            let decimal = Decimal::from_f64(f)
+                .ok_or_else(|| anyhow!("Failed to convert float {f} to decimal"))?;
+            let fixed = FixedDecimalValue::from_decimal(decimal, spec, strategy.as_deref())?;
+            Ok(DataValue::Decimal(fixed))
         }
         (ColumnType::Float, DataValue::Currency(c)) => {
             let value = c
@@ -472,6 +774,45 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
                 .unwrap_or_else(|| default_currency_scale(&decimal));
             let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
             Ok(DataValue::Currency(currency))
+        }
+        (ColumnType::Decimal(spec), DataValue::Currency(c)) => {
+            let fixed = FixedDecimalValue::from_decimal(*c.amount(), spec, strategy.as_deref())?;
+            Ok(DataValue::Decimal(fixed))
+        }
+        (ColumnType::Float, DataValue::Decimal(d)) => {
+            let value = d
+                .to_f64()
+                .ok_or_else(|| anyhow!("Decimal value out of f64 range"))?;
+            Ok(DataValue::Float(value))
+        }
+        (ColumnType::Integer, DataValue::Decimal(d)) => {
+            let value = d
+                .to_f64()
+                .ok_or_else(|| anyhow!("Decimal value out of range for integer conversion"))?;
+            let rounded = match strategy.as_deref() {
+                Some("truncate") => value.trunc() as i64,
+                _ => value.round() as i64,
+            };
+            Ok(DataValue::Integer(rounded))
+        }
+        (ColumnType::Currency, DataValue::Decimal(d)) => {
+            let decimal = *d.amount();
+            let scale = explicit_currency_scale(mapping)?
+                .unwrap_or_else(|| default_currency_scale(&decimal));
+            let currency = CurrencyValue::quantize(decimal, scale, strategy.as_deref())?;
+            Ok(DataValue::Currency(currency))
+        }
+        (ColumnType::Decimal(spec), DataValue::Decimal(existing)) => {
+            if existing.precision() == spec.precision && existing.scale() == spec.scale {
+                Ok(DataValue::Decimal(existing))
+            } else {
+                let fixed = FixedDecimalValue::from_decimal(
+                    *existing.amount(),
+                    spec,
+                    strategy.as_deref(),
+                )?;
+                Ok(DataValue::Decimal(fixed))
+            }
         }
         (ColumnType::Integer, DataValue::Integer(i)) => Ok(DataValue::Integer(i)),
         _ => bail!(
@@ -517,6 +858,18 @@ fn render_mapped_value(value: &DataValue, mapping: &DatatypeMapping) -> Result<S
         }
         (ColumnType::Guid, DataValue::Guid(g)) => Ok(g.to_string()),
         (ColumnType::Currency, DataValue::Currency(c)) => Ok(c.to_string_fixed()),
+        (ColumnType::Decimal(spec), DataValue::Decimal(d)) => {
+            if d.scale() == spec.scale && d.precision() == spec.precision {
+                Ok(d.to_string_fixed())
+            } else {
+                let fixed = FixedDecimalValue::from_decimal(
+                    *d.amount(),
+                    spec,
+                    None,
+                )?;
+                Ok(fixed.to_string_fixed())
+            }
+        }
         _ => bail!(
             "Mapping output type '{:?}' is incompatible with computed value '{:?}'",
             mapping.to,
@@ -670,6 +1023,7 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
                             | ColumnType::Integer
                             | ColumnType::String
                             | ColumnType::Currency
+                            | ColumnType::Decimal(_)
                     ),
                     "Column '{}' mapping {} -> {} cannot apply 'round' strategy",
                     column_name,
@@ -679,7 +1033,10 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
             }
             if normalized == "truncate" {
                 ensure!(
-                    matches!(mapping.to, ColumnType::Integer | ColumnType::Currency),
+                    matches!(
+                        mapping.to,
+                        ColumnType::Integer | ColumnType::Currency | ColumnType::Decimal(_)
+                    ),
                     "Column '{}' mapping {} -> {} cannot apply 'truncate' strategy",
                     column_name,
                     mapping.from,
@@ -719,12 +1076,29 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
                 mapping.to
             );
         }
+        if matches!(mapping.to, ColumnType::Decimal(_)) {
+            bail!(
+                "Column '{}' mapping {} -> {} should define scale via the decimal datatype rather than a mapping option",
+                column_name,
+                mapping.from,
+                mapping.to
+            );
+        }
     }
 
     if let Some(format_value) = mapping.options.get("format") {
         ensure!(
             format_value.as_str().is_some(),
             "Column '{}' mapping {} -> {} requires 'format' to be a string",
+            column_name,
+            mapping.from,
+            mapping.to
+        );
+    }
+
+    if mapping.options.contains_key("precision") {
+        bail!(
+            "Column '{}' mapping {} -> {} should define precision via the decimal datatype rather than a mapping option",
             column_name,
             mapping.from,
             mapping.to
@@ -1021,6 +1395,10 @@ pub(crate) fn format_hint_for(datatype: &ColumnType, sample: Option<&str>) -> Op
                 Some("Floating number without decimal point".to_string())
             }
         }
+        ColumnType::Decimal(spec) => Some(format!(
+            "Fixed decimal (precision {}, scale {})",
+            spec.precision, spec.scale
+        )),
         ColumnType::Currency => Some("Currency amount (2 or 4 decimal places)".to_string()),
         ColumnType::Integer => {
             if sample.starts_with('0') && sample.len() > 1 {
@@ -1136,6 +1514,7 @@ impl Schema {
     }
 
     pub fn validate_datatype_mappings(&self) -> Result<()> {
+        self.validate_decimal_specs()?;
         for column in &self.columns {
             if column.datatype_mappings.is_empty() {
                 continue;
@@ -1166,6 +1545,23 @@ impl Schema {
         }
         Ok(())
     }
+
+    fn validate_decimal_specs(&self) -> Result<()> {
+        for column in &self.columns {
+            if let ColumnType::Decimal(spec) = &column.datatype {
+                spec.ensure_valid()?;
+            }
+            for mapping in &column.datatype_mappings {
+                if let ColumnType::Decimal(spec) = &mapping.from {
+                    spec.ensure_valid()?;
+                }
+                if let ColumnType::Decimal(spec) = &mapping.to {
+                    spec.ensure_valid()?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -1173,6 +1569,7 @@ mod tests {
     use super::*;
     use encoding_rs::UTF_8;
     use std::io::Write;
+    use std::str::FromStr;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -1337,5 +1734,98 @@ mod tests {
         assert_eq!(schema.columns.len(), 2);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
+    }
+
+    #[test]
+    fn parse_decimal_type_supports_positional_syntax() {
+        let parsed = ColumnType::from_str("decimal(18,4)").expect("parse decimal positional");
+        match parsed {
+            ColumnType::Decimal(spec) => {
+                assert_eq!(spec.precision, 18);
+                assert_eq!(spec.scale, 4);
+            }
+            other => panic!("expected decimal column, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_decimal_type_supports_named_syntax() {
+        let parsed =
+            ColumnType::from_str("decimal(precision=20, scale=6)").expect("parse decimal named");
+        let spec = parsed
+            .decimal_spec()
+            .expect("decimal spec present after parsing");
+        assert_eq!(spec.precision, 20);
+        assert_eq!(spec.scale, 6);
+    }
+
+    #[test]
+    fn parse_decimal_type_rejects_missing_scale() {
+        let err = ColumnType::from_str("decimal(10)").expect_err("missing scale error");
+        assert!(err
+            .to_string()
+            .contains("Decimal type requires a scale value"));
+    }
+
+    #[test]
+    fn decimal_cli_token_formats_precision_and_scale() {
+        let parsed = ColumnType::from_str("decimal(28,9)").expect("parse decimal for cli token");
+        assert_eq!(parsed.cli_token(), "decimal(28,9)");
+        assert_eq!(parsed.signature_token(), "decimal(28,9)");
+        assert_eq!(parsed.describe(), "decimal(precision=28,scale=9)");
+    }
+
+    #[test]
+    fn datatype_mappings_convert_string_to_decimal_with_rounding() {
+        let spec = DecimalSpec::new(12, 2).expect("valid decimal spec");
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Decimal(spec.clone()),
+            strategy: Some("round".to_string()),
+            options: BTreeMap::new(),
+        };
+        let column = ColumnMeta {
+            name: "amount".to_string(),
+            datatype: ColumnType::Decimal(spec.clone()),
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["123.455".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("apply decimal rounding mapping");
+        assert_eq!(row[0], "123.46");
+    }
+
+    #[test]
+    fn datatype_mappings_convert_string_to_decimal_with_truncation() {
+        let spec = DecimalSpec::new(14, 3).expect("valid decimal spec");
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Decimal(spec.clone()),
+            strategy: Some("truncate".to_string()),
+            options: BTreeMap::new(),
+        };
+        let column = ColumnMeta {
+            name: "measurement".to_string(),
+            datatype: ColumnType::Decimal(spec.clone()),
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["-87.6549".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("apply decimal truncation mapping");
+        assert_eq!(row[0], "-87.654");
     }
 }

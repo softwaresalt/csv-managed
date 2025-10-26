@@ -10,13 +10,13 @@ Manage CSV files efficiently
 Usage: csv-managed.exe <COMMAND>
 
 Commands:
-  schema   Create a -schema.yml file from explicit column definitions
-  index    Create a B-Tree index (.idx) for one or more columns
-  process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
-  append   Append multiple CSV files into a single output
-  stats    Produce summary statistics for numeric columns or frequency counts via --frequency
-  install  Install the csv-managed binary via cargo install
-  help     Print this message or the help of the given subcommand(s)
+    schema   Create a -schema.yml file from explicit column definitions
+    index    Create a B-Tree index (.idx) for one or more columns
+    process  Transform a CSV file using sorting, filtering, projection, derivations, and schema-driven replacements
+    append   Append multiple CSV files into a single output
+    stats    Produce summary statistics for numeric columns or frequency counts via --frequency
+    install  Install the csv-managed binary via cargo install
+    help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -39,10 +39,12 @@ Commands:
 
 Options:
   -o, --output <OUTPUT>         Destination -schema.yml file path (alias --schema retained for compatibility)
-  -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
+    -c, --column <COLUMNS>        Column definitions using `name:type` syntax (comma-separated or repeatable)
       --replace <REPLACEMENTS>  Value replacement directives using `column=value->replacement`
   -h, --help                    Print help
 ```
+
+Column definitions now accept fixed-precision decimals via `decimal(<precision>,<scale>)`. Example: `-c "amount:decimal(18,4)"` declares a column that must fit within the specified precision and scale.
 
 ### schema probe
 
@@ -69,6 +71,8 @@ Options:
   -h, --help
           Print help
 ```
+
+When decimals appear in sampled data, the probe output lists them as `decimal(precision,scale)` along with strategy hints if mappings specify rounding or truncation.
 
 ### schema infer
 
@@ -100,6 +104,8 @@ Options:
           Print help
 ```
 
+`schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets.
+
 ### schema verify
 
 ```text
@@ -121,6 +127,8 @@ Options:
   -h, --help
           Print help
 ```
+
+`schema verify` enforces decimal precision and scale exactly as defined in the schema; any value that exceeds the allowed integer digits or fractional places is reported as invalid.
 
 ### schema columns
 
@@ -221,6 +229,8 @@ Options:
   -h, --help
           Print help
 ```
+
+Use `--apply-mappings` (enabled automatically when mappings exist) to run decimal rounding or truncation steps before values are written or validated.
 
 ## append
 

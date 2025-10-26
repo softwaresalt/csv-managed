@@ -74,6 +74,12 @@ rem Currency datatype coverage: enforce rounding, truncation, and scale validati
 .\target\release\csv-managed.exe process -i .\tests\data\currency_transactions.csv -m .\tests\data\currency_transactions-schema.yml --apply-mappings -o .\tmp\currency_transactions_clean.csv
 type .\tmp\currency_transactions_clean.csv
 
+rem Fixed decimal datatype coverage: configure precision/scale and rounding strategies
+.\target\release\csv-managed.exe schema columns --schema .\tests\data\decimal_measurements-schema.yml
+.\target\release\csv-managed.exe schema verify -m .\tests\data\decimal_measurements-schema.yml -i .\tests\data\decimal_measurements.csv --report-invalid
+.\target\release\csv-managed.exe process -i .\tests\data\decimal_measurements.csv -m .\tests\data\decimal_measurements-schema.yml --apply-mappings -o .\tmp\decimal_measurements_clean.csv
+type .\tmp\decimal_measurements_clean.csv
+
 rem Compute statistics and frequency counts on transformed data (mappings run automatically)
 .\target\release\csv-managed.exe stats -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping-schema.yml --columns amount
 .\target\release\csv-managed.exe stats -i .\tests\data\datatype_mapping.csv -m .\tests\data\datatype_mapping-schema.yml --frequency -C status

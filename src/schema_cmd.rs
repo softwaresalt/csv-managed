@@ -482,7 +482,7 @@ fn compute_schema_signature(schema: &Schema) -> String {
     for column in &schema.columns {
         hasher.update(column.name.as_bytes());
         hasher.update(b":");
-        hasher.update(column.datatype.as_str().as_bytes());
+    hasher.update(column.datatype.signature_token().as_bytes());
         hasher.update(b";");
     }
     format!("{:x}", hasher.finalize())
@@ -495,7 +495,7 @@ fn emit_mappings(schema: &Schema) {
     }
     let mut rows = Vec::with_capacity(schema.columns.len());
     for (idx, column) in schema.columns.iter().enumerate() {
-        let mapping = format!("{}:{}->", column.name, column.datatype.as_str());
+    let mapping = format!("{}:{}->", column.name, column.datatype.cli_token());
         rows.push(vec![
             (idx + 1).to_string(),
             column.name.clone(),

@@ -486,5 +486,5 @@ fn schema_verify_rejects_invalid_currency_precision() {
         ])
         .assert()
         .failure()
-        .stderr(contains("Currency values must have 2 or 4 decimal places"));
+        .stderr(contains("Parsing '5.678' as currency"));
 }

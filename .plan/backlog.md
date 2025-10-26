@@ -81,7 +81,7 @@
 - [x] Add the ability to transform fields between datatypes (e.g., string → date/datetime) in a controlled manner; schema file should support datatype definitions for original/source and target datatypes.
 - [x] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
 - [x] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
-- [ ] Support fixed scale and precision decimal datatypes with configurable scale and precision.
+- [x] Support fixed scale and precision decimal datatypes with configurable scale and precision.  Update documentation to describe this capability. Include command-line examples in examples.bat that demonstrate this feature.
 - [ ] Support sorting by every listed datatype, including high-precision decimal values.
 - [ ] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.
 
@@ -106,7 +106,7 @@
 - [ ] Add the ability to union all of the files in a directory in a sorted order and split into multiple files based on either row count per file or file size.
 - [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
 
-## Version 1.4.0: The Excel Edition
+## Version 1.4.0: The Excel & JSON File Edition
 
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 

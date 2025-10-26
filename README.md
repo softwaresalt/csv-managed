@@ -13,6 +13,7 @@
 | Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
 | Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
 | Datatype Transformations | Schema-driven `datatype_mappings` chains convert and standardize values (string→datetime→date, float rounding, string casing) before replacements; toggle via `process --apply-mappings` / `--skip-mappings`. See: [schema](#schema), [process](#process). |
+| Fixed Decimal Datatype | Columns may declare `decimal(precision,scale)` (up to 28 digits of precision). Parsing enforces integer/scale limits, supports `round`/`truncate` strategies, and normalizes output for downstream analytics. See: [schema](#schema), [datatype mappings](#datatype-mappings). |
 | Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and combo expansion (`--combo`) for prefix/direction permutations. See: [index](#index). |
 | Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
 | Filtering & Projection | Typed comparison filters (`= != > >= < <= contains startswith endswith`), multi-flag AND semantics; Evalexpr predicates (`--filter-expr`) with temporal helpers; column include/exclude; row limiting; optional 1-based row numbers. See: [process](#process), [Expression Reference](#expression-reference). |
@@ -672,9 +673,8 @@ Example:
 | DateTime | `2024-08-01T13:45:00`, `2024-08-01 13:45` | Naive (no timezone). |
 | Time | `06:00:00`, `14:30`, `08:01:30` | Canonical output `HH:MM:SS`; inference accepts `HH:MM[:SS]`. |
 | Currency | `$12.34`, `123.4567` | Enforces 2 or 4 decimal places; thousands separators and leading symbols permitted; outputs normalized decimals. |
+| Decimal | `123.4567`, `(1,234.50)`, `decimal(18,4)` | Fixed precision/scale numeric type (max precision 28). Accepts optional sign, parentheses for negatives, and separators; schema mappings can `round` or `truncate` to the declared scale. |
 | Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
-
-Future work: Decimal.
 
 > See the [Expression Reference](#expression-reference) for temporal helper usage (date/time arithmetic & formatting), boolean output formatting considerations, and quoting rules affecting String, Date, DateTime, Time parsing in derived expressions and filters.
 
@@ -684,11 +684,11 @@ Future work: Decimal.
 
 Key points:
 
-* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`, `Currency`) in production schema files.
+* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`, `Currency`) in production schema files. Decimal columns are declared with lowercase tokens such as `decimal(18,4)` to capture precision and scale.
 * File naming: Prefer `<name>-schema.yml` for new schemas; legacy `<name>-schema.yml` loads fine but is deprecated.
 * Replacement arrays: Use `replace` (array of `{ value, replacement }`). Older internal key `value_replacements` is auto-translated to `replace` when saving.
 * Order matters: Each mapping consumes the previous output; declare from raw → intermediate → final.
-* Strategies: `round` (numeric, including Currency), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer, Currency). Rounding scale defaults to `4` for floats and to the detected precision (2 or 4) for currency unless `options.scale` is provided.
+* Strategies: `round` (numeric, including Currency and Decimal), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer, Currency, Decimal). Rounding scale defaults to `4` for floats, the schema-declared scale for decimals, and the detected precision (2 or 4) for currency unless `options.scale` is provided.
 * Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale. Currency mappings accept `options.scale` of `2` or `4` to set precision explicitly.
 * Failure: Any mapping parse error invalidates the row for that column during `schema verify`.
 
@@ -779,6 +779,14 @@ columns:
         strategy: round
         options:
           scale: 4
+
+  - name: measurement_raw
+    rename: measurement
+    datatype: decimal(18,4)
+    datatype_mappings:
+      - from: String
+        to: decimal(18,4)
+        strategy: truncate
     replace:
       - value: "N/A"
         replacement: "0"
@@ -808,7 +816,7 @@ Base operation without any `--report-invalid` flag logs overall invalid count to
 
 #### Upcoming Schema Enhancements (Roadmap)
 
-Planned (not yet implemented): primary key & hashed signature indexes, decimal/currency datatypes, date/time format re-writing transforms, automatic candidate key suggestion, batch JSON definition ingestion.
+Planned (not yet implemented): primary key & hashed signature indexes, date/time format re-writing transforms, automatic candidate key suggestion, batch JSON definition ingestion.
 
 ### Stdin/Stdout Usage
 
