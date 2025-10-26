@@ -82,20 +82,20 @@
 - [x] Add the ability to perform multi-step transformations on a field and to define those multi-step transformations in the schema file.
 - [x] Add a currency datatype with enforced precision and standardized formatting/transforms that restricts decimal precision to 2 or 4 digits to the right of the decimal point, probing for valid currency formats and ensuring correct parsing and validation.  Also the ability to transform a longer decimal or float value to a currency format for data standardization.
 - [x] Support fixed scale and precision decimal datatypes with configurable scale and precision.  Update documentation to describe this capability. Include command-line examples in examples.bat that demonstrate this feature.
-- [ ] Support sorting by every listed datatype, including high-precision decimal values.
+- [x] Support sorting by every listed datatype, including high-precision decimal values.
 - [ ] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.
 
-## Version 1.2.0: The Index Edition
+## Version 1.2.0: The Index & Benchmark Edition
 
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
 - [ ] Add fast hash signatures per row for indexes defined on primary keys.
-- [ ] Index all files in a directory that share a schema definition.
-- [ ] Add the ability to index all of the files in a directory matching a single schema file.
+- [ ] Index all files in a directory and subdirectories that share a schema definition.
+- [ ] Add the ability to index all of the files in a directory and subdirectories matching a single schema file.
 
 ## Version 1.3.0: Bulk Operations Edition
 
-- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in JSON format.
-- [ ] Consume a JSON batch definition describing command-line arguments for automated runs.
+- [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in YAML format.
+- [ ] Consume a YAML batch definition describing command-line arguments for automated runs.
 - [ ] Add the ability process delimited files with no header; needs to understand column position logic including in schema files; should be able to map column positions to virtual column names defined in the schema file but not in the delimited file; should also be able to process delimited files with no header to files with headers defined in schema file's virtual column names.
 - [ ] Add the ability to point the app at all files of the same file extension in a directory and verify each file against a -schema.yml file schema definition including data type verification.
 - [ ] Union and sort all files in a directory, splitting output by row count or file size.

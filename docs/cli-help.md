@@ -174,6 +174,8 @@ Options:
           Print help
 ```
 
+For advanced patterns (multi-variant specs, combo expansion, prefix/remainder sorting behavior, and performance guidance) see the extended guide: `docs/indexing-and-sorting.md`.
+
 ## process
 
 ```text

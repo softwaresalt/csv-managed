@@ -205,6 +205,40 @@ fn read_csv(path: &Path) -> (StringRecord, Vec<StringRecord>) {
     (headers, rows)
 }
 
+fn run_sorted_column(
+    input: &Path,
+    schema: &Path,
+    sort_specs: &[&str],
+    column: &str,
+) -> Vec<String> {
+    let temp = tempdir().expect("tempdir");
+    let output = temp.path().join("sorted.csv");
+    let input_str = input.to_str().expect("input path utf-8");
+    let schema_str = schema.to_str().expect("schema path utf-8");
+    let output_str = output.to_str().expect("output path utf-8");
+
+    let mut command = Command::cargo_bin("csv-managed").expect("binary exists");
+    command
+        .arg("process")
+        .arg("-i")
+        .arg(input_str)
+        .arg("-o")
+        .arg(output_str)
+        .arg("--schema")
+        .arg(schema_str);
+    for spec in sort_specs {
+        command.arg("--sort").arg(spec);
+    }
+    command.arg("--columns").arg(column);
+
+    command.assert().success();
+
+    let (_, rows) = read_csv(&output);
+    rows.into_iter()
+        .map(|record| record.get(0).unwrap_or("").to_string())
+        .collect()
+}
+
 fn create_boolean_subset(
     dir: &tempfile::TempDir,
     input: &Path,
@@ -1040,6 +1074,75 @@ fn process_boolean_format_one_zero_outputs_digits() {
         let value = record.get(0).expect("boolean value");
         assert!(value == "1" || value == "0");
     }
+}
+
+#[test]
+fn process_sorts_all_supported_datatypes() {
+    let input = fixture_path("sort_types.csv");
+    let schema = fixture_path("sort_types-schema.yml");
+
+    let integer_values = run_sorted_column(&input, &schema, &["int_col:asc"], "int_col");
+    assert_eq!(integer_values, vec!["-5", "10", "42"]);
+
+    let float_values = run_sorted_column(&input, &schema, &["float_col:asc"], "float_col");
+    assert_eq!(float_values, vec!["-2.4", "1.5", "3.14"]);
+
+    let boolean_values =
+        run_sorted_column(&input, &schema, &["bool_col:asc", "id:asc"], "bool_col");
+    assert_eq!(boolean_values, vec!["false", "false", "true"]);
+
+    let date_values = run_sorted_column(&input, &schema, &["date_col:asc"], "date_col");
+    assert_eq!(date_values, vec!["2023-12-31", "2024-01-01", "2024-05-06"]);
+
+    let datetime_values = run_sorted_column(&input, &schema, &["datetime_col:asc"], "datetime_col");
+    assert_eq!(
+        datetime_values,
+        vec![
+            "2023-12-31 12:00:00",
+            "2024-01-01 08:30:00",
+            "2024-05-06 09:15:00",
+        ],
+    );
+
+    let time_values = run_sorted_column(&input, &schema, &["time_col:asc"], "time_col");
+    assert_eq!(time_values, vec!["08:30:00", "09:15:00", "12:00:00"]);
+
+    let guid_values = run_sorted_column(&input, &schema, &["guid_col:asc"], "guid_col");
+    assert_eq!(
+        guid_values,
+        vec![
+            "550e8400-e29b-41d4-a716-446655440000",
+            "550e8400-e29b-41d4-a716-446655440001",
+            "550e8400-e29b-41d4-a716-446655440002",
+        ],
+    );
+
+    let currency_values = run_sorted_column(&input, &schema, &["currency_col:asc"], "currency_col");
+    assert_eq!(currency_values, vec!["0.50", "123.45", "1000.00"]);
+
+    let decimal_values = run_sorted_column(&input, &schema, &["decimal_col:asc"], "decimal_col");
+    assert_eq!(
+        decimal_values,
+        vec![
+            "-12345678901234567890.123455",
+            "0.000001",
+            "12345678901234567890.123456",
+        ],
+    );
+
+    let decimal_descending =
+        run_sorted_column(&input, &schema, &["decimal_col:desc"], "decimal_col");
+    assert_eq!(
+        decimal_descending,
+        vec![
+            "12345678901234567890.123456",
+            "0.000001",
+            "-12345678901234567890.123455",
+        ],
+    );
+
+    let string_values = run_sorted_column(&input, &schema, &["string_col:asc"], "string_col");
+    assert_eq!(string_values, vec!["apple", "banana", "cherry"]);
 }
 
 #[test]

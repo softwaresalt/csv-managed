@@ -27,14 +27,17 @@ impl FixedDecimalValue {
         Self::from_decimal(decimal, spec, None)
     }
 
-    pub fn from_decimal(value: Decimal, spec: &DecimalSpec, strategy: Option<&str>) -> Result<Self> {
+    pub fn from_decimal(
+        value: Decimal,
+        spec: &DecimalSpec,
+        strategy: Option<&str>,
+    ) -> Result<Self> {
         let mut decimal = value;
         if let Some(strategy) = strategy {
             decimal = match strategy {
                 "truncate" => decimal.round_dp_with_strategy(spec.scale, RoundingStrategy::ToZero),
-                "round" | "round-half-up" | "roundhalfup" => {
-                    decimal.round_dp_with_strategy(spec.scale, RoundingStrategy::MidpointAwayFromZero)
-                }
+                "round" | "round-half-up" | "roundhalfup" => decimal
+                    .round_dp_with_strategy(spec.scale, RoundingStrategy::MidpointAwayFromZero),
                 other => bail!("Unsupported decimal rounding strategy '{other}'"),
             };
         }
@@ -530,12 +533,12 @@ pub fn parse_currency_decimal(raw: &str) -> Result<Decimal> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::{ColumnType, DecimalSpec};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use evalexpr::Value as EvalValue;
     use rust_decimal::Decimal;
     use std::str::FromStr;
     use uuid::Uuid;
-    use crate::schema::{ColumnType, DecimalSpec};
 
     #[test]
     fn normalize_column_name_replaces_non_alphanumeric() {
@@ -705,8 +708,8 @@ mod tests {
     fn fixed_decimal_value_round_strategy_respects_scale() {
         let spec = DecimalSpec::new(10, 3).expect("valid decimal spec");
         let decimal = Decimal::from_str("-87.6549").expect("valid decimal literal");
-        let value = FixedDecimalValue::from_decimal(decimal, &spec, Some("round"))
-            .expect("round decimal");
+        let value =
+            FixedDecimalValue::from_decimal(decimal, &spec, Some("round")).expect("round decimal");
         assert_eq!(value.to_string_fixed(), "-87.655");
         assert_eq!(value.scale(), 3);
     }
@@ -715,8 +718,7 @@ mod tests {
     fn fixed_decimal_value_rescales_short_fractional_parts() {
         let spec = DecimalSpec::new(12, 4).expect("valid decimal spec");
         let decimal = Decimal::from_str("42").expect("whole number decimal");
-        let value =
-            FixedDecimalValue::from_decimal(decimal, &spec, None).expect("rescale decimal");
+        let value = FixedDecimalValue::from_decimal(decimal, &spec, None).expect("rescale decimal");
         assert_eq!(value.to_string_fixed(), "42.0000");
         assert_eq!(value.scale(), 4);
     }

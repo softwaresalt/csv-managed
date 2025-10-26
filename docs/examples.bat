@@ -15,6 +15,26 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 .\target\release\csv-managed.exe schema -o .\tmp\schema_list-schema.yml -c "id:integer,status:string,created_at:datetime"
 ::type .\tmp\schema_list-schema.yml
 
+rem Index command examples
+rem Build a simple ascending index over the order timestamp column
+.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_ordered_at.idx -m .\tests\data\orders_temporal-schema.yml -C ordered_at
+
+rem Create mixed-direction index variants with explicit specifications
+.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_variants.idx -m .\tests\data\orders_temporal-schema.yml ^
+  --spec "recent=ordered_at:desc" --spec "ordered_at:asc,ship_time:desc"
+
+rem Use a named index variant to accelerate a descending ordered_at sort
+.\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
+  -x .\tmp\orders_temporal_variants.idx --index-variant recent --sort ordered_at:desc --columns ordered_at --columns status --limit 10 --preview
+
+rem Expand a combo spec to generate prefix indexes for multiple direction combinations
+.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_combo.idx -m .\tests\data\orders_temporal-schema.yml ^
+  --combo "orders=ordered_at:asc|desc,status:asc"
+
+rem Prototype an index from a subset of rows to validate column choices quickly
+.\target\release\csv-managed.exe index -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tmp\big5_players_perf.idx -m .\tests\data\big_5_players_stats-schema.yml ^
+  --spec "Performance_Gls:desc,Performance_Ast:desc" --limit 1000
+
 rem List columns from a saved schema file
 .\target\release\csv-managed.exe schema columns --schema .\tests\data\orders-schema.yml
 .\target\release\csv-managed.exe schema columns --schema .\tests\data\big_5_players_stats-schema.yml

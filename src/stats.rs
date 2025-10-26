@@ -452,9 +452,7 @@ fn format_metric(
     match datatype {
         ColumnType::Integer | ColumnType::Float => format_number(value),
         ColumnType::Currency => format_currency_number(value, currency_scale),
-        ColumnType::Decimal(spec) => {
-            format_decimal_number(value, spec, decimal_scale)
-        }
+        ColumnType::Decimal(spec) => format_decimal_number(value, spec, decimal_scale),
         ColumnType::Date => metric_to_date(value)
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default(),

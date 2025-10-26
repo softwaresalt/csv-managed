@@ -1,11 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    fmt,
-    fs::File,
-    io::BufReader,
-    path::Path,
-    str::FromStr,
+    borrow::Cow, collections::BTreeMap, fmt, fs::File, io::BufReader, path::Path, str::FromStr,
 };
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
@@ -13,7 +7,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use encoding_rs::Encoding;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_yaml::Value;
 use uuid::Uuid;
 
@@ -67,10 +61,7 @@ impl DecimalSpec {
     }
 
     pub fn describe(&self) -> String {
-        format!(
-            "decimal(precision={},scale={})",
-            self.precision, self.scale
-        )
+        format!("decimal(precision={},scale={})", self.precision, self.scale)
     }
 }
 
@@ -174,9 +165,9 @@ impl<'de> Deserialize<'de> for ColumnType {
 
                 match key_str.as_str() {
                     "precision" => {
-                        let parsed = val
-                            .as_u64()
-                            .ok_or_else(|| anyhow!("Decimal precision must be an unsigned integer"))?;
+                        let parsed = val.as_u64().ok_or_else(|| {
+                            anyhow!("Decimal precision must be an unsigned integer")
+                        })?;
                         precision = Some(parsed as u32);
                     }
                     "scale" => {
@@ -191,13 +182,18 @@ impl<'de> Deserialize<'de> for ColumnType {
                 }
             }
 
-            let precision = precision.ok_or_else(|| anyhow!("Decimal mapping requires precision"))?;
+            let precision =
+                precision.ok_or_else(|| anyhow!("Decimal mapping requires precision"))?;
             let scale = scale.ok_or_else(|| anyhow!("Decimal mapping requires scale"))?;
             let spec = DecimalSpec::new(precision, scale)?;
             Ok(ColumnType::Decimal(spec))
         }
 
-        deserializer.deserialize_any(ColumnTypeVisitor)
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_any(ColumnTypeVisitor)
+        } else {
+            deserializer.deserialize_str(ColumnTypeVisitor)
+        }
     }
 }
 
@@ -293,9 +289,9 @@ impl std::str::FromStr for ColumnType {
 
 fn parse_decimal_type(value: &str) -> Result<ColumnType> {
     let trimmed = value.trim();
-    let start = trimmed
-        .find('(')
-        .ok_or_else(|| anyhow!("Decimal type must specify precision and scale, e.g. decimal(18,4)"))?;
+    let start = trimmed.find('(').ok_or_else(|| {
+        anyhow!("Decimal type must specify precision and scale, e.g. decimal(18,4)")
+    })?;
     ensure!(
         trimmed.ends_with(')'),
         "Decimal type must close with ')', e.g. decimal(18,4)"
@@ -315,9 +311,9 @@ fn parse_decimal_type(value: &str) -> Result<ColumnType> {
             .map(|(k, v)| (k.trim(), v.trim()))
         {
             let key_normalized = key.to_ascii_lowercase();
-            let parsed: u32 = value.parse().with_context(|| {
-                format!("Parsing decimal {key}='{value}' in '{token}'")
-            })?;
+            let parsed: u32 = value
+                .parse()
+                .with_context(|| format!("Parsing decimal {key}='{value}' in '{token}'"))?;
             match key_normalized.as_str() {
                 "precision" => {
                     precision = Some(parsed);
@@ -334,27 +330,32 @@ fn parse_decimal_type(value: &str) -> Result<ColumnType> {
         }
     }
 
-    if let Some(first) = positional.first() && precision.is_none() {
-        precision = Some(first.parse().with_context(|| {
-            format!("Parsing decimal precision from '{first}' in '{value}'")
-        })?);
+    if let Some(first) = positional.first()
+        && precision.is_none()
+    {
+        precision =
+            Some(first.parse().with_context(|| {
+                format!("Parsing decimal precision from '{first}' in '{value}'")
+            })?);
     }
-    if let Some(second) = positional.get(1) && scale.is_none() {
-        scale = Some(second.parse().with_context(|| {
-            format!("Parsing decimal scale from '{second}' in '{value}'")
-        })?);
+    if let Some(second) = positional.get(1)
+        && scale.is_none()
+    {
+        scale = Some(
+            second
+                .parse()
+                .with_context(|| format!("Parsing decimal scale from '{second}' in '{value}'"))?,
+        );
     }
     ensure!(
         positional.len() <= 2,
         "Decimal type accepts at most two positional arguments"
     );
 
-    let precision = precision.ok_or_else(|| {
-        anyhow!("Decimal type requires a precision value, e.g. decimal(18,4)")
-    })?;
-    let scale = scale.ok_or_else(|| {
-        anyhow!("Decimal type requires a scale value, e.g. decimal(18,4)")
-    })?;
+    let precision = precision
+        .ok_or_else(|| anyhow!("Decimal type requires a precision value, e.g. decimal(18,4)"))?;
+    let scale =
+        scale.ok_or_else(|| anyhow!("Decimal type requires a scale value, e.g. decimal(18,4)"))?;
 
     let spec = DecimalSpec::new(precision, scale)?;
     Ok(ColumnType::Decimal(spec))
@@ -640,9 +641,7 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             Ok(DataValue::String(t.format(fmt).to_string()))
         }
         (ColumnType::String, DataValue::Guid(g)) => Ok(DataValue::String(g.to_string())),
-        (ColumnType::String, DataValue::Decimal(d)) => {
-            Ok(DataValue::String(d.to_string_fixed()))
-        }
+        (ColumnType::String, DataValue::Decimal(d)) => Ok(DataValue::String(d.to_string_fixed())),
         (ColumnType::String, DataValue::Currency(c)) => Ok(DataValue::String(c.to_string_fixed())),
         (ColumnType::Integer, DataValue::String(s)) => {
             let parsed = parse_with_type(&s, &ColumnType::Integer)?;
@@ -806,11 +805,8 @@ fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<D
             if existing.precision() == spec.precision && existing.scale() == spec.scale {
                 Ok(DataValue::Decimal(existing))
             } else {
-                let fixed = FixedDecimalValue::from_decimal(
-                    *existing.amount(),
-                    spec,
-                    strategy.as_deref(),
-                )?;
+                let fixed =
+                    FixedDecimalValue::from_decimal(*existing.amount(), spec, strategy.as_deref())?;
                 Ok(DataValue::Decimal(fixed))
             }
         }
@@ -862,11 +858,7 @@ fn render_mapped_value(value: &DataValue, mapping: &DatatypeMapping) -> Result<S
             if d.scale() == spec.scale && d.precision() == spec.precision {
                 Ok(d.to_string_fixed())
             } else {
-                let fixed = FixedDecimalValue::from_decimal(
-                    *d.amount(),
-                    spec,
-                    None,
-                )?;
+                let fixed = FixedDecimalValue::from_decimal(*d.amount(), spec, None)?;
                 Ok(fixed.to_string_fixed())
             }
         }
@@ -1762,9 +1754,10 @@ mod tests {
     #[test]
     fn parse_decimal_type_rejects_missing_scale() {
         let err = ColumnType::from_str("decimal(10)").expect_err("missing scale error");
-        assert!(err
-            .to_string()
-            .contains("Decimal type requires a scale value"));
+        assert!(
+            err.to_string()
+                .contains("Decimal type requires a scale value")
+        );
     }
 
     #[test]
