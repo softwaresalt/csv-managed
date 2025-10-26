@@ -1102,15 +1102,16 @@ fn validate_mapping_options(column_name: &str, mapping: &DatatypeMapping) -> Res
 
 #[derive(Debug, Clone)]
 struct TypeCandidate {
-    possible_integer: bool,
-    possible_float: bool,
-    possible_boolean: bool,
-    possible_date: bool,
-    possible_datetime: bool,
-    possible_time: bool,
-    possible_guid: bool,
-    possible_currency: bool,
-    currency_pattern_detected: bool,
+    non_empty: usize,
+    boolean_matches: usize,
+    integer_matches: usize,
+    float_matches: usize,
+    date_matches: usize,
+    datetime_matches: usize,
+    time_matches: usize,
+    guid_matches: usize,
+    currency_matches: usize,
+    currency_symbol_hits: usize,
 }
 
 const SUMMARY_TRACKED_LIMIT: usize = 5;
@@ -1153,92 +1154,98 @@ impl SummaryAccumulator {
 impl TypeCandidate {
     fn new() -> Self {
         Self {
-            possible_integer: true,
-            possible_float: true,
-            possible_boolean: true,
-            possible_date: true,
-            possible_datetime: true,
-            possible_time: true,
-            possible_guid: true,
-            possible_currency: true,
-            currency_pattern_detected: false,
+            non_empty: 0,
+            boolean_matches: 0,
+            integer_matches: 0,
+            float_matches: 0,
+            date_matches: 0,
+            datetime_matches: 0,
+            time_matches: 0,
+            guid_matches: 0,
+            currency_matches: 0,
+            currency_symbol_hits: 0,
         }
     }
 
     fn update(&mut self, value: &str) {
-        if self.possible_boolean
-            && !matches!(
-                value.to_ascii_lowercase().as_str(),
-                "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n"
-            )
-        {
-            self.possible_boolean = false;
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return;
         }
-        if self.possible_integer && value.parse::<i64>().is_err() {
-            self.possible_integer = false;
-        }
-        if self.possible_float && value.parse::<f64>().is_err() {
-            self.possible_float = false;
-        }
-        if self.possible_currency {
-            match parse_currency_decimal(value) {
-                Ok(decimal) => {
-                    let scale = decimal.scale();
-                    let has_symbol = value.contains('$')
-                        || value.contains('€')
-                        || value.contains('£')
-                        || value.contains('¥');
 
-                    if scale != 0 && !crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale) {
-                        self.possible_currency = false;
-                    }
+        self.non_empty += 1;
 
-                    if has_symbol {
-                        if scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale) {
-                            self.currency_pattern_detected = true;
-                        } else {
-                            self.possible_currency = false;
-                        }
-                    }
-                }
-                Err(_) => {
-                    self.possible_currency = false;
+        let lowered = trimmed.to_ascii_lowercase();
+        if matches!(
+            lowered.as_str(),
+            "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n"
+        ) {
+            self.boolean_matches += 1;
+        }
+
+        if trimmed.parse::<i64>().is_ok() {
+            self.integer_matches += 1;
+        }
+
+        if trimmed.parse::<f64>().is_ok() {
+            self.float_matches += 1;
+        }
+
+        if let Ok(decimal) = parse_currency_decimal(trimmed) {
+            let scale = decimal.scale();
+            let has_valid_scale =
+                scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale);
+            if has_valid_scale {
+                self.currency_matches += 1;
+                let has_symbol = trimmed.contains('$')
+                    || trimmed.contains('€')
+                    || trimmed.contains('£')
+                    || trimmed.contains('¥');
+                if has_symbol {
+                    self.currency_symbol_hits += 1;
                 }
             }
         }
-        if self.possible_date && parse_naive_date(value).is_err() {
-            self.possible_date = false;
+
+        if parse_naive_date(trimmed).is_ok() {
+            self.date_matches += 1;
         }
-        if self.possible_datetime && parse_naive_datetime(value).is_err() {
-            self.possible_datetime = false;
+        if parse_naive_datetime(trimmed).is_ok() {
+            self.datetime_matches += 1;
         }
-        if self.possible_time && parse_naive_time(value).is_err() {
-            self.possible_time = false;
+        if parse_naive_time(trimmed).is_ok() {
+            self.time_matches += 1;
         }
-        if self.possible_guid {
-            let trimmed = value.trim().trim_matches(|c| matches!(c, '{' | '}'));
-            if Uuid::parse_str(trimmed).is_err() {
-                self.possible_guid = false;
-            }
+
+        let trimmed_guid = trimmed.trim_matches(|c| matches!(c, '{' | '}'));
+        if Uuid::parse_str(trimmed_guid).is_ok() {
+            self.guid_matches += 1;
         }
     }
 
+    fn majority(&self, count: usize) -> bool {
+        count > 0 && count * 2 > self.non_empty
+    }
+
     fn decide(&self) -> ColumnType {
-        if self.possible_boolean {
+        if self.non_empty == 0 {
+            return ColumnType::String;
+        }
+        if self.majority(self.boolean_matches) {
             ColumnType::Boolean
-        } else if self.possible_integer {
+        } else if self.majority(self.integer_matches) {
             ColumnType::Integer
-        } else if self.possible_currency && self.currency_pattern_detected {
+        } else if self.majority(self.currency_matches) && self.currency_symbol_hits > 0 {
             ColumnType::Currency
-        } else if self.possible_float {
+        } else if self.majority(self.float_matches) {
             ColumnType::Float
-        } else if self.possible_date {
+        } else if self.majority(self.date_matches) {
             ColumnType::Date
-        } else if self.possible_datetime {
+        } else if self.majority(self.datetime_matches) {
             ColumnType::DateTime
-        } else if self.possible_time {
+        } else if self.majority(self.time_matches) {
             ColumnType::Time
-        } else if self.possible_guid {
+        } else if self.majority(self.guid_matches) {
             ColumnType::Guid
         } else {
             ColumnType::String
@@ -1726,6 +1733,34 @@ mod tests {
         assert_eq!(schema.columns.len(), 2);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
+    }
+
+    #[test]
+    fn infer_schema_prefers_majority_integer() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "id,name").unwrap();
+        writeln!(file, "1,alpha").unwrap();
+        writeln!(file, "2,beta").unwrap();
+        writeln!(file, "unknown,gamma").unwrap();
+
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+        assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
+        assert_eq!(schema.columns[1].datatype, ColumnType::String);
+    }
+
+    #[test]
+    fn infer_schema_prefers_majority_boolean() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "flag").unwrap();
+        writeln!(file, "true").unwrap();
+        writeln!(file, "false").unwrap();
+        writeln!(file, "unknown").unwrap();
+
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+        assert_eq!(schema.columns.len(), 1);
+        assert_eq!(schema.columns[0].datatype, ColumnType::Boolean);
     }
 
     #[test]

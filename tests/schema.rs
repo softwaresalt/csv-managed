@@ -314,6 +314,65 @@ fn schema_infer_with_overrides_and_mapping_on_big5() {
 }
 
 #[test]
+fn schema_infer_prefers_majority_datatypes_from_fixture() {
+    let csv_path = fixture_path("majority_datatypes.csv");
+    let temp = tempdir().expect("temp dir");
+    let schema_path = temp.path().join("majority-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    let schema = Schema::load(&schema_path).expect("load inferred schema");
+    let datatype_for = |name: &str| {
+        schema
+            .columns
+            .iter()
+            .find(|col| col.name == name)
+            .unwrap_or_else(|| panic!("column {} missing", name))
+            .datatype
+            .clone()
+    };
+
+    assert_eq!(
+        datatype_for("id"),
+        ColumnType::Integer,
+        "id column should stay integer despite stray text"
+    );
+    assert_eq!(
+        datatype_for("flag"),
+        ColumnType::Boolean,
+        "flag column should resolve to boolean tokens"
+    );
+    assert_eq!(
+        datatype_for("score"),
+        ColumnType::Float,
+        "score column should promote to float despite placeholder noise"
+    );
+    assert_eq!(
+        datatype_for("price"),
+        ColumnType::Currency,
+        "price column should identify currency even with non-currency noise"
+    );
+    assert_eq!(
+        datatype_for("created_on"),
+        ColumnType::Date,
+        "created_on column should infer date from majority of values"
+    );
+}
+
+#[test]
 fn schema_probe_snapshot_writes_and_validates_layout() {
     let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
     let temp = tempfile::tempdir().expect("temp dir");

@@ -15,6 +15,9 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 .\target\release\csv-managed.exe schema -o .\tmp\schema_list-schema.yml -c "id:integer,status:string,created_at:datetime"
 ::type .\tmp\schema_list-schema.yml
 
+rem Demonstrate majority-based inference recovering non-string types from noisy data
+.\target\release\csv-managed.exe schema probe -i .\tests\data\majority_datatypes.csv --sample-rows 0
+
 rem Index command examples
 rem Build a simple ascending index over the order timestamp column
 .\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_ordered_at.idx -m .\tests\data\orders_temporal-schema.yml -C ordered_at

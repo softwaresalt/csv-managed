@@ -84,8 +84,12 @@
 - [x] Support fixed scale and precision decimal datatypes with configurable scale and precision.  Update documentation to describe this capability. Include command-line examples in examples.bat that demonstrate this feature.
 - [x] Support sorting by every listed datatype, including high-precision decimal values.
 - [x] Update the code to use the most recent versions of the package dependencies listed in the Cargo.toml file; refactorings will be required since there are breaking changes in some of the new versions.  First develop a plan and confirm that it will not break the application.  Validate if that code updates can support the latest version of Rust.
-- [ ] Enhance the probe and infer commands to detect and recommend specific non-string datatypes based on the majority of values in the set for declaration in a schema file.
+- [x] Enhance the schema probe and infer commands to detect and recommend specific non-string datatypes based on the majority of values in the set for declaration in a schema file.
 - [ ] Add a feature in probing and inference processing data to detect and treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."  Probe command should suggest replacements in schema file for these scenarios, especially where the detected datatype is not String.
+
+## Version 1.1.5: Upgrade serde_yaml dependency (spike)
+
+- [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 
 ## Version 1.2.0: The Index & Benchmark Edition
 

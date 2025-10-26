@@ -1,0 +1,6 @@
+id,flag,score,price,created_on
+1,true,98.5,$10.00,2024-01-01
+2,false,76.3,$12.00,2024-01-02
+missing,unknown,---,n/a,invalid-date
+3,yes,88.0,$5.50,2024-01-03
+4,no,82.0,$7.25,2024-01-04
