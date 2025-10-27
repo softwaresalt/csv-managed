@@ -7,7 +7,7 @@
 | Area | Description |
 |------|-------------|
 | Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
-| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`. See: [schema](#schema). |
+| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`; NA placeholder normalization (`--na-behavior`, `--na-fill`). See: [schema](#schema). |
 | Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
 | Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
@@ -328,6 +328,7 @@ To influence inference deterministically:
 * Keep currency symbols on at least roughly one-third of sampled values if you want automatic Currency detection; otherwise add `--override` or schema edits explicitly.
 * Use `--override` for known edge columns (e.g., IDs with occasional non-conforming tokens).
 * Provide replacements (`--replace-template` then edit `replace:` arrays) to normalize values before verification runs.
+* Use `--na-behavior fill --na-fill NULL` (or `empty`) to standardize NA-style placeholders without manually editing the schema.
 
 The probe report footer plus `Column Summaries` and `Datatype Map` sections make it easy to audit the winning votes indirectly—if a column's representative samples show mixed forms, consider overrides or data cleansing before locking a schema snapshot.
 
@@ -343,6 +344,7 @@ PowerShell (inference mode):
   --sample-rows 0 `
   --mapping `
   --replace-template
+  --na-behavior fill --na-fill NULL
 ```
 
 PowerShell (explicit columns with replacements):

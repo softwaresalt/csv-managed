@@ -22,6 +22,39 @@ use crate::{
 
 const DECIMAL_MAX_PRECISION: u32 = 28;
 
+#[derive(Debug, Clone, Default)]
+pub enum PlaceholderPolicy {
+    #[default]
+    TreatAsEmpty,
+    FillWith(String),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PlaceholderSummary {
+    counts: BTreeMap<String, usize>,
+}
+
+impl PlaceholderSummary {
+    pub fn is_empty(&self) -> bool {
+        self.counts.is_empty()
+    }
+
+    pub fn record(&mut self, value: &str) {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        *self.counts.entry(trimmed.to_string()).or_insert(0) += 1;
+    }
+
+    pub fn entries(&self) -> Vec<(String, usize)> {
+        self.counts
+            .iter()
+            .map(|(token, count)| (token.clone(), *count))
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DecimalSpec {
     pub precision: u32,
@@ -423,6 +456,7 @@ pub struct InferenceStats {
     requested_rows: usize,
     decode_errors: usize,
     summaries: Vec<ColumnSummary>,
+    placeholder_summaries: Vec<PlaceholderSummary>,
 }
 
 impl InferenceStats {
@@ -446,6 +480,10 @@ impl InferenceStats {
 
     pub fn decode_errors(&self) -> usize {
         self.decode_errors
+    }
+
+    pub fn placeholder_summary(&self, index: usize) -> Option<&PlaceholderSummary> {
+        self.placeholder_summaries.get(index)
     }
 }
 
@@ -1296,11 +1334,25 @@ impl TypeCandidate {
 }
 
 fn is_placeholder_token(lowered: &str) -> bool {
+    let stripped = lowered.trim_start_matches('#');
     matches!(
-        lowered,
+        stripped,
         "na" | "n/a" | "n.a." | "null" | "none" | "unknown" | "missing"
-    ) || lowered.starts_with("invalid")
-        || lowered.chars().all(|c| c == '-')
+    ) || stripped.starts_with("invalid")
+        || stripped.chars().all(|c| c == '-')
+}
+
+fn placeholder_token_original(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    if is_placeholder_token(&lowered) {
+        Some(trimmed.to_string())
+    } else {
+        None
+    }
 }
 
 pub fn infer_schema(
@@ -1309,7 +1361,9 @@ pub fn infer_schema(
     delimiter: u8,
     encoding: &'static Encoding,
 ) -> Result<Schema> {
-    let (schema, _stats) = infer_schema_with_stats(path, sample_rows, delimiter, encoding)?;
+    let policy = PlaceholderPolicy::default();
+    let (schema, _stats) =
+        infer_schema_with_stats(path, sample_rows, delimiter, encoding, &policy)?;
     Ok(schema)
 }
 
@@ -1318,6 +1372,7 @@ pub fn infer_schema_with_stats(
     sample_rows: usize,
     delimiter: u8,
     encoding: &'static Encoding,
+    _placeholder_policy: &PlaceholderPolicy,
 ) -> Result<(Schema, InferenceStats)> {
     let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
     let header_record = reader.byte_headers()?.clone();
@@ -1325,6 +1380,7 @@ pub fn infer_schema_with_stats(
     let mut candidates = vec![TypeCandidate::new(); headers.len()];
     let mut samples = vec![None; headers.len()];
     let mut summaries = vec![SummaryAccumulator::default(); headers.len()];
+    let mut placeholders = vec![PlaceholderSummary::default(); headers.len()];
 
     let mut record = csv::ByteRecord::new();
     let mut processed = 0usize;
@@ -1340,6 +1396,10 @@ pub fn infer_schema_with_stats(
             match io_utils::decode_bytes(field, encoding) {
                 Ok(decoded) => {
                     if decoded.is_empty() {
+                        continue;
+                    }
+                    if let Some(token) = placeholder_token_original(&decoded) {
+                        placeholders[idx].record(&token);
                         continue;
                     }
                     candidates[idx].update(&decoded);
@@ -1381,6 +1441,7 @@ pub fn infer_schema_with_stats(
             .into_iter()
             .map(SummaryAccumulator::finalize)
             .collect(),
+        placeholder_summaries: placeholders,
     };
 
     Ok((schema, stats))
@@ -1613,6 +1674,42 @@ impl Schema {
     }
 }
 
+pub fn apply_placeholder_replacements(
+    schema: &mut Schema,
+    stats: &InferenceStats,
+    policy: &PlaceholderPolicy,
+) -> usize {
+    let replacement_value = match policy {
+        PlaceholderPolicy::TreatAsEmpty => String::new(),
+        PlaceholderPolicy::FillWith(value) => value.clone(),
+    };
+    let mut added = 0usize;
+    for (idx, column) in schema.columns.iter_mut().enumerate() {
+        let Some(summary) = stats.placeholder_summary(idx) else {
+            continue;
+        };
+        let entries = summary.entries();
+        if entries.is_empty() {
+            continue;
+        }
+        for (token, _) in entries {
+            if column
+                .value_replacements
+                .iter()
+                .any(|existing| existing.from == token)
+            {
+                continue;
+            }
+            column.value_replacements.push(ValueReplacement {
+                from: token,
+                to: replacement_value.clone(),
+            });
+            added += 1;
+        }
+    }
+    added
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1628,8 +1725,9 @@ mod tests {
         writeln!(file, "1,2024-01-01T08:30:00Z,$12.34").unwrap();
         writeln!(file, "2,2024-01-02T09:45:00Z,$56.78").unwrap();
 
-        let (schema, stats) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer with stats");
+        let policy = PlaceholderPolicy::default();
+        let (schema, stats) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy)
+            .expect("infer with stats");
 
         assert_eq!(schema.columns.len(), 3);
         assert_eq!(stats.sample_value(1), Some("2024-01-01T08:30:00Z"));
@@ -1778,8 +1876,9 @@ mod tests {
         writeln!(file, "$12.34,alpha").unwrap();
         writeln!(file, "56.7800,beta").unwrap();
 
+        let policy = PlaceholderPolicy::default();
         let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
         assert_eq!(schema.columns.len(), 2);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
@@ -1793,8 +1892,9 @@ mod tests {
         writeln!(file, "14").unwrap();
         writeln!(file, "15").unwrap();
 
+        let policy = PlaceholderPolicy::default();
         let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
         assert_eq!(schema.columns.len(), 1);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
     }
@@ -1807,8 +1907,9 @@ mod tests {
         writeln!(file, "2,beta").unwrap();
         writeln!(file, "unknown,gamma").unwrap();
 
+        let policy = PlaceholderPolicy::default();
         let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
         assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
     }
@@ -1821,10 +1922,82 @@ mod tests {
         writeln!(file, "false").unwrap();
         writeln!(file, "unknown").unwrap();
 
+        let policy = PlaceholderPolicy::default();
         let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
         assert_eq!(schema.columns.len(), 1);
         assert_eq!(schema.columns[0].datatype, ColumnType::Boolean);
+    }
+
+    #[test]
+    fn infer_schema_collects_na_placeholders() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "value").unwrap();
+        writeln!(file, "NA").unwrap();
+        writeln!(file, "#N/A").unwrap();
+        writeln!(file, "42").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (_, stats) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer stats");
+
+        let summary = stats.placeholder_summary(0).expect("placeholder summary");
+        let entries = summary.entries();
+        assert_eq!(entries.len(), 2);
+        assert!(
+            entries
+                .iter()
+                .any(|(token, count)| token == "NA" && *count == 1)
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|(token, count)| token == "#N/A" && *count == 1)
+        );
+    }
+
+    #[test]
+    fn apply_placeholder_replacements_respects_policy() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "value").unwrap();
+        writeln!(file, "NA").unwrap();
+        writeln!(file, "#NA").unwrap();
+        writeln!(file, "7").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, stats) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+
+        let mut schema_empty = schema.clone();
+        let added_empty = apply_placeholder_replacements(&mut schema_empty, &stats, &policy);
+        assert_eq!(added_empty, 2);
+        assert!(
+            schema_empty.columns[0]
+                .value_replacements
+                .iter()
+                .any(|r| r.from == "NA" && r.to.is_empty())
+        );
+        assert!(
+            schema_empty.columns[0]
+                .value_replacements
+                .iter()
+                .any(|r| r.from == "#NA" && r.to.is_empty())
+        );
+
+        let mut schema_fill = schema.clone();
+        let fill_policy = PlaceholderPolicy::FillWith("NULL".to_string());
+        let added_fill = apply_placeholder_replacements(&mut schema_fill, &stats, &fill_policy);
+        assert_eq!(added_fill, 2);
+        assert!(
+            schema_fill.columns[0]
+                .value_replacements
+                .iter()
+                .all(|r| r.to == "NULL")
+        );
+
+        let added_duplicate =
+            apply_placeholder_replacements(&mut schema_fill, &stats, &fill_policy);
+        assert_eq!(added_duplicate, 0);
     }
 
     #[test]

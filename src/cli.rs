@@ -55,6 +55,13 @@ pub enum SchemaMode {
     Columns(SchemaColumnsArgs),
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[value(rename_all = "kebab-case")]
+pub enum NaPlaceholderBehavior {
+    Empty,
+    Fill,
+}
+
 #[derive(Debug, Args, Clone)]
 pub struct SchemaProbeArgs {
     /// Input CSV file to inspect
@@ -78,6 +85,12 @@ pub struct SchemaProbeArgs {
     /// Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
     #[arg(long = "snapshot")]
     pub snapshot: Option<PathBuf>,
+    /// How to treat NA-style placeholders (NA, N/A, #N/A, #NA)
+    #[arg(long = "na-behavior", value_enum, default_value = "empty")]
+    pub na_behavior: NaPlaceholderBehavior,
+    /// Replacement value used when --na-behavior=fill (defaults to 'null')
+    #[arg(long = "na-fill")]
+    pub na_fill: Option<String>,
 }
 
 #[derive(Debug, Args, Clone)]

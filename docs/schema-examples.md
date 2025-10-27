@@ -41,6 +41,70 @@ csv-managed schema infer --mapping `
 
 The resulting schema keeps inferred types for all other columns, but `Performance_Gls` becomes `integer` and `Per 90 Minutes_Gls` becomes `string` with the rename `per_90_minutes_gls`.
 
+## Normalize NA Placeholders During Inference
+
+Treat placeholder tokens (`NA`, `N/A`, `#NA`, `#N/A`) as empty for datatype voting and inject replacement entries into the written schema that fill them with a canonical token (e.g. `NULL`).
+
+```powershell
+csv-managed schema infer --mapping \
+  --na-behavior fill --na-fill NULL \
+  -i tests/data/big_5_players_stats_2023_2024.csv \
+  -o tmp/big5_na-schema.yml --sample-rows 250
+```
+
+Excerpt from generated `tmp/big5_na-schema.yml` (simplified):
+
+```yaml
+columns:
+  - name: Player
+    datatype: String
+    rename: player
+    replace:
+      - value: "NA"
+        replacement: "NULL"
+      - value: "N/A"
+        replacement: "NULL"
+      - value: "#NA"
+        replacement: "NULL"
+      - value: "#N/A"
+        replacement: "NULL"
+  - name: Performance_Gls
+    datatype: Integer
+    rename: performance_gls
+    replace:
+      - value: "NA"
+        replacement: "NULL"
+      - value: "N/A"
+        replacement: "NULL"
+      - value: "#NA"
+        replacement: "NULL"
+      - value: "#N/A"
+        replacement: "NULL"
+```
+
+Using `--na-behavior empty` instead would map each placeholder to an empty string (`""`), allowing downstream transforms or replacements to interpret the value as genuinely missing.
+
+### Probe-Only Placeholder Suggestions
+
+Run probe without writing a file to see recommended replacements:
+
+```powershell
+csv-managed schema probe -i tests/data/big_5_players_stats_2023_2024.csv --na-behavior empty --sample-rows 100
+```
+
+The console output appends a section:
+
+```text
+Placeholder Suggestions (replace with empty string):
+  • Performance_Gls (Integer (non-string))
+    tokens: NA (3), #N/A (1)
+    replacements:
+      - from "NA" -> to ""
+      - from "#N/A" -> to ""
+```
+
+Persist these by re-running with `schema infer`.
+
 ## Majority-Based Inference Logic (Examples)
 
 The inference engine selects a column's datatype via majority voting across sampled (or full scan) non-empty values. Below are illustrative scenarios you can reproduce by crafting small CSV snippets.

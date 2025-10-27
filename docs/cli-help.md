@@ -68,11 +68,17 @@ Options:
           Override inferred column types using `name:type`
       --snapshot <SNAPSHOT>
           Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
+      --na-behavior <na-behavior>
+          How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
+      --na-fill <STRING>
+          Replacement token used when --na-behavior=fill (defaults to 'null'). Applied to schema replace arrays when writing via infer.
   -h, --help
           Print help
 ```
 
 When decimals appear in sampled data, the probe output lists them as `decimal(precision,scale)` along with strategy hints if mappings specify rounding or truncation.
+
+NA Placeholder Handling: When `--na-behavior=empty` (default), tokens `NA`, `N/A`, `#NA`, `#N/A` (and legacy variants like `n.a.`) are ignored for datatype voting and surfaced in a "Placeholder Suggestions" section with proposed `replace` entries. With `--na-behavior=fill` plus optional `--na-fill NULL`, those tokens are treated as if they held the fill value for schema replacement purposes (inferred types still ignore them). Use `schema infer` to persist the suggestions into the generated YAML.
 
 Inference engine note: Column datatypes are selected via majority voting across successfully parsed non-empty sampled values. A value parsed as a narrower type (e.g., Integer) also counts toward broader numeric candidates (Float) until a conflicting token appears. Tie scenarios with no >50% winner fall back to the most specific type with the highest vote count; exact ties prefer simpler canonical forms (Date over DateTime) unless a temporal granularity majority emerges. Currency is promoted ahead of Float/Decimal when at least 30% of sampled values include currency symbols and all non-empty rows satisfy the currency scale rules (0, 2, or 4 decimals); otherwise the legacy majority + symbol check applies. Use `--override name:Type` for deterministic corrections and `--sample-rows 0` for full-file voting.
 
@@ -102,6 +108,10 @@ Options:
           Destination -schema.yml file path (alias --schema retained for compatibility)
       --replace-template
           Inject empty replace arrays into the generated schema as a template when inferring
+      --na-behavior <na-behavior>
+          How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
+      --na-fill <STRING>
+          Replacement token used when --na-behavior=fill (defaults to 'null'). Added to per-column `replace` arrays for each observed NA placeholder.
   -h, --help
           Print help
 ```
@@ -109,6 +119,8 @@ Options:
 `schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets.
 
 Majority voting logic identical to `schema probe`; overrides apply after voting. Currency promotion uses the same 30% symbol threshold plus full-column compliance with currency scale rules before displacing Float/Decimal. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#NA`, `#N/A` as empty for inference to avoid diluting numeric majorities.
+\
+NA placeholders are already normalized: they do not count against majority votes. When `schema infer` writes a file, observed NA tokens are injected into each affected column's `replace` array either mapping to an empty string (`--na-behavior=empty`) or to the chosen fill token (`--na-behavior=fill --na-fill NULL`).
 
 ### schema verify
 

@@ -9,8 +9,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     cli::{
-        SchemaArgs, SchemaColumnsArgs, SchemaInferArgs, SchemaMode, SchemaProbeArgs,
-        SchemaVerifyArgs,
+        NaPlaceholderBehavior, SchemaArgs, SchemaColumnsArgs, SchemaInferArgs, SchemaMode,
+        SchemaProbeArgs, SchemaVerifyArgs,
     },
     columns, io_utils, printable_delimiter,
     schema::{self, ColumnMeta, ColumnType, InferenceStats, Schema, ValueReplacement},
@@ -60,19 +60,40 @@ fn execute_manual(args: &SchemaArgs) -> Result<()> {
     Ok(())
 }
 
+fn resolve_placeholder_policy(args: &SchemaProbeArgs) -> schema::PlaceholderPolicy {
+    match args.na_behavior {
+        NaPlaceholderBehavior::Empty => schema::PlaceholderPolicy::TreatAsEmpty,
+        NaPlaceholderBehavior::Fill => {
+            let fill = args
+                .na_fill
+                .as_deref()
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .unwrap_or("null");
+            schema::PlaceholderPolicy::FillWith(fill.to_string())
+        }
+    }
+}
+
 fn execute_probe(args: &SchemaProbeArgs) -> Result<()> {
     let input = &args.input;
     let delimiter = io_utils::resolve_input_delimiter(input, args.delimiter);
     let encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
+    let placeholder_policy = resolve_placeholder_policy(args);
     info!(
         "Inferring schema from '{}' using delimiter '{}'",
         input.display(),
         printable_delimiter(delimiter)
     );
 
-    let (mut schema, stats) =
-        schema::infer_schema_with_stats(input, args.sample_rows, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {input:?}"))?;
+    let (mut schema, stats) = schema::infer_schema_with_stats(
+        input,
+        args.sample_rows,
+        delimiter,
+        encoding,
+        &placeholder_policy,
+    )
+    .with_context(|| format!("Inferring schema from {input:?}"))?;
 
     let overrides = apply_overrides(&mut schema, &args.overrides)?;
 
@@ -80,7 +101,13 @@ fn execute_probe(args: &SchemaProbeArgs) -> Result<()> {
         apply_default_name_mappings(&mut schema);
     }
 
-    let report = render_probe_report(&schema, &stats, &overrides, args.sample_rows);
+    let report = render_probe_report(
+        &schema,
+        &stats,
+        &overrides,
+        args.sample_rows,
+        &placeholder_policy,
+    );
     print!("{report}");
     handle_snapshot(&report, args.snapshot.as_deref())?;
 
@@ -96,15 +123,21 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
     let input_path = &probe.input;
     let delimiter = io_utils::resolve_input_delimiter(input_path, probe.delimiter);
     let encoding = io_utils::resolve_encoding(probe.input_encoding.as_deref())?;
+    let placeholder_policy = resolve_placeholder_policy(probe);
     info!(
         "Inferring schema from '{}' using delimiter '{}'",
         input_path.display(),
         printable_delimiter(delimiter)
     );
 
-    let (mut schema, stats) =
-        schema::infer_schema_with_stats(input_path, probe.sample_rows, delimiter, encoding)
-            .with_context(|| format!("Inferring schema from {input_path:?}"))?;
+    let (mut schema, stats) = schema::infer_schema_with_stats(
+        input_path,
+        probe.sample_rows,
+        delimiter,
+        encoding,
+        &placeholder_policy,
+    )
+    .with_context(|| format!("Inferring schema from {input_path:?}"))?;
 
     let overrides = apply_overrides(&mut schema, &probe.overrides)?;
 
@@ -113,7 +146,13 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
     }
 
     if let Some(snapshot_path) = probe.snapshot.as_deref() {
-        let report = render_probe_report(&schema, &stats, &overrides, probe.sample_rows);
+        let report = render_probe_report(
+            &schema,
+            &stats,
+            &overrides,
+            probe.sample_rows,
+            &placeholder_policy,
+        );
         print!("{report}");
         handle_snapshot(&report, Some(snapshot_path))?;
     }
@@ -124,6 +163,14 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
             args.output.as_deref(),
             "An --output path is required when writing an inferred schema",
         )?;
+        let replacements_added =
+            schema::apply_placeholder_replacements(&mut schema, &stats, &placeholder_policy);
+        if replacements_added > 0 {
+            info!(
+                "Added {} NA placeholder replacement(s) to schema",
+                replacements_added
+            );
+        }
         if args.replace_template {
             schema
                 .save_with_replace_template(output)
@@ -339,6 +386,7 @@ fn render_probe_report(
     stats: &InferenceStats,
     overrides: &HashSet<String>,
     requested_sample_rows: usize,
+    placeholder_policy: &schema::PlaceholderPolicy,
 ) -> String {
     if schema.columns.is_empty() {
         return "No columns inferred.\n".to_string();
@@ -450,6 +498,10 @@ fn render_probe_report(
         }
     }
 
+    if let Some(section) = render_placeholder_section(schema, stats, placeholder_policy) {
+        output.push_str(&section);
+    }
+
     output
 }
 
@@ -475,6 +527,67 @@ fn summarize_histogram_value(value: &str) -> String {
         }
     }
     truncate_sample(&sanitized)
+}
+
+fn render_placeholder_section(
+    schema: &Schema,
+    stats: &InferenceStats,
+    placeholder_policy: &schema::PlaceholderPolicy,
+) -> Option<String> {
+    let mut blocks = Vec::new();
+    for (idx, column) in schema.columns.iter().enumerate() {
+        let Some(summary) = stats.placeholder_summary(idx) else {
+            continue;
+        };
+        let entries = summary.entries();
+        if entries.is_empty() {
+            continue;
+        }
+        let mut block = String::new();
+        let type_note = if column.datatype != ColumnType::String {
+            " (non-string)"
+        } else {
+            ""
+        };
+        block.push_str(&format!(
+            "  • {} ({}{})\n",
+            column.name, column.datatype, type_note
+        ));
+        let tokens = entries
+            .iter()
+            .map(|(token, count)| format!("{token} ({count})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        block.push_str(&format!("    tokens: {tokens}\n"));
+        block.push_str("    replacements:\n");
+        let target_display = match placeholder_policy {
+            schema::PlaceholderPolicy::TreatAsEmpty => "\"\"".to_string(),
+            schema::PlaceholderPolicy::FillWith(value) => format!("\"{value}\""),
+        };
+        for (token, _) in entries {
+            block.push_str(&format!(
+                "      - from \"{token}\" -> to {target_display}\n"
+            ));
+        }
+        blocks.push(block);
+    }
+
+    if blocks.is_empty() {
+        return None;
+    }
+
+    let mut section = match placeholder_policy {
+        schema::PlaceholderPolicy::TreatAsEmpty => {
+            "\nPlaceholder Suggestions (replace with empty string):\n".to_string()
+        }
+        schema::PlaceholderPolicy::FillWith(value) => {
+            format!("\nPlaceholder Suggestions (replace with '{value}'):\n")
+        }
+    };
+    for block in blocks {
+        section.push_str(&block);
+    }
+    Some(section)
 }
 
 fn compute_schema_signature(schema: &Schema) -> String {
