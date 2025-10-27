@@ -229,6 +229,13 @@ mod tests {
             }
             let record = record.expect("record");
             let mut decoded = crate::io_utils::decode_record(&record, UTF_8).expect("decode");
+            if decoded
+                .first()
+                .is_some_and(|value| value.parse::<i64>().is_err())
+            {
+                // The FBref export repeats header rows ("Rk,Player,…") within the dataset; skip them.
+                continue;
+            }
             schema.apply_replacements_to_row(&mut decoded);
             let typed = crate::rows::parse_typed_row(&schema, &decoded).expect("parse typed row");
             accumulator

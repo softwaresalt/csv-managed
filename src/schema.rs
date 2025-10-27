@@ -1112,8 +1112,10 @@ struct TypeCandidate {
     guid_matches: usize,
     currency_matches: usize,
     currency_symbol_hits: usize,
+    unclassified: usize,
 }
 
+const CURRENCY_SYMBOL_PROMOTION_THRESHOLD: usize = 30;
 const SUMMARY_TRACKED_LIMIT: usize = 5;
 const CURRENT_SCHEMA_VERSION: &str = "1.1.0";
 
@@ -1164,6 +1166,7 @@ impl TypeCandidate {
             guid_matches: 0,
             currency_matches: 0,
             currency_symbol_hits: 0,
+            unclassified: 0,
         }
     }
 
@@ -1173,22 +1176,30 @@ impl TypeCandidate {
             return;
         }
 
-        self.non_empty += 1;
-
         let lowered = trimmed.to_ascii_lowercase();
+        if is_placeholder_token(&lowered) {
+            return;
+        }
+
+        self.non_empty += 1;
+        let mut parsed_any = false;
+
         if matches!(
             lowered.as_str(),
             "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n"
         ) {
             self.boolean_matches += 1;
+            parsed_any = true;
         }
 
         if trimmed.parse::<i64>().is_ok() {
             self.integer_matches += 1;
+            parsed_any = true;
         }
 
         if trimmed.parse::<f64>().is_ok() {
             self.float_matches += 1;
+            parsed_any = true;
         }
 
         if let Ok(decimal) = parse_currency_decimal(trimmed) {
@@ -1197,6 +1208,7 @@ impl TypeCandidate {
                 scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale);
             if has_valid_scale {
                 self.currency_matches += 1;
+                parsed_any = true;
                 let has_symbol = trimmed.contains('$')
                     || trimmed.contains('€')
                     || trimmed.contains('£')
@@ -1209,17 +1221,25 @@ impl TypeCandidate {
 
         if parse_naive_date(trimmed).is_ok() {
             self.date_matches += 1;
+            parsed_any = true;
         }
         if parse_naive_datetime(trimmed).is_ok() {
             self.datetime_matches += 1;
+            parsed_any = true;
         }
         if parse_naive_time(trimmed).is_ok() {
             self.time_matches += 1;
+            parsed_any = true;
         }
 
         let trimmed_guid = trimmed.trim_matches(|c| matches!(c, '{' | '}'));
         if Uuid::parse_str(trimmed_guid).is_ok() {
             self.guid_matches += 1;
+            parsed_any = true;
+        }
+
+        if !parsed_any {
+            self.unclassified += 1;
         }
     }
 
@@ -1231,8 +1251,14 @@ impl TypeCandidate {
         if self.non_empty == 0 {
             return ColumnType::String;
         }
+        if self.unclassified > 0 {
+            return ColumnType::String;
+        }
+        let promote_currency = self.should_promote_currency();
         if self.majority(self.boolean_matches) {
             ColumnType::Boolean
+        } else if promote_currency {
+            ColumnType::Currency
         } else if self.majority(self.integer_matches) {
             ColumnType::Integer
         } else if self.majority(self.currency_matches) && self.currency_symbol_hits > 0 {
@@ -1251,6 +1277,30 @@ impl TypeCandidate {
             ColumnType::String
         }
     }
+
+    fn currency_symbol_ratio_meets_threshold(&self) -> bool {
+        if self.non_empty == 0 {
+            return false;
+        }
+        self.currency_symbol_hits.saturating_mul(100)
+            >= self
+                .non_empty
+                .saturating_mul(CURRENCY_SYMBOL_PROMOTION_THRESHOLD)
+    }
+
+    fn should_promote_currency(&self) -> bool {
+        self.currency_matches > 0
+            && self.currency_matches == self.non_empty
+            && self.currency_symbol_ratio_meets_threshold()
+    }
+}
+
+fn is_placeholder_token(lowered: &str) -> bool {
+    matches!(
+        lowered,
+        "na" | "n/a" | "n.a." | "null" | "none" | "unknown" | "missing"
+    ) || lowered.starts_with("invalid")
+        || lowered.chars().all(|c| c == '-')
 }
 
 pub fn infer_schema(
@@ -1733,6 +1783,20 @@ mod tests {
         assert_eq!(schema.columns.len(), 2);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
+    }
+
+    #[test]
+    fn infer_schema_promotes_currency_when_symbol_ratio_met() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "amount").unwrap();
+        writeln!(file, "$12.00").unwrap();
+        writeln!(file, "14").unwrap();
+        writeln!(file, "15").unwrap();
+
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8).expect("infer schema");
+        assert_eq!(schema.columns.len(), 1);
+        assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
     }
 
     #[test]

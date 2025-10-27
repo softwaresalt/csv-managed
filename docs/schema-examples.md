@@ -41,6 +41,117 @@ csv-managed schema infer --mapping `
 
 The resulting schema keeps inferred types for all other columns, but `Performance_Gls` becomes `integer` and `Per 90 Minutes_Gls` becomes `string` with the rename `per_90_minutes_gls`.
 
+## Majority-Based Inference Logic (Examples)
+
+The inference engine selects a column's datatype via majority voting across sampled (or full scan) non-empty values. Below are illustrative scenarios you can reproduce by crafting small CSV snippets.
+
+### 1. Integer Majority Wins
+
+`scores.csv`:
+
+```text
+score
+10
+22
+5
+7
+14
+3
+9
+11
+8
+6
+12
+4
+```
+
+All 12 values parse cleanly as `Integer` (and implicitly as `Float`). Integer holds a 100% majority so the inferred type is `Integer`.
+
+```powershell
+csv-managed schema probe -i scores.csv --sample-rows 0
+```
+
+### 2. Mixed Integer & Float Promotes to Float
+
+`mixed_numeric.csv`:
+
+```text
+amount
+10
+22.5
+5
+7.75
+14
+3.10
+9.0
+11
+8
+```
+
+Votes: Integer (6), Float (9). Integer does not exceed 50% of parsed values, so Float (plurality) is selected.
+
+### 3. Decimal Scale Majority Promotes to decimal(p,s)
+
+`precise.csv`:
+
+```text
+measurement
+1.2345
+2.1000
+3.0000
+4.9999
+5.1234
+```
+
+Each value fits scale 4; the engine infers `decimal(18,4)` (precision shown may vary based on max digits encountered). If a minority value had 5 decimals, Decimal would lose majority and fall back to Float (plurality) unless overridden.
+
+### 4. Plurality Fallback With Dates & DateTimes
+
+`temporal_mixed.csv`:
+
+```text
+stamp
+2024-01-01
+2024-01-02 04:30:00
+2024-01-03
+2024-01-04 17:15:00
+misc
+```
+
+Votes: Date (2), DateTime (2), String (1). No majority; specificity ordering prefers the simpler canonical subset when exact tie—result: `Date` (because Date tokens can be parsed uniformly while DateTime adds optional time components without majority advantage). If an additional DateTime line were added to break the tie, DateTime would win.
+
+### 5. Currency Promotion With Symbol Threshold
+
+`prices.csv`:
+
+```text
+amount
+$12.00
+14
+15
+```
+
+All three values satisfy currency parsing (0 or 2 decimal places) and one-third of the sample bears a currency symbol. Inference now promotes the column to `Currency` before integer/float evaluation, preventing price columns like this from being labelled `Integer`.
+
+### 6. Using Overrides to Stabilize Edge Columns
+
+If a mostly-numeric ID column contains a few non-numeric placeholders (e.g., `NA`, `#N/A`) those rows can spoil majority. Provide replacements or force type:
+
+```powershell
+csv-managed schema infer -i ids.csv -o ids-schema.yml --override id:Integer --sample-rows 0
+```
+
+### 7. Upcoming NA Token Normalization
+
+Planned enhancement (backlog) will allow treating `NA`, `N/A`, `#NA`, `#N/A` as empty votes so they no longer dilute numeric or temporal majorities. Until then, consider adding explicit replacements (`replace:` arrays) for such tokens.
+
+### Quick Tips
+
+- Increase `--sample-rows` beyond the default (2000) when early rows are skewed.
+- Keep at least roughly one-third of sampled rows with currency symbols if you want automatic Currency detection; otherwise supply overrides.
+- Use `--snapshot` after confirming inference to lock the layout & types.
+- Inspect the probe table's sample and format hints for confirmation before persisting a schema.
+
 ## Freeze Layout With A Snapshot
 
 Capture the current probe table rendering and fail future runs if the layout changes unexpectedly:

@@ -74,6 +74,8 @@ Options:
 
 When decimals appear in sampled data, the probe output lists them as `decimal(precision,scale)` along with strategy hints if mappings specify rounding or truncation.
 
+Inference engine note: Column datatypes are selected via majority voting across successfully parsed non-empty sampled values. A value parsed as a narrower type (e.g., Integer) also counts toward broader numeric candidates (Float) until a conflicting token appears. Tie scenarios with no >50% winner fall back to the most specific type with the highest vote count; exact ties prefer simpler canonical forms (Date over DateTime) unless a temporal granularity majority emerges. Currency is promoted ahead of Float/Decimal when at least 30% of sampled values include currency symbols and all non-empty rows satisfy the currency scale rules (0, 2, or 4 decimals); otherwise the legacy majority + symbol check applies. Use `--override name:Type` for deterministic corrections and `--sample-rows 0` for full-file voting.
+
 ### schema infer
 
 ```text
@@ -105,6 +107,8 @@ Options:
 ```
 
 `schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets.
+
+Majority voting logic identical to `schema probe`; overrides apply after voting. Currency promotion uses the same 30% symbol threshold plus full-column compliance with currency scale rules before displacing Float/Decimal. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#NA`, `#N/A` as empty for inference to avoid diluting numeric majorities.
 
 ### schema verify
 

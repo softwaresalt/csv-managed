@@ -293,6 +293,43 @@ Behavior notes:
 * `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding.
 * `schema verify` streams every row, applying `replace` mappings before type parsing; any invalid value triggers non‑zero exit code. Reporting tiers: base (`--report-invalid`), detail (`--report-invalid:detail [LIMIT]`), combined (`--report-invalid:detail:summary [LIMIT]`).
 * `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
+* Datatype inference uses a majority-based voting algorithm over the sampled (or full) row set; tie scenarios fall back to the most general viable type.
+
+#### Majority-Based Datatype Inference
+
+In both `schema probe` and `schema infer`, each column's datatype is chosen by evaluating every non-empty sampled value against a cascade of candidate parsers and then applying a simple majority vote:
+
+1. Sampling Scope: The engine reads either `--sample-rows <N>` rows (default 2000) or the entire file when `--sample-rows 0` is specified. Empty strings and whitespace-only cells are ignored for vote counting (they do not penalize a column).
+2. Candidate Parsing: For each non-empty cell the system attempts parsers in a deterministic order: `Guid`, `Integer`, `Float`, `Decimal` (pattern + precision/scale fit), `Currency`, `Boolean`, `Date`, `DateTime`, `Time`. A successful parse registers a vote for that datatype and all broader supertypes that remain logically possible (e.g., an `Integer` value also implicitly supports `Float` and `String`).
+3. Vote Accumulation: Per column, a counter tallies successful parses per datatype. Datatypes that never parse any value are discarded.
+4. Majority Selection: The winning datatype is the **most specific** type whose vote count constitutes a majority (> 50% of parsed non-empty values). If no datatype exceeds 50%, the engine selects the most specific datatype with the highest vote count (plurality fallback).
+5. Tie Breaking: Exact vote ties prefer the more specific temporal or numeric type over `String`. Order of specificity for ties: `Guid` > `Integer` > `Decimal` > `Float` > `Currency` > `Boolean` > `Date` > `DateTime` > `Time` > `String`. (Temporal precedence reflects the relative strictness of canonical formats.)
+6. Promotion Rules: If mixed numeric forms appear (e.g., many integers plus a minority of floats), `Float` wins when it holds any vote share that prevents `Integer` from reaching majority; otherwise `Integer` wins. Similarly, detection of valid decimal values with consistent precision/scale can promote to `decimal(p,s)` if those rows form a majority. Currency is elevated ahead of Float/Decimal when at least 30% of sampled values include currency symbols and every non-empty value satisfies the currency scale rules (0, 2, or 4 decimals); otherwise the legacy majority rule applies (currency must still hold > 50% of parses with at least one symbol present).
+7. Overrides: Any `--override name:Type` directives apply after inference and replace the selected type (marked in the report's `override` column as `type`).
+8. Mapping Interaction: Column renames injected via `--mapping` do not affect datatype voting; they only change the output alias.
+9. Empty & NA Tokens: Empty cells (`""`) currently don't vote. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#N/A`, `#NA` as empty/null for inference ballots (see backlog). When enabled, these will be excluded from majority calculations but surfaced as replacement suggestions for non-String target types.
+
+Example voting scenario (20 sampled rows):
+
+| Raw Values (sample)                          | Votes (Integer) | Votes (Float) | Votes (Decimal(18,4)) | Result |
+|----------------------------------------------|-----------------|---------------|-----------------------|--------|
+| `10, 22, 5, 7, 14, 3, 9, 11, 8, 6, 12, 4`    | 12              | 12 (implicit) | 0                     | Integer (majority 12/12) |
+| `10, 22.5, 5, 7.75, 14, 3.10, 9.0, 11, 8`    | 6               | 9             | 0                     | Float (plurality; Integer lacks majority) |
+| `1.2345, 2.1000, 3.0000, 4.9999, 5.1234`     | 0               | 5             | 5                     | decimal(18,4) (exact scale majority) |
+| `$12.00, 14, 15`                             | 2               | 3             | 0                     | Currency (>=30% symbol-bearing, all values currency-compliant) |
+
+Plurality fallback example (no > 50%): 40% Date (`YYYY-MM-DD`), 40% DateTime (`YYYY-MM-DD HH:MM:SS`), 20% String mismatch. Specificity ordering selects `DateTime` only if its vote count equals Date **and** time components are present in at least one majority-eligible candidate; otherwise pure `Date` wins with equal votes because it is simpler and matches canonical subsets.
+
+Why majority-based? It reduces false promotions caused by stray tokens (e.g., one `2024-01-01` in an otherwise free-form String column) and stabilizes inference across heterogeneous datasets where occasional formatting anomalies appear.
+
+To influence inference deterministically:
+
+* Increase `--sample-rows` for more representative voting.
+* Keep currency symbols on at least roughly one-third of sampled values if you want automatic Currency detection; otherwise add `--override` or schema edits explicitly.
+* Use `--override` for known edge columns (e.g., IDs with occasional non-conforming tokens).
+* Provide replacements (`--replace-template` then edit `replace:` arrays) to normalize values before verification runs.
+
+The probe report footer plus `Column Summaries` and `Datatype Map` sections make it easy to audit the winning votes indirectly—if a column's representative samples show mixed forms, consider overrides or data cleansing before locking a schema snapshot.
 
 More end-to-end examples: [`docs/schema-examples.md`](docs/schema-examples.md).
 
