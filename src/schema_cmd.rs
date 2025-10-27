@@ -145,32 +145,76 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         apply_default_name_mappings(&mut schema);
     }
 
-    if let Some(snapshot_path) = probe.snapshot.as_deref() {
-        let report = render_probe_report(
+    let should_render_report = probe.snapshot.is_some() || args.preview;
+    let mut report = if should_render_report {
+        Some(render_probe_report(
             &schema,
             &stats,
             &overrides,
             probe.sample_rows,
             &placeholder_policy,
-        );
-        print!("{report}");
-        handle_snapshot(&report, Some(snapshot_path))?;
+        ))
+    } else {
+        None
+    };
+    let mut report_printed = false;
+
+    if let Some(snapshot_path) = probe.snapshot.as_deref() {
+        let report_ref = report.get_or_insert_with(|| {
+            render_probe_report(
+                &schema,
+                &stats,
+                &overrides,
+                probe.sample_rows,
+                &placeholder_policy,
+            )
+        });
+        print!("{report_ref}");
+        report_printed = true;
+        handle_snapshot(report_ref, Some(snapshot_path))?;
     }
 
-    let should_write = args.output.is_some() || args.replace_template;
-    if should_write {
+    let preview_requested = args.preview;
+    let should_write = !preview_requested && (args.output.is_some() || args.replace_template);
+
+    if preview_requested && let Some(path) = args.output.as_deref() {
+        info!("Preview requested; suppressing write to {:?}", path);
+    }
+
+    let replacements_added = if preview_requested || should_write {
+        schema::apply_placeholder_replacements(&mut schema, &stats, &placeholder_policy)
+    } else {
+        0
+    };
+    if replacements_added > 0 {
+        info!(
+            "Added {} NA placeholder replacement(s) to schema",
+            replacements_added
+        );
+    }
+
+    if preview_requested {
+        if !report_printed && let Some(report_ref) = report.as_ref() {
+            print!("{report_ref}");
+        }
+        println!();
+        println!("Schema YAML Preview (not written):");
+        let yaml = schema
+            .to_yaml_string(args.replace_template)
+            .with_context(|| "Serializing schema preview to YAML".to_string())?;
+        print!("{yaml}");
+        if !yaml.ends_with('\n') {
+            println!();
+        }
+        info!(
+            "Previewed schema for {} column(s) (no file written)",
+            schema.columns.len()
+        );
+    } else if should_write {
         let output = required_output_path(
             args.output.as_deref(),
             "An --output path is required when writing an inferred schema",
         )?;
-        let replacements_added =
-            schema::apply_placeholder_replacements(&mut schema, &stats, &placeholder_policy);
-        if replacements_added > 0 {
-            info!(
-                "Added {} NA placeholder replacement(s) to schema",
-                replacements_added
-            );
-        }
         if args.replace_template {
             schema
                 .save_with_replace_template(output)

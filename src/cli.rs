@@ -103,6 +103,9 @@ pub struct SchemaInferArgs {
     /// Inject empty replace arrays into the generated schema as a template when inferring
     #[arg(long = "replace-template")]
     pub replace_template: bool,
+    /// Render the inference report and schema YAML to stdout instead of writing a file
+    #[arg(long = "preview")]
+    pub preview: bool,
 }
 
 #[derive(Debug, Args, Clone)]

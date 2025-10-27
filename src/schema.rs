@@ -552,6 +552,11 @@ impl Schema {
         self.save_internal(path, true)
     }
 
+    pub fn to_yaml_string(&self, include_replace_template: bool) -> Result<String> {
+        let value = self.to_yaml_value(include_replace_template)?;
+        serde_yaml::to_string(&value).context("Serializing schema to YAML string")
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         let file = File::open(path).with_context(|| format!("Opening schema file {path:?}"))?;
         let reader = BufReader::new(file);
@@ -561,36 +566,37 @@ impl Schema {
     }
 
     fn save_internal(&self, path: &Path, include_replace_template: bool) -> Result<()> {
+        let value = self.to_yaml_value(include_replace_template)?;
+        let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
+        serde_yaml::to_writer(file, &value).context("Writing schema YAML")
+    }
+
+    fn to_yaml_value(&self, include_replace_template: bool) -> Result<Value> {
         let mut schema = self.clone();
         if schema.schema_version.is_none() {
             schema.schema_version = Some(CURRENT_SCHEMA_VERSION.to_string());
         }
         schema.validate_datatype_mappings()?;
 
-        let file = File::create(path).with_context(|| format!("Creating schema file {path:?}"))?;
-        if !include_replace_template {
-            serde_yaml::to_writer(file, &schema).context("Writing schema YAML")
-        } else {
-            let mut value =
-                serde_yaml::to_value(&schema).context("Serializing schema to YAML value")?;
-            if let Some(columns) = value
+        let mut value =
+            serde_yaml::to_value(&schema).context("Serializing schema to YAML value")?;
+        if include_replace_template && let Some(columns) = value
                 .get_mut("columns")
                 .and_then(|columns| columns.as_sequence_mut())
-            {
-                for column in columns {
-                    if let Some(obj) = column.as_mapping_mut() {
-                        if let Some(existing) = obj.remove(Value::from("value_replacements")) {
-                            obj.insert(Value::from("replace"), existing);
-                        }
-                        let replace_key = Value::from("replace");
-                        if !obj.contains_key(&replace_key) {
-                            obj.insert(replace_key, Value::Sequence(Vec::new()));
-                        }
+        {
+            for column in columns {
+                if let Some(obj) = column.as_mapping_mut() {
+                    if let Some(existing) = obj.remove(Value::from("value_replacements")) {
+                        obj.insert(Value::from("replace"), existing);
+                    }
+                    let replace_key = Value::from("replace");
+                    if !obj.contains_key(&replace_key) {
+                        obj.insert(replace_key, Value::Sequence(Vec::new()));
                     }
                 }
             }
-            serde_yaml::to_writer(file, &value).context("Writing schema YAML")
         }
+        Ok(value)
     }
 }
 

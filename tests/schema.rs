@@ -547,3 +547,81 @@ fn schema_verify_rejects_invalid_currency_precision() {
         .failure()
         .stderr(contains("Parsing '5.678' as currency"));
 }
+
+#[test]
+fn schema_infer_preview_emits_yaml_template_without_writing() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = temp.path().join("preview.csv");
+    fs::write(&csv_path, "id,name\n1,Ada\n2,Grace\n").expect("write csv");
+
+    let schema_path = temp.path().join("preview-schema.yml");
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--preview",
+            "--replace-template",
+            "-o",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Schema YAML Preview (not written)"),
+        "preview banner missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("name: id"),
+        "expected id column missing from preview YAML: {stdout}"
+    );
+    assert!(
+        stdout.contains("replace: []"),
+        "template replace array missing from preview YAML: {stdout}"
+    );
+    assert!(
+        !schema_path.exists(),
+        "schema file should not be written when previewing"
+    );
+}
+
+#[test]
+fn schema_infer_preview_includes_placeholder_replacements() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = temp.path().join("placeholders.csv");
+    fs::write(&csv_path, "code,value\n001,NA\n002,#N/A\n003,N/A\n").expect("write csv");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--preview",
+            "--na-behavior",
+            "fill",
+            "--na-fill",
+            "NULL",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    let has_hash_na = stdout.contains("- from: \"#N/A\"") || stdout.contains("- from: '#N/A'");
+    assert!(has_hash_na, "expected #N/A replacement missing: {stdout}");
+
+    let has_na = stdout.contains("- from: NA")
+        || stdout.contains("- from: \"NA\"")
+        || stdout.contains("- from: 'NA'");
+    assert!(has_na, "expected NA replacement missing: {stdout}");
+
+    let has_fill = stdout.contains("to: NULL")
+        || stdout.contains("to: \"NULL\"")
+        || stdout.contains("to: 'NULL'");
+    assert!(has_fill, "expected fill target missing: {stdout}");
+}

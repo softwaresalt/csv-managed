@@ -41,6 +41,18 @@ csv-managed schema infer --mapping `
 
 The resulting schema keeps inferred types for all other columns, but `Performance_Gls` becomes `integer` and `Per 90 Minutes_Gls` becomes `string` with the rename `per_90_minutes_gls`.
 
+## Preview Inferred Schema Before Writing
+
+Review the inference table and the exact YAML that would be written—complete with optional template scaffolding—without touching the filesystem:
+
+```powershell
+csv-managed schema infer --mapping --replace-template \
+  -i tests/data/big_5_players_stats_2023_2024.csv \
+  --sample-rows 25 --preview
+```
+
+`--preview` prints the same probe table seen with `schema probe`, followed by the YAML that would be emitted (honouring `--replace-template`, NA placeholder handling, and overrides). Supplying `-o tmp/big5_schema.yml` alongside `--preview` performs a dry run; the file is skipped until you rerun without `--preview`.
+
 ## Normalize NA Placeholders During Inference
 
 Treat placeholder tokens (`NA`, `N/A`, `#NA`, `#N/A`) as empty for datatype voting and inject replacement entries into the written schema that fill them with a canonical token (e.g. `NULL`).

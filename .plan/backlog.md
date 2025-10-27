@@ -87,6 +87,7 @@
 - [x] Enhance the schema probe and infer commands to detect and recommend specific non-string datatypes based on the majority of values in the set for declaration in a schema file.
 - [x] Add a feature in probing and inference processing data to detect and treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."  Probe command should suggest replacements in schema file for these scenarios, especially where the detected datatype is not String.
 - [ ] Add the ability to preview schema probes and datatype inferences in stdout.
+- [ ] Add the ability to show changes vs an existing schema via --diff {existing -schema.yml}.
 - [ ] Consider modifying the type inference logic to defer to the most supportive datatype based on the values in the set.  For example, if the column has any decimal values, even if most of the values would appear to be integers, then the logic should infer a decimal datatype instead of an integer in order to support all values in the set.  Only apply this logic to numeric values; the remaining datatypes that are non-numeric should maintain their existing categorical order of precedence.
 
 ## Version 1.1.5: Upgrade serde_yaml dependency (spike)

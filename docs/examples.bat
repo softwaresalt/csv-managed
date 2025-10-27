@@ -51,6 +51,10 @@ rem Inspect a handful of rows and review inferred samples, format hints, and ove
 rem Generate a schema file populated with snake_case renames and empty replacement arrays so you can fill in value substitutions later:
 .\target\release\csv-managed.exe schema infer --mapping --replace-template -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_inferred-schema.yml --sample-rows 0
 
+rem Preview inferred schema YAML and probe report without writing the output file (dry run)
+.\target\release\csv-managed.exe schema infer --mapping --replace-template ^
+  -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_preview-schema.yml --sample-rows 25 --preview
+
 rem Probe with limited sampling to infer integer type from first row only
 .\target\release\csv-managed.exe schema infer -i .\tests\data\probe_sample_variation.csv -o .\tmp\probe_sampled-schema.yml --sample-rows 1
 
