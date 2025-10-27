@@ -6,7 +6,7 @@ use evalexpr;
 use rust_decimal::Decimal;
 use rust_decimal::RoundingStrategy;
 use rust_decimal::prelude::ToPrimitive;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser::SerializeStruct};
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -14,7 +14,7 @@ use crate::schema::{ColumnType, DecimalSpec};
 
 pub const CURRENCY_ALLOWED_SCALES: [u32; 2] = [2, 4];
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FixedDecimalValue {
     amount: Decimal,
     precision: u32,
@@ -91,7 +91,42 @@ impl FixedDecimalValue {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+impl Serialize for FixedDecimalValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FixedDecimalValue", 3)?;
+        state.serialize_field("amount", &self.to_string_fixed())?;
+        state.serialize_field("precision", &self.precision)?;
+        state.serialize_field("scale", &self.scale)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for FixedDecimalValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct FixedDecimalValueRepr {
+            amount: String,
+            precision: u32,
+            scale: u32,
+        }
+
+        let repr = FixedDecimalValueRepr::deserialize(deserializer)?;
+        let spec = DecimalSpec::new(repr.precision, repr.scale)
+            .map_err(|err| de::Error::custom(err.to_string()))?;
+        let decimal =
+            Decimal::from_str(&repr.amount).map_err(|err| de::Error::custom(err.to_string()))?;
+        FixedDecimalValue::from_decimal(decimal, &spec, None)
+            .map_err(|err| de::Error::custom(err.to_string()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrencyValue {
     amount: Decimal,
 }
@@ -149,6 +184,25 @@ impl CurrencyValue {
 
     pub fn to_f64(&self) -> Option<f64> {
         self.amount.to_f64()
+    }
+}
+
+impl Serialize for CurrencyValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string_fixed())
+    }
+}
+
+impl<'de> Deserialize<'de> for CurrencyValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let token = String::deserialize(deserializer)?;
+        CurrencyValue::parse(&token).map_err(|err| de::Error::custom(err.to_string()))
     }
 }
 
@@ -662,6 +716,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_currency_rejects_embedded_letters() {
+        let err = parse_typed_value("12a.34", &ColumnType::Currency)
+            .expect_err("currency parser should reject embedded letters");
+        assert!(err.to_string().contains("contains unsupported character"));
+    }
+
+    #[test]
     fn currency_quantize_rounds_half_away_from_zero() {
         let decimal = Decimal::from_str("10.005").unwrap();
         let value = CurrencyValue::quantize(decimal, 2, None).expect("round currency");
@@ -674,6 +735,14 @@ mod tests {
         let value =
             CurrencyValue::quantize(decimal, 2, Some("truncate")).expect("truncate currency");
         assert_eq!(value.to_string_fixed(), "7.89");
+    }
+
+    #[test]
+    fn currency_quantize_truncates_four_decimal_precision() {
+        let decimal = Decimal::from_str("1.234567").unwrap();
+        let value =
+            CurrencyValue::quantize(decimal, 4, Some("truncate")).expect("truncate currency");
+        assert_eq!(value.to_string_fixed(), "1.2345");
     }
 
     #[test]
@@ -712,6 +781,15 @@ mod tests {
             FixedDecimalValue::from_decimal(decimal, &spec, Some("round")).expect("round decimal");
         assert_eq!(value.to_string_fixed(), "-87.655");
         assert_eq!(value.scale(), 3);
+    }
+
+    #[test]
+    fn fixed_decimal_value_rejects_precision_overflow() {
+        let spec = DecimalSpec::new(6, 2).expect("valid decimal spec");
+        let decimal = Decimal::from_str("12345.67").expect("decimal literal");
+        let err =
+            FixedDecimalValue::from_decimal(decimal, &spec, None).expect_err("precision overflow");
+        assert!(err.to_string().contains("must not exceed"));
     }
 
     #[test]

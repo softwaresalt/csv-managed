@@ -88,7 +88,7 @@ pub struct SchemaProbeArgs {
     /// How to treat NA-style placeholders (NA, N/A, #N/A, #NA)
     #[arg(long = "na-behavior", value_enum, default_value = "empty")]
     pub na_behavior: NaPlaceholderBehavior,
-    /// Replacement value used when --na-behavior=fill (defaults to 'null')
+    /// Replacement value used when --na-behavior=fill (defaults to empty string)
     #[arg(long = "na-fill")]
     pub na_fill: Option<String>,
 }

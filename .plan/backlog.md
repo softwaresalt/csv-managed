@@ -88,12 +88,15 @@
 - [x] Add a feature in probing and inference processing data to detect and treat variations of NA or N/A or #N/A or #NA as null or empty; provide options for treating as empty or to fill with value like "null" or "NULL."  Probe command should suggest replacements in schema file for these scenarios, especially where the detected datatype is not String.
 - [x] Add the ability to preview schema probes and datatype inferences in stdout.
 - [x] Add the ability to show changes vs an existing schema via --diff {existing -schema.yml}.
-- [ ] Consider modifying the type inference logic to defer to the most supportive datatype based on the values in the set.  For example, if the column has any decimal values, even if most of the values would appear to be integers, then the logic should infer a decimal datatype instead of an integer in order to support all values in the set.  Only apply this logic to numeric values; the remaining datatypes that are non-numeric should maintain their existing categorical order of precedence.
+- [x] Consider modifying the type inference logic to defer to the most supportive datatype based on the values in the set.  For example, if the column has any decimal values, even if most of the values would appear to be integers, then the logic should infer a decimal datatype instead of an integer in order to support all values in the set.  Only apply this logic to numeric values; the remaining datatypes that are non-numeric should maintain their existing categorical order of precedence.
+- [ ] Refactor the index --combo command to use the syntax --covering instead.  Covering is the standard industry term for indexes that cover multiple fields.  Additionally, does it make sense to create an index that is sorted in multiple directions on a single column?  I'm not sure that works in practice.
+- [ ] Improve table visual output to stdout for stats, process, probe and infer commands.  For example, the schema probe command output is hard to read in the terminal; I would like the output to use elastic tabs.
 
 ## Version 1.1.5: Structural Improvements
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Refactor unit tests out of core code files into the integration test files in the tests directory.
+- [ ] Build a better test harness that uses a coverage tool lilke cargo llvm-cov or cargo tarpaulin.
 
 ## Version 1.2.0: The Index & Benchmark Edition
 

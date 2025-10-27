@@ -137,97 +137,85 @@ impl<'de> Deserialize<'de> for ColumnType {
     where
         D: Deserializer<'de>,
     {
-        struct ColumnTypeVisitor;
-
-        impl<'de> de::Visitor<'de> for ColumnTypeVisitor {
-            type Value = ColumnType;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str(
-                    "a column datatype token such as 'Integer', 'String', or 'decimal(18,4)'",
-                )
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                ColumnType::from_str(value).map_err(|err| E::custom(err.to_string()))
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                self.visit_str(&value)
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: de::MapAccess<'de>,
-            {
-                use serde_yaml::Value as YamlValue;
-
-                if let Some((key, value)) = map.next_entry::<String, YamlValue>()? {
-                    let key_normalized = key.trim().to_ascii_lowercase();
-                    match key_normalized.as_str() {
-                        "decimal" => parse_decimal_from_mapping(value).map_err(de::Error::custom),
-                        other => Err(de::Error::custom(format!(
-                            "Unsupported structured datatype '{other}'"
-                        ))),
-                    }
-                } else {
-                    Err(de::Error::custom("Expected a column datatype entry"))
-                }
+        let human_readable = deserializer.is_human_readable();
+        #[cfg(test)]
+        {
+            if !human_readable && std::env::var("CSV_MANAGED_DEBUG_COLUMN_TYPE").is_ok() {
+                eprintln!("ColumnType binary deserialize invoked");
             }
         }
-
-        fn parse_decimal_from_mapping(value: serde_yaml::Value) -> Result<ColumnType> {
-            let mapping = value
-                .as_mapping()
-                .ok_or_else(|| anyhow!("Decimal mapping must be a map with precision/scale"))?;
-
-            let mut precision: Option<u32> = None;
-            let mut scale: Option<u32> = None;
-
-            for (key, val) in mapping {
-                let key_str = key
-                    .as_str()
-                    .ok_or_else(|| anyhow!("Decimal mapping keys must be strings"))?
-                    .to_ascii_lowercase();
-
-                match key_str.as_str() {
-                    "precision" => {
-                        let parsed = val.as_u64().ok_or_else(|| {
-                            anyhow!("Decimal precision must be an unsigned integer")
-                        })?;
-                        precision = Some(parsed as u32);
-                    }
-                    "scale" => {
-                        let parsed = val
-                            .as_u64()
-                            .ok_or_else(|| anyhow!("Decimal scale must be an unsigned integer"))?;
-                        scale = Some(parsed as u32);
-                    }
-                    other => {
-                        return Err(anyhow!("Unknown decimal key '{other}'"));
-                    }
-                }
-            }
-
-            let precision =
-                precision.ok_or_else(|| anyhow!("Decimal mapping requires precision"))?;
-            let scale = scale.ok_or_else(|| anyhow!("Decimal mapping requires scale"))?;
-            let spec = DecimalSpec::new(precision, scale)?;
-            Ok(ColumnType::Decimal(spec))
-        }
-
-        if deserializer.is_human_readable() {
-            deserializer.deserialize_any(ColumnTypeVisitor)
+        if human_readable {
+            let value = serde_yaml::Value::deserialize(deserializer)?;
+            parse_human_readable_column_type(value).map_err(de::Error::custom)
         } else {
-            deserializer.deserialize_str(ColumnTypeVisitor)
+            let token = String::deserialize(deserializer)?;
+            ColumnType::from_str(&token).map_err(|err| de::Error::custom(err.to_string()))
         }
     }
+}
+
+fn parse_decimal_from_mapping(value: serde_yaml::Value) -> Result<ColumnType> {
+    let mapping = value
+        .as_mapping()
+        .ok_or_else(|| anyhow!("Decimal mapping must be a map with precision/scale"))?;
+
+    let mut precision: Option<u32> = None;
+    let mut scale: Option<u32> = None;
+
+    for (key, val) in mapping {
+        let key_str = key
+            .as_str()
+            .ok_or_else(|| anyhow!("Decimal mapping keys must be strings"))?
+            .to_ascii_lowercase();
+
+        match key_str.as_str() {
+            "precision" => {
+                let parsed = val
+                    .as_u64()
+                    .ok_or_else(|| anyhow!("Decimal precision must be an unsigned integer"))?;
+                precision = Some(parsed as u32);
+            }
+            "scale" => {
+                let parsed = val
+                    .as_u64()
+                    .ok_or_else(|| anyhow!("Decimal scale must be an unsigned integer"))?;
+                scale = Some(parsed as u32);
+            }
+            other => {
+                return Err(anyhow!("Unknown decimal key '{other}'"));
+            }
+        }
+    }
+
+    let precision = precision.ok_or_else(|| anyhow!("Decimal mapping requires precision"))?;
+    let scale = scale.ok_or_else(|| anyhow!("Decimal mapping requires scale"))?;
+    let spec = DecimalSpec::new(precision, scale)?;
+    Ok(ColumnType::Decimal(spec))
+}
+
+fn parse_human_readable_column_type(value: serde_yaml::Value) -> Result<ColumnType> {
+    if let Some(token) = value.as_str() {
+        return ColumnType::from_str(token);
+    }
+
+    if let Some(mapping) = value.as_mapping()
+        && mapping.len() == 1
+        && let Some((key, val)) = mapping.iter().next()
+    {
+        let key_normalized = key
+            .as_str()
+            .ok_or_else(|| anyhow!("Structured datatype key must be a string"))?
+            .trim()
+            .to_ascii_lowercase();
+        return match key_normalized.as_str() {
+            "decimal" => parse_decimal_from_mapping(val.clone()),
+            other => Err(anyhow!("Unsupported structured datatype '{other}'")),
+        };
+    }
+
+    Err(anyhow!(
+        "Unsupported column datatype representation: {value:?}"
+    ))
 }
 
 impl ColumnType {
@@ -1150,7 +1138,13 @@ struct TypeCandidate {
     non_empty: usize,
     boolean_matches: usize,
     integer_matches: usize,
+    integer_max_digits: u32,
     float_matches: usize,
+    decimal_matches: usize,
+    decimal_max_precision: u32,
+    decimal_max_scale: u32,
+    decimal_max_integer_digits: u32,
+    decimal_precision_overflow: bool,
     date_matches: usize,
     datetime_matches: usize,
     time_matches: usize,
@@ -1158,6 +1152,221 @@ struct TypeCandidate {
     currency_matches: usize,
     currency_symbol_hits: usize,
     unclassified: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NumericKind {
+    Integer,
+    Decimal,
+    Float,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NumericObservation {
+    kind: NumericKind,
+    precision: u32,
+    scale: u32,
+    integer_digits: u32,
+    has_currency_symbol: bool,
+    fits_currency_scale: bool,
+    overflow: bool,
+}
+
+impl NumericObservation {
+    fn integer(integer_digits: u32, has_currency_symbol: bool) -> Self {
+        Self {
+            kind: NumericKind::Integer,
+            precision: integer_digits,
+            scale: 0,
+            integer_digits,
+            has_currency_symbol,
+            fits_currency_scale: true,
+            overflow: false,
+        }
+    }
+
+    fn decimal(
+        precision: u32,
+        scale: u32,
+        integer_digits: u32,
+        has_currency_symbol: bool,
+        fits_currency_scale: bool,
+        overflow: bool,
+    ) -> Self {
+        Self {
+            kind: NumericKind::Decimal,
+            precision,
+            scale,
+            integer_digits,
+            has_currency_symbol,
+            fits_currency_scale,
+            overflow,
+        }
+    }
+
+    fn float(has_currency_symbol: bool) -> Self {
+        Self {
+            kind: NumericKind::Float,
+            precision: 0,
+            scale: 0,
+            integer_digits: 0,
+            has_currency_symbol,
+            fits_currency_scale: false,
+            overflow: false,
+        }
+    }
+}
+
+fn analyze_numeric_token(value: &str) -> Option<NumericObservation> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut body = trimmed;
+    let mut had_parentheses = false;
+    if body.starts_with('(') && body.ends_with(')') && body.len() > 2 {
+        had_parentheses = true;
+        body = &body[1..body.len() - 1];
+    }
+
+    body = body.trim();
+    if body.is_empty() {
+        return None;
+    }
+
+    let mut mantissa = String::with_capacity(body.len());
+    let mut exponent = String::new();
+    let mut in_exponent = false;
+    let mut exponent_sign_allowed = false;
+    let mut decimal_index: Option<usize> = None;
+    let mut has_currency_symbol = false;
+    let mut sign_consumed = had_parentheses;
+
+    for ch in body.chars() {
+        match ch {
+            '0'..='9' => {
+                if in_exponent {
+                    exponent.push(ch);
+                } else {
+                    mantissa.push(ch);
+                }
+            }
+            '.' => {
+                if in_exponent || decimal_index.is_some() {
+                    return None;
+                }
+                decimal_index = Some(mantissa.len());
+            }
+            'e' | 'E' => {
+                if in_exponent {
+                    return None;
+                }
+                in_exponent = true;
+                exponent_sign_allowed = true;
+                continue;
+            }
+            '+' | '-' => {
+                if in_exponent && exponent_sign_allowed {
+                    exponent.push(ch);
+                    exponent_sign_allowed = false;
+                } else if !in_exponent && mantissa.is_empty() && !sign_consumed {
+                    sign_consumed = true;
+                } else {
+                    return None;
+                }
+            }
+            ',' | '_' | ' ' => {
+                continue;
+            }
+            '$' | '€' | '£' | '¥' => {
+                has_currency_symbol = true;
+                continue;
+            }
+            _ => {
+                return None;
+            }
+        }
+        if ch != '+' && ch != '-' {
+            exponent_sign_allowed = false;
+        }
+    }
+
+    if mantissa.is_empty() {
+        return None;
+    }
+
+    if decimal_index.is_none()
+        && !in_exponent
+        && mantissa.len() > 1
+        && mantissa.chars().all(|c| c == '0')
+    {
+        return None;
+    }
+    if decimal_index.is_none() && !in_exponent && mantissa.len() > 1 && mantissa.starts_with('0') {
+        return None;
+    }
+
+    let mantissa_scale = decimal_index.map(|pos| mantissa.len() - pos).unwrap_or(0);
+
+    let exponent_value = if in_exponent {
+        if exponent.is_empty() || exponent == "+" || exponent == "-" {
+            return None;
+        }
+        match exponent.parse::<i32>() {
+            Ok(value) => value,
+            Err(_) => return None,
+        }
+    } else {
+        0
+    };
+
+    let mut digits = mantissa.clone();
+    let mut scale_i32 = mantissa_scale as i32 - exponent_value;
+    if scale_i32 < 0 {
+        let zeros = (-scale_i32) as usize;
+        digits.push_str(&"0".repeat(zeros));
+        scale_i32 = 0;
+    }
+    let scale = scale_i32.max(0) as u32;
+    let digits_len = digits.len() as u32;
+    let integer_digits = digits_len.saturating_sub(scale);
+
+    let mut precision = if digits_len == 0 {
+        0
+    } else if integer_digits == 0 {
+        scale.max(1)
+    } else {
+        integer_digits + scale
+    };
+    if precision == 0 {
+        precision = 1;
+    }
+
+    let fits_currency_scale = scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale);
+    let overflow = precision > DECIMAL_MAX_PRECISION || scale > DECIMAL_MAX_PRECISION;
+
+    if in_exponent || decimal_index.is_some() || scale > 0 {
+        return Some(NumericObservation::decimal(
+            precision,
+            scale,
+            integer_digits,
+            has_currency_symbol || had_parentheses,
+            fits_currency_scale,
+            overflow,
+        ));
+    }
+
+    if overflow {
+        return Some(NumericObservation::float(
+            has_currency_symbol || had_parentheses,
+        ));
+    }
+
+    Some(NumericObservation::integer(
+        integer_digits,
+        has_currency_symbol || had_parentheses,
+    ))
 }
 
 const CURRENCY_SYMBOL_PROMOTION_THRESHOLD: usize = 30;
@@ -1204,7 +1413,13 @@ impl TypeCandidate {
             non_empty: 0,
             boolean_matches: 0,
             integer_matches: 0,
+            integer_max_digits: 0,
             float_matches: 0,
+            decimal_matches: 0,
+            decimal_max_precision: 0,
+            decimal_max_scale: 0,
+            decimal_max_integer_digits: 0,
+            decimal_precision_overflow: false,
             date_matches: 0,
             datetime_matches: 0,
             time_matches: 0,
@@ -1237,48 +1452,57 @@ impl TypeCandidate {
             parsed_any = true;
         }
 
-        if trimmed.parse::<i64>().is_ok() {
-            self.integer_matches += 1;
+        if let Some(observation) = analyze_numeric_token(trimmed) {
             parsed_any = true;
-        }
-
-        if trimmed.parse::<f64>().is_ok() {
-            self.float_matches += 1;
-            parsed_any = true;
-        }
-
-        if let Ok(decimal) = parse_currency_decimal(trimmed) {
-            let scale = decimal.scale();
-            let has_valid_scale =
-                scale == 0 || crate::data::CURRENCY_ALLOWED_SCALES.contains(&scale);
-            if has_valid_scale {
-                self.currency_matches += 1;
-                parsed_any = true;
-                let has_symbol = trimmed.contains('$')
-                    || trimmed.contains('€')
-                    || trimmed.contains('£')
-                    || trimmed.contains('¥');
-                if has_symbol {
-                    self.currency_symbol_hits += 1;
+            match observation.kind {
+                NumericKind::Integer => {
+                    self.integer_matches += 1;
+                    self.integer_max_digits =
+                        self.integer_max_digits.max(observation.integer_digits);
+                    if observation.fits_currency_scale {
+                        self.currency_matches += 1;
+                    }
                 }
+                NumericKind::Decimal => {
+                    self.decimal_matches += 1;
+                    self.decimal_max_precision =
+                        self.decimal_max_precision.max(observation.precision);
+                    self.decimal_max_scale = self.decimal_max_scale.max(observation.scale);
+                    self.decimal_max_integer_digits = self
+                        .decimal_max_integer_digits
+                        .max(observation.integer_digits);
+                    if observation.fits_currency_scale {
+                        self.currency_matches += 1;
+                    }
+                    if observation.overflow {
+                        self.decimal_precision_overflow = true;
+                        self.float_matches += 1;
+                    }
+                }
+                NumericKind::Float => {
+                    self.float_matches += 1;
+                }
+            }
+            if observation.has_currency_symbol {
+                self.currency_symbol_hits += 1;
             }
         }
 
-        if parse_naive_date(trimmed).is_ok() {
+        if !parsed_any && parse_naive_date(trimmed).is_ok() {
             self.date_matches += 1;
             parsed_any = true;
         }
-        if parse_naive_datetime(trimmed).is_ok() {
+        if !parsed_any && parse_naive_datetime(trimmed).is_ok() {
             self.datetime_matches += 1;
             parsed_any = true;
         }
-        if parse_naive_time(trimmed).is_ok() {
+        if !parsed_any && parse_naive_time(trimmed).is_ok() {
             self.time_matches += 1;
             parsed_any = true;
         }
 
         let trimmed_guid = trimmed.trim_matches(|c| matches!(c, '{' | '}'));
-        if Uuid::parse_str(trimmed_guid).is_ok() {
+        if !parsed_any && Uuid::parse_str(trimmed_guid).is_ok() {
             self.guid_matches += 1;
             parsed_any = true;
         }
@@ -1290,6 +1514,31 @@ impl TypeCandidate {
 
     fn majority(&self, count: usize) -> bool {
         count > 0 && count * 2 > self.non_empty
+    }
+
+    fn decimal_spec(&self) -> Option<DecimalSpec> {
+        if self.decimal_matches == 0 {
+            return None;
+        }
+        if self.decimal_precision_overflow {
+            return None;
+        }
+
+        let scale = self.decimal_max_scale.min(DECIMAL_MAX_PRECISION);
+        let integer_digits = self.decimal_max_integer_digits.max(self.integer_max_digits);
+
+        let mut precision = if integer_digits == 0 {
+            scale.max(1)
+        } else {
+            integer_digits + scale
+        };
+        precision = precision.max(self.decimal_max_precision);
+
+        if precision > DECIMAL_MAX_PRECISION {
+            return None;
+        }
+
+        DecimalSpec::new(precision, scale).ok()
     }
 
     fn decide(&self) -> ColumnType {
@@ -1304,6 +1553,10 @@ impl TypeCandidate {
             ColumnType::Boolean
         } else if promote_currency {
             ColumnType::Currency
+        } else if let Some(spec) = self.decimal_spec() {
+            ColumnType::Decimal(spec)
+        } else if self.decimal_matches > 0 {
+            ColumnType::Float
         } else if self.majority(self.integer_matches) {
             ColumnType::Integer
         } else if self.majority(self.currency_matches) && self.currency_symbol_hits > 0 {
@@ -1721,6 +1974,7 @@ pub fn apply_placeholder_replacements(
 mod tests {
     use super::*;
     use encoding_rs::UTF_8;
+    use proptest::prelude::*;
     use std::io::Write;
     use std::str::FromStr;
     use tempfile::NamedTempFile;
@@ -1877,6 +2131,39 @@ mod tests {
     }
 
     #[test]
+    fn datatype_mappings_convert_currency_to_decimal() {
+        let spec = DecimalSpec::new(10, 2).expect("decimal spec");
+        let currency_mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Currency,
+            strategy: None,
+            options: BTreeMap::new(),
+        };
+        let decimal_mapping = DatatypeMapping {
+            from: ColumnType::Currency,
+            to: ColumnType::Decimal(spec.clone()),
+            strategy: Some("truncate".to_string()),
+            options: BTreeMap::new(),
+        };
+        let column = ColumnMeta {
+            name: "amount".to_string(),
+            datatype: ColumnType::Decimal(spec.clone()),
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![currency_mapping, decimal_mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["$123.4567".to_string()];
+        schema
+            .apply_transformations_to_row(&mut row)
+            .expect("currency to decimal mapping");
+        assert_eq!(row[0], "123.45");
+    }
+
+    #[test]
     fn infer_schema_identifies_currency_columns() {
         let mut file = NamedTempFile::new().expect("temp file");
         writeln!(file, "amount,name").unwrap();
@@ -1904,6 +2191,92 @@ mod tests {
             infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
         assert_eq!(schema.columns.len(), 1);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
+    }
+
+    #[test]
+    fn infer_schema_prefers_decimal_when_fraction_present() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "amount").unwrap();
+        writeln!(file, "1").unwrap();
+        writeln!(file, "2").unwrap();
+        writeln!(file, "3.5").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+
+        let expected = DecimalSpec::new(2, 1).expect("valid spec");
+        match &schema.columns[0].datatype {
+            ColumnType::Decimal(spec) => assert_eq!(spec, &expected),
+            other => panic!("expected decimal column, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn infer_schema_supports_scientific_notation_as_decimal() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "value").unwrap();
+        writeln!(file, "1e3").unwrap();
+        writeln!(file, "2.5e-1").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+
+        let expected = DecimalSpec::new(6, 2).expect("valid spec");
+        match &schema.columns[0].datatype {
+            ColumnType::Decimal(spec) => assert_eq!(spec, &expected),
+            other => panic!("expected decimal column, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn infer_schema_treats_leading_zero_integers_as_string() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "code").unwrap();
+        writeln!(file, "001").unwrap();
+        writeln!(file, "002").unwrap();
+        writeln!(file, "003").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+
+        assert_eq!(schema.columns[0].datatype, ColumnType::String);
+    }
+
+    #[test]
+    fn infer_schema_prioritizes_decimal_over_currency_without_symbols() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "amount").unwrap();
+        writeln!(file, "12.34").unwrap();
+        writeln!(file, "45.67").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+
+        let expected = DecimalSpec::new(4, 2).expect("valid spec");
+        match &schema.columns[0].datatype {
+            ColumnType::Decimal(spec) => assert_eq!(spec, &expected),
+            other => panic!("expected decimal column, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn analyze_numeric_token_handles_scientific_notation() {
+        let observation =
+            super::analyze_numeric_token("1e3").expect("scientific notation should be recognized");
+        assert!(matches!(observation.kind, NumericKind::Decimal));
+    }
+
+    #[test]
+    fn analyze_numeric_token_handles_scientific_with_fraction() {
+        let observation = super::analyze_numeric_token("2.5e-1")
+            .expect("scientific notation with fraction should be recognized");
+        assert!(matches!(observation.kind, NumericKind::Decimal));
+        assert_eq!(observation.scale, 2);
+        assert_eq!(observation.precision, 2);
     }
 
     #[test]
@@ -2040,6 +2413,33 @@ mod tests {
     }
 
     #[test]
+    fn schema_parsing_rejects_unsupported_structured_datatype() {
+        let yaml = r#"
+columns:
+  - name: location
+    datatype:
+      geography: {}
+"#;
+        let err = serde_yaml::from_str::<Schema>(yaml)
+            .expect_err("unsupported structured datatype should fail");
+        assert!(
+            err.to_string()
+                .contains("Unsupported structured datatype 'geography'")
+        );
+    }
+
+    #[test]
+    fn schema_parsing_rejects_decimal_precision_overflow() {
+        let yaml = r#"
+columns:
+  - name: amount
+    datatype: decimal(29,2)
+"#;
+        let err = serde_yaml::from_str::<Schema>(yaml).expect_err("precision overflow should fail");
+        assert!(err.to_string().contains("Decimal precision must be <="));
+    }
+
+    #[test]
     fn decimal_cli_token_formats_precision_and_scale() {
         let parsed = ColumnType::from_str("decimal(28,9)").expect("parse decimal for cli token");
         assert_eq!(parsed.cli_token(), "decimal(28,9)");
@@ -2099,5 +2499,174 @@ mod tests {
             .apply_transformations_to_row(&mut row)
             .expect("apply decimal truncation mapping");
         assert_eq!(row[0], "-87.654");
+    }
+
+    fn apply_grouping(value: &str, separator: char) -> String {
+        let chars: Vec<char> = value.chars().collect();
+        if chars.len() <= 3 {
+            return value.to_string();
+        }
+        let mut grouped = String::new();
+        let mut index = chars.len() % 3;
+        if index == 0 {
+            index = 3;
+        }
+        grouped.extend(&chars[..index]);
+        while index < chars.len() {
+            grouped.push(separator);
+            grouped.extend(&chars[index..index + 3]);
+            index += 3;
+        }
+        grouped
+    }
+
+    fn digit_strategy() -> impl Strategy<Value = char> {
+        (0u8..=9).prop_map(|d| (b'0' + d) as char)
+    }
+
+    fn numeric_token_strategy() -> impl Strategy<Value = (String, u32, bool, bool)> {
+        (
+            1u64..=999_999,
+            0u32..=4,
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            prop_oneof![Just('$'), Just('€'), Just('£'), Just('¥')],
+            proptest::option::of(prop_oneof![Just(','), Just('_'), Just(' ')]),
+            any::<bool>(),
+        )
+            .prop_flat_map(
+                |(
+                    integer,
+                    scale,
+                    negative,
+                    parentheses,
+                    use_symbol,
+                    symbol_char,
+                    separator,
+                    spaced,
+                )| {
+                    let fraction_strategy = if scale == 0 {
+                        Just(String::new()).boxed()
+                    } else {
+                        proptest::collection::vec(digit_strategy(), scale as usize)
+                            .prop_map(|digits| digits.into_iter().collect())
+                            .boxed()
+                    };
+                    fraction_strategy.prop_map(move |fraction| {
+                        let mut body = integer.to_string();
+                        if let Some(sep) = separator {
+                            body = apply_grouping(&body, sep);
+                        }
+                        if scale > 0 {
+                            body.push('.');
+                            body.push_str(&fraction);
+                        }
+                        let mut has_symbol = false;
+                        if use_symbol {
+                            has_symbol = true;
+                            body = format!("{}{}", symbol_char, body);
+                        }
+                        let mut formatted = body;
+                        let negative = negative && integer != 0;
+                        let parentheses_active = parentheses && negative;
+                        if negative {
+                            if parentheses_active {
+                                formatted = format!("({formatted})");
+                            } else {
+                                formatted = format!("-{formatted}");
+                            }
+                        }
+                        if spaced {
+                            formatted = format!(" {formatted} ");
+                        }
+                        (formatted, scale, has_symbol, parentheses_active)
+                    })
+                },
+            )
+    }
+
+    proptest! {
+        #[test]
+        fn analyze_numeric_token_handles_generated_numeric_formats(
+            (token, scale, has_symbol, parentheses_active) in numeric_token_strategy()
+        ) {
+            let observation = super::analyze_numeric_token(&token)
+                .expect("generated numeric token should classify");
+            if scale > 0 {
+                prop_assert_eq!(observation.kind, NumericKind::Decimal);
+                prop_assert_eq!(observation.scale, scale);
+            } else {
+                prop_assert_eq!(observation.kind, NumericKind::Integer);
+            }
+            prop_assert_eq!(
+                observation.has_currency_symbol,
+                has_symbol || parentheses_active
+            );
+        }
+    }
+
+    #[test]
+    fn datatype_mappings_reject_unknown_currency_strategy() {
+        let mut options = BTreeMap::new();
+        options.insert("scale".to_string(), Value::from(2));
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Currency,
+            strategy: Some("ceil".to_string()),
+            options,
+        };
+        let column = ColumnMeta {
+            name: "price".to_string(),
+            datatype: ColumnType::Currency,
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["12.34".to_string()];
+        let err = schema
+            .apply_transformations_to_row(&mut row)
+            .expect_err("invalid currency strategy should fail");
+        assert!(err.to_string().contains("Column 'price'"));
+        assert!(err.chain().any(|source| {
+            source
+                .to_string()
+                .contains("Unsupported currency rounding strategy")
+        }));
+    }
+
+    #[test]
+    fn datatype_mappings_reject_decimal_precision_overflow() {
+        let spec = DecimalSpec::new(8, 2).expect("decimal spec");
+        let mapping = DatatypeMapping {
+            from: ColumnType::String,
+            to: ColumnType::Decimal(spec.clone()),
+            strategy: None,
+            options: BTreeMap::new(),
+        };
+        let column = ColumnMeta {
+            name: "amount".to_string(),
+            datatype: ColumnType::Decimal(spec.clone()),
+            rename: None,
+            value_replacements: Vec::new(),
+            datatype_mappings: vec![mapping],
+        };
+        let schema = Schema {
+            columns: vec![column],
+            schema_version: None,
+        };
+        let mut row = vec!["1234567.89".to_string()];
+        let err = schema
+            .apply_transformations_to_row(&mut row)
+            .expect_err("precision overflow should fail");
+        assert!(err.to_string().contains("Column 'amount'"));
+        assert!(
+            err.chain()
+                .any(|source| source.to_string().contains("must not exceed"))
+        );
     }
 }

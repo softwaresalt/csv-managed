@@ -70,7 +70,7 @@ fn resolve_placeholder_policy(args: &SchemaProbeArgs) -> schema::PlaceholderPoli
                 .as_deref()
                 .map(|value| value.trim())
                 .filter(|value| !value.is_empty())
-                .unwrap_or("null");
+                .unwrap_or("");
             schema::PlaceholderPolicy::FillWith(fill.to_string())
         }
     }

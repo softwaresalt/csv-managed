@@ -334,7 +334,8 @@ impl CsvIndex {
 
     pub fn load(path: &Path) -> Result<Self> {
         let bytes = std::fs::read(path).with_context(|| format!("Opening index file {path:?}"))?;
-        match bincode::serde::decode_from_slice::<CsvIndex, _>(&bytes, bincode::config::legacy()) {
+        let config = bincode::config::legacy();
+        match bincode::serde::decode_from_slice::<CsvIndex, _>(&bytes, config) {
             Ok((index, _)) => {
                 if index.version != INDEX_VERSION {
                     return Err(anyhow!(
@@ -344,12 +345,12 @@ impl CsvIndex {
                 }
                 Ok(index)
             }
-            Err(_) => {
-                let (legacy, _) = bincode::serde::decode_from_slice::<LegacyCsvIndex, _>(
-                    &bytes,
-                    bincode::config::legacy(),
-                )
-                .context("Reading legacy index file format")?;
+            Err(err) => {
+                let (legacy, _) =
+                    bincode::serde::decode_from_slice::<LegacyCsvIndex, _>(&bytes, config)
+                        .with_context(|| {
+                            format!("Reading legacy index file format after decode error: {err}")
+                        })?;
                 Ok(legacy.into())
             }
         }
@@ -637,7 +638,9 @@ impl From<LegacyCsvIndex> for CsvIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::{ColumnMeta, ColumnType, DecimalSpec, Schema};
     use encoding_rs::UTF_8;
+    use std::fs;
     use tempfile::tempdir;
 
     #[test]
@@ -660,6 +663,27 @@ mod tests {
             spec.directions,
             vec![SortDirection::Desc, SortDirection::Asc]
         );
+    }
+
+    #[test]
+    fn parse_index_spec_requires_column_name() {
+        let err =
+            IndexDefinition::parse("col1,,col2").expect_err("spec with missing column should fail");
+        assert!(err.to_string().contains("missing a column name"));
+    }
+
+    #[test]
+    fn parse_index_spec_rejects_unknown_direction() {
+        let err =
+            IndexDefinition::parse("col1:sideways").expect_err("unknown direction should fail");
+        assert!(err.to_string().contains("Unknown sort direction"));
+    }
+
+    #[test]
+    fn index_definition_from_columns_rejects_empty() {
+        let err = IndexDefinition::from_columns(vec![" ".to_string()])
+            .expect_err("empty column list should fail");
+        assert!(err.to_string().contains("At least one column"));
     }
 
     #[test]
@@ -687,6 +711,46 @@ mod tests {
                 && dirs == &vec![SortDirection::Asc, SortDirection::Asc]
                 && name.contains("col1-asc")
         }));
+    }
+
+    #[test]
+    fn save_and_load_index_with_decimal_column() {
+        let temp = tempdir().expect("temp dir");
+        let csv_path = temp.path().join("decimal.csv");
+        fs::write(&csv_path, "id,amount\n1,42.50\n2,13.37\n").expect("write csv");
+
+        let schema = Schema {
+            columns: vec![
+                ColumnMeta {
+                    name: "id".to_string(),
+                    datatype: ColumnType::Integer,
+                    rename: None,
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                },
+                ColumnMeta {
+                    name: "amount".to_string(),
+                    datatype: ColumnType::Decimal(
+                        DecimalSpec::new(4, 2).expect("valid decimal spec"),
+                    ),
+                    rename: None,
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                },
+            ],
+            schema_version: None,
+        };
+
+        let definition = IndexDefinition::from_columns(vec!["amount".to_string()]).unwrap();
+        let index = CsvIndex::build(&csv_path, &[definition], Some(&schema), None, b',', UTF_8)
+            .expect("build index");
+
+        let index_path = temp.path().join("decimal.idx");
+        index.save(&index_path).expect("save index");
+
+        let loaded = CsvIndex::load(&index_path).expect("load index");
+        assert_eq!(loaded.variants().len(), index.variants().len());
+        assert_eq!(loaded.row_count(), index.row_count());
     }
 
     #[test]

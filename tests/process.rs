@@ -5,7 +5,7 @@ use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use csv_managed::{
     data::parse_typed_value,
     io_utils,
-    schema::{ColumnMeta, ColumnType, Schema, ValueReplacement},
+    schema::{ColumnMeta, ColumnType, DecimalSpec, Schema, ValueReplacement},
 };
 use predicates::{prelude::PredicateBooleanExt, str::contains};
 use tempfile::tempdir;
@@ -346,14 +346,25 @@ fn probe_infers_expected_types_for_big5() {
 
     assert_eq!(find_type(PLAYER_COL), ColumnType::String);
     assert_eq!(find_type(GOALS_COL), ColumnType::Integer);
-    assert_eq!(find_type("Per 90 Minutes_Gls"), ColumnType::Float);
+    assert_eq!(
+        find_type("Per 90 Minutes_Gls"),
+        ColumnType::Decimal(DecimalSpec {
+            precision: 3,
+            scale: 2,
+        })
+    );
     assert!(schema.columns.len() > 30);
     let float_columns = schema
         .columns
         .iter()
         .filter(|column| matches!(column.datatype, ColumnType::Float))
         .count();
-    assert!(float_columns > 0);
+    let decimal_columns = schema
+        .columns
+        .iter()
+        .filter(|column| matches!(column.datatype, ColumnType::Decimal(_)))
+        .count();
+    assert!(float_columns + decimal_columns > 0);
 }
 
 #[test]

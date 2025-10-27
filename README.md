@@ -1,6 +1,6 @@
 # csv-managed
 
-`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema files (`-schema.yml`) and index (`.idx`) files.
+`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema (`-schema.yml`) and index (`.idx`) files.
 
 ## Implemented Features
 
@@ -296,44 +296,47 @@ Behavior notes:
 * `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
 * Datatype inference uses a majority-based voting algorithm over the sampled (or full) row set; tie scenarios fall back to the most general viable type.
 
-#### Majority-Based Datatype Inference
+#### Datatype Inference Overview
 
-In both `schema probe` and `schema infer`, each column's datatype is chosen by evaluating every non-empty sampled value against a cascade of candidate parsers and then applying a simple majority vote:
+The precise inference algorithm, placeholder handling rules, currency promotion thresholds, decimal precision calculation, and tie behaviors are documented in detail in `docs/schema-inference.md`. The summary below highlights only the most essential operational points:
 
-1. Sampling Scope: The engine reads either `--sample-rows <N>` rows (default 2000) or the entire file when `--sample-rows 0` is specified. Empty strings and whitespace-only cells are ignored for vote counting (they do not penalize a column).
-2. Candidate Parsing: For each non-empty cell the system attempts parsers in a deterministic order: `Guid`, `Integer`, `Float`, `Decimal` (pattern + precision/scale fit), `Currency`, `Boolean`, `Date`, `DateTime`, `Time`. A successful parse registers a vote for that datatype and all broader supertypes that remain logically possible (e.g., an `Integer` value also implicitly supports `Float` and `String`).
-3. Vote Accumulation: Per column, a counter tallies successful parses per datatype. Datatypes that never parse any value are discarded.
-4. Majority Selection: The winning datatype is the **most specific** type whose vote count constitutes a majority (> 50% of parsed non-empty values). If no datatype exceeds 50%, the engine selects the most specific datatype with the highest vote count (plurality fallback).
-5. Tie Breaking: Exact vote ties prefer the more specific temporal or numeric type over `String`. Order of specificity for ties: `Guid` > `Integer` > `Decimal` > `Float` > `Currency` > `Boolean` > `Date` > `DateTime` > `Time` > `String`. (Temporal precedence reflects the relative strictness of canonical formats.)
-6. Promotion Rules: If mixed numeric forms appear (e.g., many integers plus a minority of floats), `Float` wins when it holds any vote share that prevents `Integer` from reaching majority; otherwise `Integer` wins. Similarly, detection of valid decimal values with consistent precision/scale can promote to `decimal(p,s)` if those rows form a majority. Currency is elevated ahead of Float/Decimal when at least 30% of sampled values include currency symbols and every non-empty value satisfies the currency scale rules (0, 2, or 4 decimals); otherwise the legacy majority rule applies (currency must still hold > 50% of parses with at least one symbol present).
-7. Overrides: Any `--override name:Type` directives apply after inference and replace the selected type (marked in the report's `override` column as `type`).
-8. Mapping Interaction: Column renames injected via `--mapping` do not affect datatype voting; they only change the output alias.
-9. Empty & NA Tokens: Empty cells (`""`) currently don't vote. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#N/A`, `#NA` as empty/null for inference ballots (see backlog). When enabled, these will be excluded from majority calculations but surfaced as replacement suggestions for non-String target types.
+* Sampling: `--sample-rows <N>` (default 2000) or full scan with `--sample-rows 0`.
+* Voting: Each non-empty, non-placeholder value registers observations for boolean, numeric (integer/decimal/float), date, datetime, time, guid, and currency suitability. Placeholder tokens (e.g. `NA`, `N/A`, `#NA`, `#N/A`, `null`, `missing`, dashed lines) are ignored for voting but can be converted to replacements depending on `--na-behavior`.
+* Decimal vs Float: Consistent fixed-scale numbers within precision limits (<=28) yield `decimal(p,s)`; overflow or mixed scales degrade to `Float`.
+* Currency: Promoted ahead of Decimal/Float only when 100% of non-empty numeric values fit allowed currency scales (0,2,4) AND ≥30% bear a symbol; otherwise normal majority rules apply (majority currency with at least one symbol can still win later in the decision chain).
+* Unclassified Values: Presence of any unclassified token forces a fallback to `String` for that column (guard against accidental narrow type assignment).
+* Overrides: `--override name:Type` applies post-inference and is indicated in the probe table's override column (`type`).
+* NA Placeholders: `--na-behavior fill --na-fill <TOKEN>` injects replacement entries mapping each observed placeholder to the fill token; `--na-behavior empty` maps them to empty strings.
+* Snapshots: `--snapshot` captures the rendered probe/infer output (including hash, summaries, placeholder suggestions) for regression safety.
 
-Example voting scenario (20 sampled rows):
+For full pseudocode, edge cases (leading zeros, exponential numeric forms, parentheses negatives, precision overflow), tie scenarios, and troubleshooting guidance, read: [`docs/schema-inference.md`](docs/schema-inference.md). Additional usage examples remain in [`docs/schema-examples.md`](docs/schema-examples.md).
 
-| Raw Values (sample)                          | Votes (Integer) | Votes (Float) | Votes (Decimal(18,4)) | Result |
-|----------------------------------------------|-----------------|---------------|-----------------------|--------|
-| `10, 22, 5, 7, 14, 3, 9, 11, 8, 6, 12, 4`    | 12              | 12 (implicit) | 0                     | Integer (majority 12/12) |
-| `10, 22.5, 5, 7.75, 14, 3.10, 9.0, 11, 8`    | 6               | 9             | 0                     | Float (plurality; Integer lacks majority) |
-| `1.2345, 2.1000, 3.0000, 4.9999, 5.1234`     | 0               | 5             | 5                     | decimal(18,4) (exact scale majority) |
-| `$12.00, 14, 15`                             | 2               | 3             | 0                     | Currency (>=30% symbol-bearing, all values currency-compliant) |
+#### Overrides vs Mappings vs Replacements
 
-Plurality fallback example (no > 50%): 40% Date (`YYYY-MM-DD`), 40% DateTime (`YYYY-MM-DD HH:MM:SS`), 20% String mismatch. Specificity ordering selects `DateTime` only if its vote count equals Date **and** time components are present in at least one majority-eligible candidate; otherwise pure `Date` wins with equal votes because it is simpler and matches canonical subsets.
+Decision guide for choosing schema mutation mechanisms:
 
-Why majority-based? It reduces false promotions caused by stray tokens (e.g., one `2024-01-01` in an otherwise free-form String column) and stabilizes inference across heterogeneous datasets where occasional formatting anomalies appear.
+| Purpose | Overrides (`--override name:Type`) | Datatype Mappings (`datatype_mappings`) | Value Replacements (`replace:` or `--replace`) |
+|---------|------------------------------------|-------------------------------------------|------------------------------------------------|
+| Force a final datatype despite mixed raw values | Yes | No (transforms, not votes) | No |
+| Parse & convert string representations (dates, numbers) | Sometimes (if inference failed) | Yes (String→DateTime→Date, String→Float, etc.) | No |
+| Normalize token casing / trim whitespace | No | Yes (String→String with `trim`, `lowercase`, `uppercase`) | Sometimes (for isolated tokens) |
+| Round/truncate numeric precision or currency scale | No | Yes (`strategy: round` / `truncate`) | No |
+| Canonicalize categorical variants (Pending→Open) | No | Rarely (String→String strategies) | Yes (map each variant) |
+| Standardize NA-style placeholders | No | Not required | Yes (auto via `--na-behavior`, or manual) |
+| Preserve raw column while exposing cleaned alias | Use with `--mapping` if type must differ | Yes (chain to target type + rename) | Yes (post-mapping cleanup) |
+| Stabilize dirty ID column with stray non-numeric tokens | Yes (override to Integer) | Optional (String→Integer) | Yes (replace stray tokens) |
+| Enforce fixed decimal spec (decimal(p,s)) | Yes if inference chose Float | Yes (String/Float→decimal) | No |
+| Simplify DateTime to Date | Prefer mappings DateTime→Date | Yes | No |
 
-To influence inference deterministically:
+Quick heuristics:
 
-* Increase `--sample-rows` for more representative voting.
-* Keep currency symbols on at least roughly one-third of sampled values if you want automatic Currency detection; otherwise add `--override` or schema edits explicitly.
-* Use `--override` for known edge columns (e.g., IDs with occasional non-conforming tokens).
-* Provide replacements (`--replace-template` then edit `replace:` arrays) to normalize values before verification runs.
-* Use `--na-behavior fill --na-fill NULL` (or `empty`) to standardize NA-style placeholders without manually editing the schema.
+* Prefer inference first; apply overrides only for true domain guarantees.
+* Introduce replacements early for categorical harmonization and placeholder cleanup.
+* Use mappings for structural/format transformations that must occur before validation.
+* Avoid overrides when a mapping chain can safely yield the desired final representation.
+* Re-run `schema infer --diff existing.yml` after adding mappings or replacements to audit changes.
 
-The probe report footer plus `Column Summaries` and `Datatype Map` sections make it easy to audit the winning votes indirectly—if a column's representative samples show mixed forms, consider overrides or data cleansing before locking a schema snapshot.
-
-More end-to-end examples: [`docs/schema-examples.md`](docs/schema-examples.md).
+See `docs/schema-inference.md` for algorithm specifics influencing when overrides are necessary.
 
 PowerShell (inference mode):
 

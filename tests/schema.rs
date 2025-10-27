@@ -5,7 +5,7 @@ use std::{
 };
 
 use assert_cmd::Command;
-use csv_managed::schema::{ColumnType, Schema};
+use csv_managed::schema::{ColumnType, DecimalSpec, Schema};
 use predicates::str::contains;
 use serde_yaml::Value;
 use tempfile::tempdir;
@@ -355,10 +355,11 @@ fn schema_infer_prefers_majority_datatypes_from_fixture() {
         ColumnType::Boolean,
         "flag column should resolve to boolean tokens"
     );
+    let expected_score = ColumnType::Decimal(DecimalSpec::new(3, 1).expect("valid decimal spec"));
     assert_eq!(
         datatype_for("score"),
-        ColumnType::Float,
-        "score column should promote to float despite placeholder noise"
+        expected_score,
+        "score column should preserve decimal precision despite placeholder noise"
     );
     assert_eq!(
         datatype_for("price"),

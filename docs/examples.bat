@@ -8,12 +8,9 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 ::type .\tmp\schema_alias-schema.yml
 .\target\release\csv-managed.exe schema -o .\tmp\schema_list-schema.yml -c "id:integer,status:string,created_at:datetime"
 ::type .\tmp\schema_list-schema.yml
-.\target\release\csv-managed.exe schema -o .\tmp\schema_basic-schema.yml -c "id:integer" -c "name:string" -c "amount:float"
-::type .\tmp\schema_basic-schema.yml
-.\target\release\csv-managed.exe schema -o .\tmp\schema_alias-schema.yml -c "status:string->order_status" -c "created_at:datetime" --replace "status=pending->ready" --replace "status=unknown->ready"
-::type .\tmp\schema_alias-schema.yml
-.\target\release\csv-managed.exe schema -o .\tmp\schema_list-schema.yml -c "id:integer,status:string,created_at:datetime"
-::type .\tmp\schema_list-schema.yml
+
+rem Apply NA placeholder policy while inferring a schema
+.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_schema.csv -o .\tmp\stats_schema_na-fill.yml --mapping --replace-template --na-behavior fill --na-fill "NULL"
 
 rem Demonstrate majority-based inference recovering non-string types from noisy data
 .\target\release\csv-managed.exe schema probe -i .\tests\data\majority_datatypes.csv --sample-rows 0
@@ -141,6 +138,32 @@ rem Preview with a custom delimiter override (pipe-separated values)
 rem Preview using explicit input encoding for Windows-1252 data
 .\target\release\csv-managed.exe process -i .\tmp\big_5_windows1252.csv --preview --input-encoding windows-1252
 
+rem Process with derived columns, filters, and table output
+.\target\release\csv-managed.exe process -i .\tests\data\sort_types.csv -m .\tests\data\sort_types-schema.yml ^
+  --filter "bool_col=true" --filter-expr "float_col>=0.0 and int_col>=0" --derive "double_int=int_col*2" --exclude-columns guid_col ^
+  --row-numbers --boolean-format true-false --table --limit 5
+
+rem Export filtered results with custom encoding and boolean normalization
+.\target\release\csv-managed.exe process -i .\tests\data\sort_types.csv -m .\tests\data\sort_types-schema.yml ^
+  --filter "bool_col=false" --columns id --columns bool_col --columns currency_col --columns decimal_col ^
+  --boolean-format one-zero --output .\tmp\sort_types_filtered.csv --output-encoding windows-1252
+type .\tmp\sort_types_filtered.csv
+
+rem Prepare subsets for append command demonstrations
+.\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
+  --columns id --columns ordered_at --columns status --filter "status=shipped" -o .\tmp\orders_shipped.csv
+.\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
+  --columns id --columns ordered_at --columns status --filter "status=cancelled" -o .\tmp\orders_cancelled.csv
+
+rem Append command examples
+.\target\release\csv-managed.exe append -i .\tmp\orders_shipped.csv -i .\tmp\orders_cancelled.csv ^
+  --schema .\tests\data\orders_temporal-schema.yml --output .\tmp\orders_combined.csv
+type .\tmp\orders_combined.csv
+
+rem Verify multiple files against the same schema with summary reporting
+.\target\release\csv-managed.exe schema verify -m .\tests\data\orders_temporal-schema.yml ^
+  -i .\tmp\orders_shipped.csv -i .\tmp\orders_cancelled.csv -i .\tmp\orders_combined.csv --report-invalid:summary
+
 rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_infer.csv
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema-schema.yml --columns price
@@ -148,3 +171,4 @@ rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_temporal.csv -m .\tests\data\stats_temporal-schema.yml --columns ordered_at --columns ordered_at_ts --columns ship_time
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema-schema.yml --frequency --top 5
 .\target\release\csv-managed.exe stats -i .\tests\data\big_5_players_stats_2023_2024.csv --frequency -C Squad --filter "Player=Max Aarons"
+.\target\release\csv-managed.exe stats -i .\tests\data\sort_types.csv -m .\tests\data\sort_types-schema.yml --filter "bool_col=true" --filter-expr "float_col>=0.0" --limit 10
