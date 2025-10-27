@@ -7,7 +7,7 @@
 | Area | Description |
 |------|-------------|
 | Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
-| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`; NA placeholder normalization (`--na-behavior`, `--na-fill`). See: [schema](#schema). |
+| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`; NA placeholder normalization (`--na-behavior`, `--na-fill`); unified diff comparisons against existing schemas (`--diff existing-schema.yml`). See: [schema](#schema). |
 | Schema Preview | `schema infer --preview` emits the probe table and resulting YAML (respecting `--replace-template`, overrides, and NA placeholder handling) without writing files—use with `-o` for a dry run before persisting. See: [schema](#schema). |
 | Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
@@ -291,7 +291,7 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 Behavior notes:
 
 * `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
-* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding. Pass `--preview` to review the probe report and resulting YAML (including `--replace-template` scaffolding and NA placeholder replacements) without writing files; combine with `-o` for a dry run before persisting.
+* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding. Pass `--preview` to review the probe report and resulting YAML (including `--replace-template` scaffolding and NA placeholder replacements) without writing files; combine with `--diff existing-schema.yml` to emit a unified diff against a saved schema (and optionally `-o` to perform a dry run before persisting).
 * `schema verify` streams every row, applying `replace` mappings before type parsing; any invalid value triggers non‑zero exit code. Reporting tiers: base (`--report-invalid`), detail (`--report-invalid:detail [LIMIT]`), combined (`--report-invalid:detail:summary [LIMIT]`).
 * `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
 * Datatype inference uses a majority-based voting algorithm over the sampled (or full) row set; tie scenarios fall back to the most general viable type.

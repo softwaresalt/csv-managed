@@ -625,3 +625,104 @@ fn schema_infer_preview_includes_placeholder_replacements() {
         || stdout.contains("to: 'NULL'");
     assert!(has_fill, "expected fill target missing: {stdout}");
 }
+
+#[test]
+fn schema_infer_diff_reports_changes_and_no_changes() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = temp.path().join("diff.csv");
+    fs::write(&csv_path, "id\n1\n2\n3\n").expect("write csv");
+
+    let baseline_path = temp.path().join("existing-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            baseline_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    let mut baseline_contents = fs::read_to_string(&baseline_path).expect("read baseline schema");
+    let original_line = baseline_contents
+        .lines()
+        .find(|line| line.contains("datatype:"))
+        .expect("datatype line present")
+        .to_string();
+    let modified_line = original_line.replacen("Integer", "String", 1);
+    baseline_contents = baseline_contents.replacen(&original_line, &modified_line, 1);
+    fs::write(&baseline_path, &baseline_contents).expect("write modified baseline");
+
+    let diff_assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+            "--diff",
+            baseline_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let diff_stdout =
+        String::from_utf8(diff_assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        diff_stdout.contains("Schema Diff vs"),
+        "diff header missing: {diff_stdout}"
+    );
+    assert!(
+        diff_stdout.contains(&format!("-{}\n", modified_line)),
+        "expected removal line missing: {diff_stdout}"
+    );
+    assert!(
+        diff_stdout.contains(&format!("+{}\n", original_line)),
+        "expected addition line missing: {diff_stdout}"
+    );
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            baseline_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    let no_diff_assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+            "--diff",
+            baseline_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let no_diff_stdout =
+        String::from_utf8(no_diff_assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        no_diff_stdout.contains("no changes detected"),
+        "expected no-change message missing: {no_diff_stdout}"
+    );
+}

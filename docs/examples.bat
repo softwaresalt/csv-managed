@@ -55,6 +55,9 @@ rem Preview inferred schema YAML and probe report without writing the output fil
 .\target\release\csv-managed.exe schema infer --mapping --replace-template ^
   -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_preview-schema.yml --sample-rows 25 --preview
 
+rem Show differences between the current inference and a saved schema file without overwriting it
+.\target\release\csv-managed.exe schema infer -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 0 --diff .\tmp\big5_inferred-schema.yml
+
 rem Probe with limited sampling to infer integer type from first row only
 .\target\release\csv-managed.exe schema infer -i .\tests\data\probe_sample_variation.csv -o .\tmp\probe_sampled-schema.yml --sample-rows 1
 

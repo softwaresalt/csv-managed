@@ -106,6 +106,9 @@ pub struct SchemaInferArgs {
     /// Render the inference report and schema YAML to stdout instead of writing a file
     #[arg(long = "preview")]
     pub preview: bool,
+    /// Show a unified diff between an existing schema file and the inferred schema
+    #[arg(long = "diff")]
+    pub diff: Option<PathBuf>,
 }
 
 #[derive(Debug, Args, Clone)]

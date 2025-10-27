@@ -6,6 +6,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result, anyhow};
 use log::info;
 use sha2::{Digest, Sha256};
+use similar::TextDiff;
 
 use crate::{
     cli::{
@@ -145,6 +146,16 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         apply_default_name_mappings(&mut schema);
     }
 
+    let diff_request = if let Some(path) = args.diff.as_deref() {
+        Some((
+            path.to_path_buf(),
+            fs::read_to_string(path)
+                .with_context(|| format!("Reading existing schema for diff from {path:?}"))?,
+        ))
+    } else {
+        None
+    };
+
     let should_render_report = probe.snapshot.is_some() || args.preview;
     let mut report = if should_render_report {
         Some(render_probe_report(
@@ -176,12 +187,14 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
 
     let preview_requested = args.preview;
     let should_write = !preview_requested && (args.output.is_some() || args.replace_template);
+    let diff_requested = diff_request.is_some();
 
     if preview_requested && let Some(path) = args.output.as_deref() {
         info!("Preview requested; suppressing write to {:?}", path);
     }
 
-    let replacements_added = if preview_requested || should_write {
+    let apply_replacements = preview_requested || should_write || diff_requested;
+    let replacements_added = if apply_replacements {
         schema::apply_placeholder_replacements(&mut schema, &stats, &placeholder_policy)
     } else {
         0
@@ -193,15 +206,25 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         );
     }
 
+    let mut yaml_output = if preview_requested || diff_requested {
+        Some(
+            schema
+                .to_yaml_string(args.replace_template)
+                .with_context(|| "Serializing inferred schema to YAML".to_string())?,
+        )
+    } else {
+        None
+    };
+
     if preview_requested {
         if !report_printed && let Some(report_ref) = report.as_ref() {
             print!("{report_ref}");
         }
         println!();
         println!("Schema YAML Preview (not written):");
-        let yaml = schema
-            .to_yaml_string(args.replace_template)
-            .with_context(|| "Serializing schema preview to YAML".to_string())?;
+        let yaml = yaml_output
+            .as_deref()
+            .expect("Preview requires serialized YAML output");
         print!("{yaml}");
         if !yaml.ends_with('\n') {
             println!();
@@ -234,6 +257,42 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
             "Inferred schema for {} column(s) (no output file written)",
             schema.columns.len()
         );
+    }
+
+    if let Some((diff_path, existing_content)) = &diff_request {
+        if yaml_output.is_none() {
+            yaml_output = Some(
+                schema
+                    .to_yaml_string(args.replace_template)
+                    .with_context(|| "Serializing inferred schema to YAML".to_string())?,
+            );
+        }
+        let new_yaml = yaml_output
+            .as_ref()
+            .expect("Diff requires serialized YAML output");
+        println!();
+        if existing_content == new_yaml {
+            println!(
+                "Schema Diff vs {}: no changes detected.",
+                diff_path.display()
+            );
+        } else {
+            println!("Schema Diff vs {}:", diff_path.display());
+            let diff = TextDiff::from_lines(existing_content, new_yaml);
+            let diff_text = diff
+                .unified_diff()
+                .context_radius(3)
+                .header(&format!("{}", diff_path.display()), "(inferred)")
+                .to_string();
+            if diff_text.is_empty() {
+                println!("(differences detected, but diff output was empty)");
+            } else {
+                print!("{diff_text}");
+                if !diff_text.ends_with('\n') {
+                    println!();
+                }
+            }
+        }
     }
 
     if probe.mapping {

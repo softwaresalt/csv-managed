@@ -580,7 +580,8 @@ impl Schema {
 
         let mut value =
             serde_yaml::to_value(&schema).context("Serializing schema to YAML value")?;
-        if include_replace_template && let Some(columns) = value
+        if include_replace_template
+            && let Some(columns) = value
                 .get_mut("columns")
                 .and_then(|columns| columns.as_sequence_mut())
         {

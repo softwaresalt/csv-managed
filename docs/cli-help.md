@@ -108,6 +108,8 @@ Options:
           Destination -schema.yml file path (alias --schema retained for compatibility)
       --replace-template
           Inject empty replace arrays into the generated schema as a template when inferring
+      --diff <DIFF>
+          Show a unified diff between an existing schema file and the inferred schema without modifying the file
       --preview
           Render the inference report and resulting schema YAML to stdout without writing a file. Suppresses --output when present.
       --na-behavior <na-behavior>
@@ -118,11 +120,11 @@ Options:
           Print help
 ```
 
-`schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets. Use `--preview` to review the probe table and the exact YAML that would be written (including `--replace-template` scaffolding) without touching the filesystem.
+`schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets. Use `--preview` to review the probe table and the exact YAML that would be written (including `--replace-template` scaffolding) without touching the filesystem, and `--diff existing-schema.yml` to inspect a unified diff against a saved schema before committing changes.
 
 Majority voting logic identical to `schema probe`; overrides apply after voting. Currency promotion uses the same 30% symbol threshold plus full-column compliance with currency scale rules before displacing Float/Decimal. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#NA`, `#N/A` as empty for inference to avoid diluting numeric majorities.
 \
-NA placeholders are already normalized: they do not count against majority votes. When `schema infer` writes a file—or when you pass `--preview`—observed NA tokens are injected into each affected column's `replace` array either mapping to an empty string (`--na-behavior=empty`) or to the chosen fill token (`--na-behavior=fill --na-fill NULL`).
+NA placeholders are already normalized: they do not count against majority votes. When `schema infer` writes a file—or when you pass `--preview` or `--diff`—observed NA tokens are injected into each affected column's `replace` array either mapping to an empty string (`--na-behavior=empty`) or to the chosen fill token (`--na-behavior=fill --na-fill NULL`).
 
 ### schema verify
 

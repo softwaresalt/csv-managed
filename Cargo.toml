@@ -30,6 +30,7 @@ thiserror = "2"
 uuid = { version = "1", features = ["serde"] }
 sha2 = "0.10"
 rust_decimal = { version = "1", features = ["serde"] }
+similar = "2"
 
 [dev-dependencies]
 assert_cmd = "2"

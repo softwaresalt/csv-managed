@@ -53,6 +53,16 @@ csv-managed schema infer --mapping --replace-template \
 
 `--preview` prints the same probe table seen with `schema probe`, followed by the YAML that would be emitted (honouring `--replace-template`, NA placeholder handling, and overrides). Supplying `-o tmp/big5_schema.yml` alongside `--preview` performs a dry run; the file is skipped until you rerun without `--preview`.
 
+## Compare Inference Against An Existing Schema
+
+Review how a fresh inference differs from a previously saved schema before overwriting it:
+
+```powershell
+csv-managed schema infer -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 0 --diff tmp/big5_inferred-schema.yml
+```
+
+When differences exist, the command emits a unified diff (`--- existing` / `+++ inferred`) showing the exact YAML changes. No files are modified, making it safe to audit changes prior to accepting them. Combine `--diff` with `--preview` to inspect both the diff and the would-be output in a single run.
+
 ## Normalize NA Placeholders During Inference
 
 Treat placeholder tokens (`NA`, `N/A`, `#NA`, `#N/A`) as empty for datatype voting and inject replacement entries into the written schema that fill them with a canonical token (e.g. `NULL`).
