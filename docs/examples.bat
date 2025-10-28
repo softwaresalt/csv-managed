@@ -1,7 +1,15 @@
+setlocal
+
+set "ROOT=%CD%"
+set "BIN_RELEASE=%ROOT%\target\release\csv-managed.exe"
+set "BIN_DEBUG=%ROOT%\target\debug\csv-managed.exe"
+set "CSV_BIG5=%ROOT%\tests\data\big_5_players_stats_2023_2024.csv"
+set "SCHEMA_BIG5=%ROOT%\tests\data\big_5_players_stats-schema.yml"
+
 if not exist .\tmp mkdir .\tmp
 
 rem Schema command examples
-REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>' as redirection
+REM Wrap replacement specifications in quotes so the shell does not treat '>' as redirection
 .\target\release\csv-managed.exe schema -o .\tmp\schema_basic-schema.yml -c "id:integer" -c "name:string" -c "amount:float"
 ::type .\tmp\schema_basic-schema.yml
 .\target\release\csv-managed.exe schema -o .\tmp\schema_alias-schema.yml -c "status:string->order_status" -c "created_at:datetime" --replace "status=pending->ready" --replace "status=unknown->ready"
@@ -76,7 +84,10 @@ rem Validate the snapshot by rerunning infer; this fails on header/type drift
 .\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv --sample-rows 0 --snapshot .\tmp\big5_probe.snap
 
 rem Create a Windows-1252 encoded CSV derived from the Big 5 stats dataset
-powershell -NoProfile -Command "$lines = Get-Content .\tests\data\big_5_players_stats_2023_2024.csv | Select-Object -First 25; $text = ($lines -join [Environment]::NewLine) + [Environment]::NewLine; $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($text); [System.IO.File]::WriteAllBytes('.\tmp\big_5_windows1252.csv', $bytes)"
+.	arget\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv -m .\tests\data\big_5_players_stats-schema.yml --limit 25 --output .\tmp\big_5_windows1252.csv --output-encoding windows-1252
+
+rem (fixed path reference for above command; retained original line for historical context)
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv -m .\tests\data\big_5_players_stats-schema.yml --limit 25 --output .\tmp\big_5_windows1252.csv --output-encoding windows-1252
 
 rem Probe using explicit input encoding support
 .\target\release\csv-managed.exe schema infer -i .\tmp\big_5_windows1252.csv -o .\tmp\probe_windows-schema.yml --input-encoding windows-1252
@@ -87,7 +98,7 @@ rem Probe using explicit input encoding support
 .\target\release\csv-managed.exe schema infer -i .\tests\data\stats_schema.csv -o .\tmp\stats_schema-schema.yml --mapping --replace-template
 .\target\release\csv-managed.exe schema infer -i .\tests\data\stats_temporal.csv -o .\tmp\stats_temporal-schema.yml --mapping --replace-template
 
-.\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tmp\big_5_players_stats-schema.yml --mapping --replace-template
+.\target\release\csv-managed.exe schema infer -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tests\data\big_5_players_stats-schema.yml --mapping --replace-template
 .\target\release\csv-managed.exe schema verify -m .\tests\data\big_5_players_stats-schema.yml -i .\tests\data\big_5_players_stats_2023_2024.csv
 .\target\release\csv-managed.exe schema verify -m .\tests\data\orders-schema.yml -i .\tests\data\orders_invalid.csv --report-invalid
 
@@ -179,3 +190,37 @@ rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema-schema.yml --frequency --top 5
 .\target\release\csv-managed.exe stats -i .\tests\data\big_5_players_stats_2023_2024.csv --frequency -C Squad --filter "Player=Max Aarons"
 .\target\release\csv-managed.exe stats -i .\tests\data\sort_types.csv -m .\tests\data\sort_types-schema.yml --filter "bool_col=true" --filter-expr "float_col>=0.0" --limit 10
+
+rem -------------------------------------------------------------
+rem Streaming & Pipelines (stdin '-') Examples
+rem -------------------------------------------------------------
+
+rem Process via stdin using type for batch
+type "%CSV_BIG5%" | "%BIN_RELEASE%" process -i - --schema "%SCHEMA_BIG5%" --columns Player --columns Performance_Gls --limit 5 --table
+
+rem Chain process -> stats (filter rows then compute stats) via stdin
+rem NOTE: Place the pipe (|) at the end of the line to avoid issues with line continuation
+rem Pipe the first output to csv-managed.exe on the first line as in the example below to avoid line continuation issues.
+type "%CSV_BIG5%" | "%BIN_RELEASE%" process -i - --schema "%SCHEMA_BIG5%" --filter "Performance_Gls>=10" --limit 40 | ^
+"%BIN_RELEASE%" stats -i - --schema "%SCHEMA_BIG5%" -C Performance_Gls
+
+rem Mixed streaming + file input (append)
+type "%CSV_BIG5%" | "%BIN_RELEASE%" append -i - -i .\tmp\big_5_preview.csv --schema "%SCHEMA_BIG5%" -o .\tmp\players_union.csv
+
+rem Filter upstream then stats downstream
+type "%CSV_BIG5%" | "%BIN_RELEASE%" process -i - --schema "%SCHEMA_BIG5%" --filter "Performance_Gls>=5" | ^
+"%BIN_RELEASE%" stats -i - --schema "%SCHEMA_BIG5%" -C Performance_Gls
+
+rem Minimal (string-only) pipeline without schema (not recommended for typed ops)
+type "%CSV_BIG5%" | "%BIN_RELEASE%" process -i - --columns Player --limit 3 --table
+
+rem End Streaming & Pipelines examples
+rem Encoding normalization + stats pipeline (Windows-1252 -> UTF-8)
+rem NOTE: Include columns required for downstream stats; header structure must remain consistent with schema.
+type .\tmp\big_5_windows1252.csv | ^
+.\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml ^
+  --columns Player --columns Squad --columns Performance_Gls --limit 40 | ^
+.\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
+rem Header mapping note: downstream typed stages accept either original or mapped column names when only name_mapping (rename) is applied without structural changes.
+
+endlocal

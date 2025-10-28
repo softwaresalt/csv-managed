@@ -590,14 +590,28 @@ impl Schema {
         }
         for (idx, column) in self.columns.iter().enumerate() {
             let name = headers.get(idx).map(|s| s.as_str()).unwrap_or_default();
-            if name != column.name {
+            if column.matches_header(name) {
+                continue;
+            }
+            if let Some(mapped) = column
+                .rename
+                .as_deref()
+                .filter(|value| !value.is_empty() && *value != column.name)
+            {
                 return Err(anyhow!(
-                    "Header mismatch at position {}: expected '{}' but found '{}'",
+                    "Header mismatch at position {}: expected '{}' (or mapped '{}') but found '{}'",
                     idx + 1,
                     column.name,
+                    mapped,
                     name
                 ));
             }
+            return Err(anyhow!(
+                "Header mismatch at position {}: expected '{}' but found '{}'",
+                idx + 1,
+                column.name,
+                name
+            ));
         }
         Ok(())
     }
@@ -2222,6 +2236,16 @@ impl ColumnMeta {
             .as_deref()
             .filter(|value| !value.is_empty())
             .unwrap_or(&self.name)
+    }
+
+    pub fn matches_header(&self, header: &str) -> bool {
+        if header == self.name {
+            return true;
+        }
+        if let Some(rename) = self.rename.as_deref() && !rename.is_empty() && header == rename {
+            return true;
+        }
+        false
     }
 
     pub fn apply_mappings_to_value(&self, value: &str) -> Result<Option<String>> {

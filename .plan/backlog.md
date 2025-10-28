@@ -1,6 +1,6 @@
 # TO-DO
 
-## Version 1.0.0
+## Version 0.9.0-beta.1 (Pre-Release)
 
 - [x] Provide a B-Tree indexing command that writes `.idx` files for selected columns.
 - [x] Allow subsequent commands to select a prebuilt index file (and variant) during processing.
@@ -58,7 +58,7 @@
 - [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
 - [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 
-## Version 1.1.0: The Stats, Schema, Datatype, and Transformation Edition (Core Operations)
+## Version 1.0.0: The Stats, Schema, Datatype, and Transformation Edition (Core Operations)
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
@@ -94,14 +94,25 @@
 - [x] Add unit and integration tests for header-less CSV files.
 - [x] Add --assume-header:true|false flag to schema probe and infer commands.
 - [x] Add explanation in the README of why we prefer snake_case headers.
+- [x] Added unit & integration tests plus README and examples.bat coverage for chaining stdin piped data to enable multi-stage data pipelines.
 
-## Version 1.1.5: Structural Improvements
+## Version 1.1.0: Structural Improvements & v1.0 Fixes/Enhancements
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Refactor unit tests out of core code files into the integration test files in the tests directory.
 - [ ] Build a better test harness that uses a coverage tool lilke cargo llvm-cov or cargo tarpaulin.
+- [ ] Implement schema-evolution emission so the ignored test can be activated. Wire the new schema-evolution doc section into CI examples.
+- [ ]
 
-## Version 1.2.0: The Index & Benchmark Edition
+## Version 2.0.0: The Excel, JSON & Parquet File Edition
+
+- [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
+- [ ] Add the ability to read Parquet files.
+- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
+
+## Version 2.5.0: The JOIN/Lookup Upgrade
+
+## Version 3.0.0: The Index & Performance Benchmark Edition
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
@@ -111,8 +122,10 @@
 - [ ] Add the ability to define a primary key (single column or composite) that uniquely identifies each row in a CSV file and expose it through CLI workflows.
 - [ ] Add the ability to add a fast hash signature for each row in primary-key-backed indexes.
 - [ ] Add the ability to probe a file for candidate primary/composite keys and report them to the console.
+- [ ] Review all code for performance improvements and code efficiencies.
+- [ ] Develop full benchmark command capabilities to capture performance baselines.
 
-## Version 1.3.0: Bulk Operations Edition
+## Version 4.0.0: The Data Pipeline & Batch Operations Edition
 
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in YAML format.
 - [ ] Consume a YAML batch definition describing command-line arguments for automated runs.
@@ -127,27 +140,22 @@
 - [ ] Add the ability to perform a union of multiple files that is able to deduplicate rows across multiple files and output to a single file.
 - [ ] Add the ability to perform the stats command over a series of files all conforming to the same schema definition, most likely in a directory or across a set of subdirectories.
 - [ ] Need to expand multiple commands to process file data across multiple files and subdirectories where all files conform to a single schema file.
+- [ ] Add the ability to define full data pipeline flows in YAML pipeline definition files (-pipeline.yml).
+- [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
+- [ ] Consider adding a feature for process --emit-schema to formalize transformed layouts.
+- [ ] Add file naming pattern capabilities to allow for multi-file processing and output in a pipeline.
 
-## Version 1.4.0: The Excel & JSON File Edition
+## Version 4.1.0: A Performance Review/Upgrade
 
-- [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
-
-## Version 1.5.0: The Parquet File Edition
-
-- [ ] Add the ability to read Parquet files.
-- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
-
-## Version 1.6.0: The JOIN Edition
-
-## Version 1.7.0: The Performance Edition
-
-- [ ] Review all code for performance improvements and code efficiencies.
-- [ ] Develop full benchmark command capabilities to capture performance baselines.
 - [ ]
+- [ ]
+
+## Version 5.0.0: The Cloud Edition
+
+- [ ] Add the ability to run csv-managed as a process in the cloud, starting with Azure.
+- [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
 - [ ]
 
 ## Backlog
 
-- [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
-- [ ] Develop example GitHub Copilot prompts demonstrating how to direct an AI agent to plan out and generate a set of command-line actions to achieve a range of data wrangling outcomes.  Add prompts as a new set of documentation.
 - [ ] Consider creating a new version that focuses on locale specific input/output.

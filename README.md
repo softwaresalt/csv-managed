@@ -693,6 +693,8 @@ They are rendered back to canonical forms; standard deviation for Date reports `
 | `--limit <N>` | Scan at most N rows (0 = all). |
 | (see Expression Reference) | Extended filter / temporal helper functions. |
 
+> NOTE (Piped / Streaming Usage): When feeding `stats` from a prior `process` stage via stdin (`-i -`), the incoming header row must match the schema exactly (same columns, order, and count). Avoid adding derived columns, dropping columns (`--columns` / `--exclude-columns`), or reordering headers if you will reuse the original schema downstream. Restrict upstream changes to row-level filters, sorts, limits, encoding normalization. See: [Designing Multi-Stage Pipelines](docs/pipelines.md#header-shape-invariance-between-typed-stages).
+
 #### Temporal stats example
 
 Given a temporal schema file:
@@ -874,8 +876,6 @@ Built‑in fallback DateTime formats (used when no explicit `options.format` is 
 %Y-%m-%dT%H:%M
 ```
 
-To parse timestamps with a trailing `Z`, offsets, or fractional seconds, supply a matching `options.format` (e.g., `%Y-%m-%dT%H:%M:%SZ`, `%Y-%m-%dT%H:%M:%S%.f`).
-
 Common chrono tokens:
 
 | Token | Meaning |
@@ -971,13 +971,185 @@ Base operation without any `--report-invalid` flag logs overall invalid count to
 
 Planned (not yet implemented): primary key & hashed signature indexes, date/time format re-writing transforms, automatic candidate key suggestion, batch JSON definition ingestion.
 
-### Stdin/Stdout Usage
+### Streaming & Pipelines
 
-Use `-` for streaming input where supported. Example:
+`csv-managed` supports Unix-style and Windows command chaining via stdin (`-i -`) and stdout. Use a single dash (`-`) as the input file to instruct commands to read from stdin. This enables incremental transformation without writing intermediate files and keeps memory usage low for large datasets.
+
+Key points:
+
+* Use `-i -` (or `--input -`) to read streamed CSV data.
+* A schema (`-m/--schema`) is strongly recommended (and required for typed operations like `stats`, inferred datatypes, temporal helpers, currency/decimal parsing, and most filters).
+* Column selection (`--columns` / `-C`), exclusion, derives, filters, and table/preview output all work with piped data.
+* When chaining multiple commands, each downstream command must specify `-i -` explicitly.
+* You can mix file inputs and streamed inputs (e.g., pipe the first file, pass a second file normally to `append`).
+* If you rename or drop columns in an upstream stage, make sure the downstream schema matches the transformed header (the original schema will reject it).
+* `process --preview` cannot be combined with `-o`; in a pipeline it simply renders the elastic table and stops (no downstream data). For chaining transformations, omit `--preview`.
+* Header validation in downstream typed stages accepts either the original column names or their `name_mapping` (snake_case) forms. However, adding or removing columns (e.g. with `--derive`, `--exclude-columns`) requires an updated schema; otherwise a header mismatch will occur.
+* For `stats`, only numeric / temporal / decimal / currency columns are profiled. If you project or rename away those typed columns upstream, `stats` may find zero eligible columns unless you specify them explicitly with `-C/--columns`.
+* Encoding normalization pipelines can combine `--input-encoding` (upstream) and `--output-encoding` (downstream or same stage with `-o`) to standardize heterogeneous CSV sources.
+
+Cross-reference: For advanced multi-stage design patterns (schema evolution, encoding normalization, safe header modifications) see: [Designing Multi-Stage Pipelines](docs/pipelines.md).
+
+Roadmap & Backlog: A consolidated product roadmap by release (including upcoming versions, deprecations, and larger epics) now lives in `[.plan/backlog.md](.plan/backlog.md)`. Refer there for planned feature sequencing beyond the high‑level notes below (e.g. join redesign v1.6.0, primary key indexing, streaming joins).
+
+#### PowerShell Examples
+
+Process streamed input and project a few columns:
 
 ```powershell
-Get-Content orders.csv | ./target/release/csv-managed.exe stats -i - -m orders-schema.yml
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+  .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
+  --columns Player --columns Squad --columns Performance_Gls --limit 5 --table
 ```
+
+Chain `process` into `stats` (filter rows, then compute statistics):
+
+```powershell
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+  .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
+  --filter "Performance_Gls >= 10" --limit 40 |
+  .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
+```
+
+Append using a streamed first file and a second file on disk:
+
+```powershell
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+  .\target\release\csv-managed.exe append -i - -i .\tmp\big_5_preview.csv \
+  --schema .\tests\data\big_5_players_stats-schema.yml -o .\tmp\players_union.csv
+```
+
+Stats from a filtered streamed transformation (filter first, stats second):
+
+```powershell
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+  .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
+  --filter "Performance_Gls >= 5" |
+  .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
+```
+
+Encoding normalization (Windows-1252 -> UTF-8 in-memory, then stats):
+
+```powershell
+Get-Content .\tmp\big_5_windows1252.csv |
+  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
+  --columns Player --columns Performance_Gls --limit 25 |
+  .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
+```
+
+#### cmd.exe Examples
+
+Use `type` instead of `Get-Content`:
+
+```batch
+type tests\data\big_5_players_stats_2023_2024.csv | target\release\csv-managed.exe process -i - --schema tests\data\big_5_players_stats-schema.yml --columns Player --limit 5 --table
+```
+
+All relative paths in this section assume the current directory is the project root (where `Cargo.toml` lives).
+
+For convenience, define helper variables before running the piped examples:
+
+```batch
+set "BIN=target\release\csv-managed.exe"
+set "SCHEMA=tests\data\big_5_players_stats-schema.yml"
+```
+
+Chained transformation and stats:
+
+```batch
+type tests\data\big_5_players_stats_2023_2024.csv ^
+| "%BIN%" process -i - --schema "%SCHEMA%" --filter "Performance_Gls^>=10" --limit 25 ^
+| "%BIN%" stats -i - --schema "%SCHEMA%" -C Performance_Gls
+```
+
+Encoding normalization with explicit input encoding (Windows-1252 source) and chained stats:
+
+```batch
+type tmp\big_5_windows1252.csv ^
+| "%BIN%" process -i - --input-encoding windows-1252 --schema "%SCHEMA%" --columns Player --columns Performance_Gls --limit 25 ^
+| "%BIN%" stats -i - --schema "%SCHEMA%" -C Performance_Gls
+```
+
+Appending (mix streamed & file inputs):
+
+```batch
+type tests\data\big_5_players_stats_2023_2024.csv | "%BIN%" append -i - -i tmp\big_5_preview.csv --schema "%SCHEMA%" -o tmp\players_union.csv
+```
+
+#### Troubleshooting Pipelines
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Command hangs waiting for input | Upstream command didn't produce data yet or previous stage failed silently | Add `--preview --limit 5` temporarily to inspect stage output; verify file path and schema. |
+| "Column not found" in downstream stage | Mapping/rename changed header names between stages | Use `schema columns` or inspect first stage output to confirm header normalization. |
+| Stats reports zero rows | Filter removed all rows upstream | Remove filters or reduce strictness; test with `--limit 50` before stats. |
+| Invalid datatype errors in chained stats | Missing schema or misdeclared types for piped data | Pass the correct `--schema` in every stage needing typed parsing. |
+
+#### When a Schema Is Required
+
+`stats`, typed filters (`--filter` numeric/temporal comparisons), temporal helpers, currency & decimal enforcement, boolean normalization, and datatype mappings all rely on schema context. For raw string-only projection, you may omit the schema—but performance and correctness on mixed datatypes improve markedly with it.
+
+#### Minimal No-Schema Pipeline (String-Only)
+
+```powershell
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+  .\target\release\csv-managed.exe process -i - --columns Player --limit 3 --table
+```
+
+#### Validation Test Pattern (Recommended)
+
+Use `cargo test` with `assert_cmd` to lock in pipeline behavior:
+
+```rust
+Command::cargo_bin("csv-managed")?
+    .args(["process","-i","-","--schema", schema, "--columns","Player","--limit","3"]) 
+    .write_stdin(std::fs::read_to_string(input)?)
+    .assert()
+    .success();
+```
+
+See `tests/stdin_pipeline.rs` for full chained examples.
+
+#### Performance Note
+
+Each stage streams rows forward—only derived expressions and optional sort/in-memory fallback allocate per row. Avoid unnecessary wide projections early; narrow inputs reduce CPU and memory footprints downstream.
+
+---
+
+#### Encoding Normalization Pipeline
+
+Normalize a legacy Windows‑1252 encoded file to UTF‑8 while projecting a limited set of columns.
+
+PowerShell:
+
+```powershell
+Get-Content .\tmp\big_5_windows1252.csv |
+  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
+  --columns Player --columns Squad --limit 5 --table
+```
+
+cmd.exe:
+
+```batch
+type tmp\big_5_windows1252.csv | target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema tests\data\big_5_players_stats-schema.yml --columns Player --columns Squad --limit 5 --table
+```
+
+Bash / zsh:
+
+```bash
+cat tmp/big_5_windows1252.csv | ./target/release/csv-managed process -i - --input-encoding windows-1252 --schema tests/data/big_5_players_stats-schema.yml --columns Player --columns Squad --limit 5 --table
+| target\release\csv-managed.exe process -i - --schema tests\data\big_5_players_stats-schema.yml --filter Performance_Gls^>=5 ^
+Write normalized UTF‑8 output:
+
+`cmd.exe` treats `>` as a redirection operator even inside quotes; escape comparisons by removing the spaces and prefixing the `>` with `^` (e.g., `Performance_Gls^>=10`). In `.bat` files you need to double the caret (`Performance_Gls^^>=10`) because the first pass strips one `^`.
+
+```powershell
+Get-Content .\tmp\big_5_windows1252.csv |
+  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
+  --columns Player --columns Squad -o .\tmp\big_5_normalized_utf8.csv --output-encoding utf-8
+```
+
+> Tip: Place encoding normalization first; downstream stages assume UTF‑8 only.
 
 ### Boolean Formatting Examples
 

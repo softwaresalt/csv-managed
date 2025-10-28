@@ -1,8 +1,8 @@
-# v1.6.0 Feature Planning: Streaming & Pipeline-Friendly Joins
+# v2.5.0 Feature Planning: Streaming & Pipeline-Friendly Joins/Lookups
 
 ## Overview
 
-Rather than merging `join` into `process` (which would inflate flag surface and complexity), v1.6.0 will focus on strengthening pipeline composability so users can chain:
+Rather than merging `join` into `process` (which would inflate flag surface and complexity), v2.5.0 will focus on strengthening pipeline composability so users can chain:
 
 ```text
 csv-managed process ... | csv-managed join --left - --right file.csv ... | csv-managed process ...
