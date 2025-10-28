@@ -241,11 +241,7 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
         .lines()
         .find(|line| line.contains(GOALS_COLUMN))
         .expect("stats output line");
-    let columns: Vec<_> = stats_line
-        .split('|')
-        .map(|cell| cell.trim())
-        .filter(|cell| !cell.is_empty())
-        .collect();
+    let columns = parse_table_row(stats_line);
 
     assert!(
         columns.len() >= 7,
@@ -352,11 +348,43 @@ fn stats_frequency_honors_filters() {
 }
 
 fn parse_table_row(line: &str) -> Vec<String> {
-    line.split('|')
-        .map(|cell| cell.trim())
-        .filter(|cell| !cell.is_empty())
-        .map(|cell| cell.to_string())
-        .collect()
+    let mut cells = Vec::new();
+    let mut current = String::new();
+    let mut space_run = 0usize;
+
+    for ch in line.chars() {
+        if ch == ' ' {
+            space_run += 1;
+            continue;
+        }
+
+        if space_run >= 2 {
+            if !current.trim().is_empty() {
+                cells.push(current.trim().to_string());
+            }
+            current.clear();
+        } else if space_run == 1 && !current.is_empty() {
+            current.push(' ');
+        }
+
+        space_run = 0;
+        current.push(ch);
+    }
+
+    if space_run >= 2 {
+        if !current.trim().is_empty() {
+            cells.push(current.trim().to_string());
+        }
+        current.clear();
+    } else if space_run == 1 {
+        current.push(' ');
+    }
+
+    if !current.trim().is_empty() {
+        cells.push(current.trim().to_string());
+    }
+
+    cells
 }
 
 #[test]

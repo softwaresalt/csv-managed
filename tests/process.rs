@@ -320,6 +320,7 @@ fn create_boolean_subset(
             },
         ],
         schema_version: None,
+        has_headers: true,
     };
     schema.save(&schema_path).expect("write boolean schema");
 

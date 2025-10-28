@@ -8,6 +8,7 @@
 |------|-------------|
 | Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
 | Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`; NA placeholder normalization (`--na-behavior`, `--na-fill`); unified diff comparisons against existing schemas (`--diff existing-schema.yml`). See: [schema](#schema). |
+| Headerless CSV Detection | Automatically detects presence/absence of a header row (sampling up to first 6 rows). Override detection with `--assume-header=<true\|false>`. For headerless files synthetic column names `field_0..field_N` are generated and persisted with `has_headers: false`; downstream commands (`process`, `stats`, `verify`, `append`) treat the first row as data. Edit the schema's `has_headers` flag if further adjustments are needed. |
 | Schema Preview | `schema infer --preview` emits the probe table and resulting YAML (respecting `--replace-template`, overrides, and NA placeholder handling) without writing files—use with `-o` for a dry run before persisting. See: [schema](#schema). |
 | Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
 | Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
@@ -282,7 +283,7 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 | `--sample-rows <N>` | Rows to sample during inference (`0` = full scan). |
 | `--delimiter <VAL>` | Override input delimiter (`comma`, `tab`, `semicolon`, `pipe`, or single ASCII). |
 | `--input-encoding <ENC>` | Character encoding of input (defaults `utf-8`). |
-| `--mapping` | Emit column mapping templates (aliases) to stdout when probing/infering. |
+| `--mapping` | Emit column mapping templates (aliases) to stdout when probing/infering, including a `suggested` snake_case column for quick copy/paste. |
 | `--replace-template` | Inject empty `replace` arrays per column when inferring. |
 | `--override <SPEC>` | Force specific inferred types (`amount:Float`, `id:Integer`). Repeatable. |
 | `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift; see [Snapshot Internals](#snapshot-internals). |
@@ -291,10 +292,113 @@ Define schemas manually or discover them via `probe` / `infer`; verify datasets 
 Behavior notes:
 
 * `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
-* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding. Pass `--preview` to review the probe report and resulting YAML (including `--replace-template` scaffolding and NA placeholder replacements) without writing files; combine with `--diff existing-schema.yml` to emit a unified diff against a saved schema (and optionally `-o` to perform a dry run before persisting).
+* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding. Pass `--preview` to review the resulting YAML (including `--replace-template` scaffolding and NA placeholder replacements); mapping templates still emit when `--mapping` is set. Combine with `--diff existing-schema.yml` to emit a unified diff against a saved schema (and optionally `-o` to perform a dry run before persisting).
 * `schema verify` streams every row, applying `replace` mappings before type parsing; any invalid value triggers non‑zero exit code. Reporting tiers: base (`--report-invalid`), detail (`--report-invalid:detail [LIMIT]`), combined (`--report-invalid:detail:summary [LIMIT]`).
 * `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
 * Datatype inference uses a majority-based voting algorithm over the sampled (or full) row set; tie scenarios fall back to the most general viable type.
+* Header presence is auto-detected: up to the first 6 physical rows are sampled. If the first row appears header-like (alphabetic tokens, dictionary matches, or position vs data heuristics) it is treated as the header; otherwise synthetic names `field_0`, `field_1`, ... are generated and the schema records `has_headers: false` so downstream operations read the first physical row as data.
+
+#### Headerless CSV Support
+
+Some datasets (exported sensors, legacy ETL extracts) omit a header row. `csv-managed` now infers this automatically:
+
+* Samples up to the first 6 rows even when a schema is not yet available.
+* Classifies each token in row 1 as header-like (contains letters, or matches a curated dictionary such as `id`, `date`, `status`, `amount`) or data-like (parses as numeric, boolean, date/time, GUID, etc.).
+* Compares row‑1 tokens to subsequent rows column-by-column to accumulate header vs data “signals”.
+* Resolves ties using dictionary hits and relative counts of header-like vs data-like tokens.
+* When determined headerless, assigns zero-based synthetic names `field_0..field_{N-1}`. These are treated exactly like real headers (may be referenced directly or via positional aliases `cN`). You can later rename via schema edits or mapping templates.
+* Explicit override: pass `--assume-header true|false` to `schema probe` or `schema infer` when you already know whether the first row is a header. The flag bypasses the heuristic and persists the choice into the generated schema.
+
+Schema persistence:
+
+```yaml
+schema_version: 1.0
+has_headers: false
+columns:
+  - name: field_0
+    datatype: Integer
+  - name: field_1
+    datatype: Float
+```
+
+To override a mistaken classification edit the saved schema file and set `has_headers: true` (or `false`) and, if necessary, adjust column names. All commands that accept `-m/--schema` honor this flag; if omitted it defaults to `true` for backward compatibility.
+
+Quick probe example (headerless):
+
+```powershell
+./target/release/csv-managed.exe schema probe -i ./tests/data/sensor_readings_no_header.csv --preview
+```
+
+Processing with synthetic names:
+
+```powershell
+./target/release/csv-managed.exe process -i sensor_readings_no_header.csv -m sensor_readings_no_header-schema.yml -C field_0,field_2 --limit 5 --preview
+```
+
+If you prefer stable, semantic names, run `schema infer --mapping` and then rename the generated YAML entries (or apply the mapping template) before further processing.
+
+##### FAQ: Header Detection Issues
+
+**Q: The tool decided my file was headerless but the first row actually contains column names.**  
+Cause: Most first-row tokens parsed as data-like (numbers, dates) and lacked alphabetic/dictionary signals.  
+Fix: Open the saved schema, set `has_headers: true`, and rename the `field_#` entries to proper names (or rerun `schema infer` after inserting a temporary clearly alphabetic header line). Future runs using the schema will honor your correction.
+
+**Q: My first data row was treated as a header.**  
+Cause: Tokens looked alphabetic (e.g. sensor IDs like `A1`, `B2`) or matched common header words; limited sample rows produced ambiguous signals.  
+Fix: Edit schema to `has_headers: false`. If you want semantic names, rename the auto-generated `field_#` entries after toggling. Optionally add an explicit dummy header row upstream for clarity, or add an additional early data row before inferring.
+
+**Q: Different files in a batch mix headered and headerless layouts.**  
+Fix: Normalize upstream or create two schemas (one with `has_headers: true`, one with `false`) and process in separate invocations before combining.
+
+**Q: Can I force behavior via a CLI flag?**  
+Yes. Append `--assume-header true` or `--assume-header false` to `schema probe` / `schema infer`. The inferred schema records the chosen value in `has_headers`, so downstream commands inherit the override.
+
+#### Column Naming Conventions (snake_case Preference)
+
+`csv-managed` recommends (not enforces) snake_case header names. You will see a `suggested` snake_case column emitted when using `--mapping` with `schema probe` or `schema infer`. Adopting this convention yields several practical benefits:
+
+* Shell & CLI ergonomics – No spaces or punctuation to quote/escape in PowerShell, cmd.exe, Bash, or when passing expressions (e.g. `--derive total_with_tax=amount*1.0825`).
+* Expression reliability – Evalexpr tokenization stays simple: lowercase + underscore avoids accidental case mismatches or the need for backticks/quotes around names containing spaces or symbols.
+* Cross‑language portability – Aligns with common JSON, Python, Rust, and many data engineering tool defaults; easier re‑use of column names across scripts, notebooks, and code generators.
+* Stable diffs & snapshots – Lowercase, delimiter‑normalized headers reduce noisy changes caused by accidental capitalization or extra spaces, keeping `--snapshot` hash churn low.
+* Safer normalizations – Underscores avoid confusion with minus signs, arithmetic operators, or CSV delimiters inside derived expressions and filters.
+* Interoperability – Tools like `awk`, `grep`, SQL-like DSLs, and future pipeline integrations consume simple tokens more predictably.
+* YAML friendliness – Snake_case keys avoid quoting in YAML and reduce risk of special-character parsing surprises.
+* Index & mapping predictability – Consistent naming improves human recognition of multi-column index variants and reduces ambiguity in covering expansions.
+
+Recommended guidelines:
+
+1. Begin with a letter (`a-z`). If the raw header starts with a digit, prefix with `col_` or a domain hint (e.g., `col_2024_sales` → `sales_2024`).
+2. Lowercase all characters.
+3. Replace contiguous spaces or punctuation (`[\s\-\/\.#$%&()]`) with a single underscore.
+4. Collapse multiple underscores into one.
+5. Remove trailing underscores.
+6. Preserve digits where meaningful (e.g., `http2_requests`).
+7. Resolve collisions by appending a domain qualifier or ordinal (`amount` vs `amount_original`).
+
+Typical conversions:
+
+| Original Header | Suggested | Rationale |
+|-----------------|-----------|-----------|
+| `Order Date` | `order_date` | Spaces → underscore, lowercase. |
+| `OrderDate` | `order_date` | CamelCase split. |
+| `  Gross$ Amount (USD) ` | `gross_amount_usd` | Trim, punctuation stripped, semantic unit retained. |
+| `Customer-ID` | `customer_id` | Hyphen → underscore. |
+| `SKU#` | `sku` | Symbol removed; short code already unique. |
+| `Total.Net` | `total_net` | Period → underscore. |
+| `ShipTime(s)` | `ship_time_s` | Parentheses removed; unit suffix preserved. |
+
+Deriving snake_case from existing headers:
+
+1. Trim leading/trailing whitespace.
+2. Replace punctuation/spaces with underscores.
+3. Insert underscores between lowercase/uppercase boundaries in CamelCase (`OrderDate` → `Order_Date`).
+4. Lowercase the result.
+5. Collapse multiple underscores.
+
+Why not enforce? Some domains require legacy casing (`CustomerID`, `MFRPartNo`). The schema mapping mechanism (`--mapping`) lets you retain raw names while assigning snake_case aliases for processing/derives. Use whichever name feels most natural in downstream expressions—aliases appear post‑mapping.
+
+Rule of thumb: If a header would need quoting in a shell, convert it to snake_case before committing the schema.
 
 #### Datatype Inference Overview
 
@@ -415,10 +519,9 @@ cmd.exe:
 Snapshot files captured by `schema probe --snapshot` or `schema infer --snapshot` now contain structured diagnostics to make regression reviews easier:
 
 * **Header+Type Hash** – a SHA-256 digest that locks the column ordering and inferred datatypes. Any change to headers or datatypes produces a new hash even if table formatting stays the same.
-* **Datatype Map** – an expanded list of every column name paired with the inferred datatype icon, making it simple to diff type changes without scanning the table output.
-* **Column Summaries** – for each column, the snapshot records how many non-empty values were seen during sampling, how many empty rows appeared, and a small histogram (up to five representative values plus an “others” bucket). This mirrors the sampling scope shown in the footer so you can spot drift in categorical distributions or sparsity.
+* **Observations Column** – the probe table now carries the per-column sampling summary inline (`non_empty`, `empty`, representative samples, and placeholder mentions), keeping drift diagnostics attached to the header row without duplicating content in separate sections.
 
-When a snapshot mismatch occurs, these sections highlight exactly which aspect changed—structure, type inference, or observed value distribution—before you decide whether to refresh the snapshot.
+When a snapshot mismatch occurs, these diagnostics highlight exactly which aspect changed—structure, type inference, or observed value distribution—before you decide whether to refresh the snapshot.
 
 ### process
 
@@ -800,6 +903,7 @@ Minimal `-schema.yml` example (YAML):
 
 ```yaml
 schema_version: 1.0
+has_headers: true
 columns:
   - name: id
     datatype: Integer
@@ -841,6 +945,12 @@ Transformation order per cell:
 2. `datatype_mappings` chain executes sequentially.
 3. `replace` entries apply (exact match, case-sensitive for strings).
 4. Final parse into declared `datatype`.
+
+Header flag semantics:
+
+* `has_headers: true` (default) – the first physical row is treated as column headers.
+* `has_headers: false` – synthetic or previously persisted column names enumerate data columns; the first physical row is processed as data.
+* When absent (older schemas) it is assumed `true` for backward compatibility.
 
 
 `round` uses `options.scale` (default 4). `truncate` converts Float→Integer removing fractional part (toward zero). String→String strategies: `trim`, `lowercase`, `uppercase`. Invalid strategy/type pairing marks the row invalid during `schema verify`.

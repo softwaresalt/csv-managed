@@ -67,8 +67,28 @@ fn append_single(
     context: &AppendContext<'_>,
     state: &mut AppendState<'_>,
 ) -> Result<()> {
-    let mut reader = io_utils::open_csv_reader_from_path(path, context.delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, context.encoding)?;
+    let (mut reader, headers, expects_headers) = if let Some(schema) = context.schema {
+        let expects_headers = schema.expects_headers();
+        let mut reader =
+            io_utils::open_csv_reader_from_path(path, context.delimiter, expects_headers)?;
+        let headers = if expects_headers {
+            io_utils::reader_headers(&mut reader, context.encoding)?
+        } else {
+            schema.headers()
+        };
+        (reader, headers, expects_headers)
+    } else {
+        let layout =
+            crate::schema::detect_csv_layout(path, context.delimiter, context.encoding, None)?;
+        let mut reader =
+            io_utils::open_csv_reader_from_path(path, context.delimiter, layout.has_headers)?;
+        let headers = if layout.has_headers {
+            io_utils::reader_headers(&mut reader, context.encoding)?
+        } else {
+            layout.headers.clone()
+        };
+        (reader, headers, layout.has_headers)
+    };
 
     if let Some(schema) = context.schema {
         schema
@@ -91,12 +111,14 @@ fn append_single(
 
     if write_header {
         if let Some(schema) = context.schema {
-            let output_headers = schema.output_headers();
-            state
-                .writer
-                .write_record(output_headers.iter())
-                .with_context(|| "Writing output headers")?;
-        } else {
+            if schema.expects_headers() {
+                let output_headers = schema.output_headers();
+                state
+                    .writer
+                    .write_record(output_headers.iter())
+                    .with_context(|| "Writing output headers")?;
+            }
+        } else if expects_headers {
             state
                 .writer
                 .write_record(headers.iter())

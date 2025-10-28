@@ -85,17 +85,33 @@ pub fn execute(args: &JoinArgs) -> Result<()> {
     let right_indices = column_indices(&right_schema, &right_keys)?;
     validate_key_types(&left_schema, &right_schema, &left_indices, &right_indices)?;
 
-    let mut left_reader = io_utils::open_csv_reader_from_path(&args.left, left_delimiter, true)?;
-    let mut right_reader = io_utils::open_csv_reader_from_path(&args.right, right_delimiter, true)?;
+    let left_expects_headers = left_schema.expects_headers();
+    let right_expects_headers = right_schema.expects_headers();
 
-    let left_headers = io_utils::reader_headers(&mut left_reader, left_encoding)?;
-    let right_headers = io_utils::reader_headers(&mut right_reader, right_encoding)?;
-    left_schema
-        .validate_headers(&left_headers)
-        .with_context(|| format!("Validating left headers for {:?}", args.left))?;
-    right_schema
-        .validate_headers(&right_headers)
-        .with_context(|| format!("Validating right headers for {:?}", args.right))?;
+    let mut left_reader =
+        io_utils::open_csv_reader_from_path(&args.left, left_delimiter, left_expects_headers)?;
+    let mut right_reader =
+        io_utils::open_csv_reader_from_path(&args.right, right_delimiter, right_expects_headers)?;
+
+    let left_headers = if left_expects_headers {
+        let headers = io_utils::reader_headers(&mut left_reader, left_encoding)?;
+        left_schema
+            .validate_headers(&headers)
+            .with_context(|| format!("Validating left headers for {:?}", args.left))?;
+        headers
+    } else {
+        left_schema.headers()
+    };
+
+    let right_headers = if right_expects_headers {
+        let headers = io_utils::reader_headers(&mut right_reader, right_encoding)?;
+        right_schema
+            .validate_headers(&headers)
+            .with_context(|| format!("Validating right headers for {:?}", args.right))?;
+        headers
+    } else {
+        right_schema.headers()
+    };
 
     let mut right_lookup = build_right_lookup(
         &mut right_reader,
@@ -221,7 +237,7 @@ fn load_schema(
     if let Some(schema_path) = schema_path {
         Schema::load(schema_path).with_context(|| format!("Loading schema from {schema_path:?}"))
     } else {
-        schema::infer_schema(path, 0, delimiter, encoding)
+        schema::infer_schema(path, 0, delimiter, encoding, None)
             .with_context(|| format!("Inferring schema from {path:?}"))
     }
 }

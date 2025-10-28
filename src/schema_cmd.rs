@@ -47,6 +47,7 @@ fn execute_manual(args: &SchemaArgs) -> Result<()> {
     let schema = Schema {
         columns,
         schema_version: None,
+        has_headers: true,
     };
     schema
         .save(output)
@@ -93,14 +94,17 @@ fn execute_probe(args: &SchemaProbeArgs) -> Result<()> {
         delimiter,
         encoding,
         &placeholder_policy,
+        args.assume_header,
     )
     .with_context(|| format!("Inferring schema from {input:?}"))?;
 
     let overrides = apply_overrides(&mut schema, &args.overrides)?;
 
-    if args.mapping {
-        apply_default_name_mappings(&mut schema);
-    }
+    let suggested_renames = if args.mapping {
+        Some(apply_default_name_mappings(&mut schema))
+    } else {
+        None
+    };
 
     let report = render_probe_report(
         &schema,
@@ -108,13 +112,10 @@ fn execute_probe(args: &SchemaProbeArgs) -> Result<()> {
         &overrides,
         args.sample_rows,
         &placeholder_policy,
+        suggested_renames.as_ref(),
     );
     print!("{report}");
     handle_snapshot(&report, args.snapshot.as_deref())?;
-
-    if args.mapping {
-        emit_mappings(&schema);
-    }
 
     Ok(())
 }
@@ -137,14 +138,17 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         delimiter,
         encoding,
         &placeholder_policy,
+        probe.assume_header,
     )
     .with_context(|| format!("Inferring schema from {input_path:?}"))?;
 
     let overrides = apply_overrides(&mut schema, &probe.overrides)?;
 
-    if probe.mapping {
-        apply_default_name_mappings(&mut schema);
-    }
+    let suggested_renames = if probe.mapping {
+        Some(apply_default_name_mappings(&mut schema))
+    } else {
+        None
+    };
 
     let diff_request = if let Some(path) = args.diff.as_deref() {
         Some((
@@ -156,19 +160,7 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         None
     };
 
-    let should_render_report = probe.snapshot.is_some() || args.preview;
-    let mut report = if should_render_report {
-        Some(render_probe_report(
-            &schema,
-            &stats,
-            &overrides,
-            probe.sample_rows,
-            &placeholder_policy,
-        ))
-    } else {
-        None
-    };
-    let mut report_printed = false;
+    let mut report: Option<String> = None;
 
     if let Some(snapshot_path) = probe.snapshot.as_deref() {
         let report_ref = report.get_or_insert_with(|| {
@@ -178,10 +170,12 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
                 &overrides,
                 probe.sample_rows,
                 &placeholder_policy,
+                suggested_renames.as_ref(),
             )
         });
-        print!("{report_ref}");
-        report_printed = true;
+        if !args.preview {
+            print!("{report_ref}");
+        }
         handle_snapshot(report_ref, Some(snapshot_path))?;
     }
 
@@ -217,9 +211,6 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
     };
 
     if preview_requested {
-        if !report_printed && let Some(report_ref) = report.as_ref() {
-            print!("{report_ref}");
-        }
         println!();
         println!("Schema YAML Preview (not written):");
         let yaml = yaml_output
@@ -296,6 +287,9 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
     }
 
     if probe.mapping {
+        if preview_requested {
+            println!();
+        }
         emit_mappings(&schema);
     }
 
@@ -476,12 +470,16 @@ fn apply_overrides(schema: &mut Schema, overrides: &[String]) -> Result<HashSet<
     Ok(applied)
 }
 
-fn apply_default_name_mappings(schema: &mut Schema) {
+fn apply_default_name_mappings(schema: &mut Schema) -> HashSet<String> {
+    let mut suggested = HashSet::new();
     for column in &mut schema.columns {
         if column.rename.is_none() {
-            column.rename = Some(to_lower_snake_case(&column.name));
+            let suggestion = to_lower_snake_case(&column.name);
+            column.rename = Some(suggestion);
+            suggested.insert(column.name.clone());
         }
     }
+    suggested
 }
 
 fn render_probe_report(
@@ -490,10 +488,12 @@ fn render_probe_report(
     overrides: &HashSet<String>,
     requested_sample_rows: usize,
     placeholder_policy: &schema::PlaceholderPolicy,
+    suggested_renames: Option<&HashSet<String>>,
 ) -> String {
     if schema.columns.is_empty() {
         return "No columns inferred.\n".to_string();
     }
+    let rows_read = stats.rows_read();
     let headers = vec![
         "#".to_string(),
         "name".to_string(),
@@ -502,6 +502,7 @@ fn render_probe_report(
         "override".to_string(),
         "sample".to_string(),
         "format".to_string(),
+        "observations".to_string(),
     ];
     let mut rows = Vec::with_capacity(schema.columns.len());
     for (idx, column) in schema.columns.iter().enumerate() {
@@ -509,7 +510,13 @@ fn render_probe_report(
             .rename
             .as_deref()
             .filter(|value| !value.is_empty())
-            .map(|value| value.to_string())
+            .map(|value| {
+                if suggested_renames.is_some_and(|set| set.contains(&column.name)) {
+                    format!("{value} (suggested)")
+                } else {
+                    value.to_string()
+                }
+            })
             .unwrap_or_else(|| "—".to_string());
         let mut status_flags = Vec::new();
         if overrides.contains(&column.name) {
@@ -529,6 +536,7 @@ fn render_probe_report(
             .unwrap_or_else(|| "—".to_string());
         let format_display = schema::format_hint_for(&column.datatype, stats.sample_value(idx))
             .unwrap_or_else(|| "—".to_string());
+        let observation_display = column_observation_summary(stats, idx, rows_read);
         rows.push(vec![
             (idx + 1).to_string(),
             column.name.clone(),
@@ -537,11 +545,11 @@ fn render_probe_report(
             status_display,
             sample_display,
             format_display,
+            observation_display,
         ]);
     }
     let mut output = table::render_table(&headers, &rows);
 
-    let rows_read = stats.rows_read();
     if requested_sample_rows == 0 {
         output.push_str(&format!("\nSampled {rows_read} row(s) (full scan).\n"));
     } else if rows_read >= requested_sample_rows {
@@ -564,42 +572,6 @@ fn render_probe_report(
 
     let signature = compute_schema_signature(schema);
     output.push_str(&format!("Header+Type Hash: {signature}\n"));
-
-    output.push_str("\nDatatype Map:\n");
-    for column in &schema.columns {
-        output.push_str(&format!("  • {} -> {}\n", column.name, column.datatype));
-    }
-
-    output.push_str("\nColumn Summaries:\n");
-    for (idx, column) in schema.columns.iter().enumerate() {
-        if let Some(summary) = stats.summary(idx) {
-            let mut fragments = Vec::new();
-            fragments.push(format!("non_empty={}", summary.non_empty));
-            let empty = stats.rows_read().saturating_sub(summary.non_empty);
-            if stats.rows_read() > 0 && empty > 0 {
-                fragments.push(format!("empty={empty}"));
-            }
-            if !summary.tracked_values.is_empty() {
-                let histogram = summary
-                    .tracked_values
-                    .iter()
-                    .map(|(value, count)| {
-                        let display = summarize_histogram_value(value);
-                        format!("{display} ({count})")
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                fragments.push(format!("samples=[{histogram}]"));
-            }
-            if summary.other_values > 0 {
-                fragments.push(format!("others={}", summary.other_values));
-            }
-            if fragments.is_empty() {
-                fragments.push("no observed values".to_string());
-            }
-            output.push_str(&format!("  • {}: {}\n", column.name, fragments.join("; ")));
-        }
-    }
 
     if let Some(section) = render_placeholder_section(schema, stats, placeholder_policy) {
         output.push_str(&section);
@@ -630,6 +602,65 @@ fn summarize_histogram_value(value: &str) -> String {
         }
     }
     truncate_sample(&sanitized)
+}
+
+fn column_observation_summary(
+    stats: &InferenceStats,
+    column_index: usize,
+    rows_read: usize,
+) -> String {
+    let mut fragments = Vec::new();
+    if let Some(summary) = stats.summary(column_index) {
+        fragments.push(format!("non_empty={}", summary.non_empty));
+        let empty = rows_read.saturating_sub(summary.non_empty);
+        if rows_read > 0 && empty > 0 {
+            fragments.push(format!("empty={empty}"));
+        }
+        if !summary.tracked_values.is_empty() {
+            let histogram = summary
+                .tracked_values
+                .iter()
+                .take(3)
+                .map(|(value, count)| {
+                    let display = summarize_histogram_value(value);
+                    format!("{display} ({count})")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            fragments.push(format!("samples=[{histogram}]"));
+            if summary.tracked_values.len() > 3 {
+                fragments.push("samples+=...".to_string());
+            }
+        }
+        if summary.other_values > 0 {
+            fragments.push(format!("others={}", summary.other_values));
+        }
+    }
+
+    if let Some(placeholders) = stats.placeholder_summary(column_index) {
+        let entries = placeholders.entries();
+        if !entries.is_empty() {
+            let tokens = entries
+                .iter()
+                .take(3)
+                .map(|(token, count)| {
+                    let display = truncate_sample(token);
+                    format!("{display} ({count})")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            fragments.push(format!("placeholders=[{tokens}]"));
+            if entries.len() > 3 {
+                fragments.push("placeholders+=...".to_string());
+            }
+        }
+    }
+
+    if fragments.is_empty() {
+        "—".to_string()
+    } else {
+        fragments.join("; ")
+    }
 }
 
 fn render_placeholder_section(
@@ -712,11 +743,18 @@ fn emit_mappings(schema: &Schema) {
     let mut rows = Vec::with_capacity(schema.columns.len());
     for (idx, column) in schema.columns.iter().enumerate() {
         let mapping = format!("{}:{}->", column.name, column.datatype.cli_token());
+        let suggested = column
+            .rename
+            .as_ref()
+            .filter(|value| !value.is_empty())
+            .cloned()
+            .unwrap_or_else(|| to_lower_snake_case(&column.name));
         rows.push(vec![
             (idx + 1).to_string(),
             column.name.clone(),
             column.datatype.to_string(),
             mapping,
+            suggested,
         ]);
     }
     let headers = vec![
@@ -724,6 +762,7 @@ fn emit_mappings(schema: &Schema) {
         "name".to_string(),
         "type".to_string(),
         "mapping".to_string(),
+        "suggested".to_string(),
     ];
     table::print_table(&headers, &rows);
 }
@@ -893,10 +932,42 @@ mod tests {
                 datatype_mappings: Vec::new(),
             }],
             schema_version: None,
+            has_headers: true,
         };
         let overrides = vec!["amount:integer".to_string(), "".to_string()];
         let applied = apply_overrides(&mut schema, &overrides).unwrap();
         assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
         assert!(applied.contains("amount"));
+    }
+
+    #[test]
+    fn apply_default_name_mappings_returns_suggested_set() {
+        let mut schema = Schema {
+            columns: vec![
+                ColumnMeta {
+                    name: "OrderID".to_string(),
+                    datatype: ColumnType::Integer,
+                    rename: None,
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                },
+                ColumnMeta {
+                    name: "CustomerName".to_string(),
+                    datatype: ColumnType::String,
+                    rename: Some("customer_name".to_string()),
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                },
+            ],
+            schema_version: None,
+            has_headers: true,
+        };
+
+        let suggested = apply_default_name_mappings(&mut schema);
+
+        assert_eq!(schema.columns[0].rename.as_deref(), Some("order_id"));
+        assert_eq!(schema.columns[1].rename.as_deref(), Some("customer_name"));
+        assert!(suggested.contains("OrderID"));
+        assert!(!suggested.contains("CustomerName"));
     }
 }

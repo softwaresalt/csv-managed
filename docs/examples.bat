@@ -15,6 +15,9 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 rem Demonstrate majority-based inference recovering non-string types from noisy data
 .\target\release\csv-managed.exe schema probe -i .\tests\data\majority_datatypes.csv --sample-rows 0
 
+rem Probe a headerless CSV; inferred columns use field_# names
+.\target\release\csv-managed.exe schema probe -i .\tests\data\sensor_readings_no_header.csv --mapping --sample-rows 0
+
 rem Index command examples
 rem Build a simple ascending index over the order timestamp column
 .\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_ordered_at.idx -m .\tests\data\orders_temporal-schema.yml -C ordered_at
@@ -26,6 +29,9 @@ rem Create mixed-direction index variants with explicit specifications
 rem Use a named index variant to accelerate a descending ordered_at sort
 .\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
   -x .\tmp\orders_temporal_variants.idx --index-variant recent --sort ordered_at:desc --columns ordered_at --columns status --limit 10 --preview
+
+.\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
+  -x .\tmp\orders_temporal_variants.idx --index-variant recent --sort ordered_at:desc --limit 10 --preview
 
 rem Expand a covering spec to generate prefix indexes for multiple direction combinations
 .\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_covering.idx -m .\tests\data\orders_temporal-schema.yml ^
@@ -43,14 +49,15 @@ rem Probe full file (all rows) to capture mixed column as string
 .\target\release\csv-managed.exe schema infer -i .\tests\data\probe_sample_variation.csv -o .\tmp\probe_full-schema.yml --sample-rows 0
 
 rem Inspect a handful of rows and review inferred samples, format hints, and override status directly in the console:
-.\target\release\csv-managed.exe schema probe -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 5
+.\target\release\csv-managed.exe schema probe -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 0
+.\target\release\csv-managed.exe schema probe -i tests/data/big_5_players_stats_2023_2024.csv --mapping --sample-rows 250
 
 rem Generate a schema file populated with snake_case renames and empty replacement arrays so you can fill in value substitutions later:
 .\target\release\csv-managed.exe schema infer --mapping --replace-template -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_inferred-schema.yml --sample-rows 0
 
 rem Preview inferred schema YAML and probe report without writing the output file (dry run)
 .\target\release\csv-managed.exe schema infer --mapping --replace-template ^
-  -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_preview-schema.yml --sample-rows 25 --preview
+  -i tests/data/big_5_players_stats_2023_2024.csv -o tmp/big5_preview-schema.yml --sample-rows 0 --preview
 
 rem Show differences between the current inference and a saved schema file without overwriting it
 .\target\release\csv-managed.exe schema infer -i tests/data/big_5_players_stats_2023_2024.csv --sample-rows 0 --diff .\tmp\big5_inferred-schema.yml

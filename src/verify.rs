@@ -101,11 +101,14 @@ fn validate_file_against_schema(
     encoding: &'static encoding_rs::Encoding,
     report: Option<InvalidReportOptions>,
 ) -> Result<()> {
-    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, encoding)?;
-    schema
-        .validate_headers(&headers)
-        .map_err(|err| anyhow!("Validating headers for {path:?}: {err}"))?;
+    let mut reader =
+        io_utils::open_csv_reader_from_path(path, delimiter, schema.expects_headers())?;
+    if schema.expects_headers() {
+        let headers = io_utils::reader_headers(&mut reader, encoding)?;
+        schema
+            .validate_headers(&headers)
+            .map_err(|err| anyhow!("Validating headers for {path:?}: {err}"))?;
+    }
 
     let report_cfg = report;
     let detail_enabled = report_cfg.is_some_and(|cfg| cfg.show_detail);

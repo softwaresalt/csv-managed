@@ -91,6 +91,9 @@ pub struct SchemaProbeArgs {
     /// Replacement value used when --na-behavior=fill (defaults to empty string)
     #[arg(long = "na-fill")]
     pub na_fill: Option<String>,
+    /// Force header detection outcome (`true` treats first row as header, `false` treats it as data)
+    #[arg(long = "assume-header", value_name = "true|false")]
+    pub assume_header: Option<bool>,
 }
 
 #[derive(Debug, Args, Clone)]

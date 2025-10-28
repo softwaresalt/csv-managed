@@ -90,7 +90,10 @@
 - [x] Add the ability to show changes vs an existing schema via --diff {existing -schema.yml}.
 - [x] Consider modifying the type inference logic to defer to the most supportive datatype based on the values in the set.  For example, if the column has any decimal values, even if most of the values would appear to be integers, then the logic should infer a decimal datatype instead of an integer in order to support all values in the set.  Only apply this logic to numeric values; the remaining datatypes that are non-numeric should maintain their existing categorical order of precedence.
 - [x] Refactor the index command to use the `--covering` syntax for multi-column coverage.  Covering is the standard industry term for indexes that cover multiple fields.  Additionally, does it make sense to create an index that is sorted in multiple directions on a single column?  I'm not sure that works in practice.
-- [ ] Improve table visual output to stdout for stats, process, probe and infer commands.  For example, the schema probe command output is hard to read in the terminal; I would like the output to use elastic tabs.
+- [x] Improve table visual output to stdout for stats, process, probe and infer commands.  For example, the schema probe command output is hard to read in the terminal; I would like the output to use elastic tabs.  Also, need to assess the existing output across commands and flags for redundant output; look for ways to consolidate output with the same level of detail.
+- [x] Add unit and integration tests for header-less CSV files.
+- [x] Add --assume-header:true|false flag to schema probe and infer commands.
+- [x] Add explanation in the README of why we prefer snake_case headers.
 
 ## Version 1.1.5: Structural Improvements
 

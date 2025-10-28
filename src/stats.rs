@@ -66,11 +66,18 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
         return Ok(());
     }
 
-    let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, encoding)?;
-    schema
-        .validate_headers(&headers)
-        .with_context(|| format!("Validating headers for {:?}", args.input))?;
+    let expects_headers = schema.expects_headers();
+    let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, expects_headers)?;
+    let headers = if expects_headers {
+        let headers = io_utils::reader_headers(&mut reader, encoding)?;
+        schema
+            .validate_headers(&headers)
+            .with_context(|| format!("Validating headers for {:?}", args.input))?;
+        headers
+    } else {
+        schema.headers()
+    };
+    let header_aliases = schema.header_alias_sets();
 
     let mut stats = StatsAccumulator::new(&columns, &schema);
 
@@ -80,6 +87,9 @@ pub fn execute(args: &StatsArgs) -> Result<()> {
         }
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
+        if schema::row_looks_like_header(&decoded, &header_aliases) {
+            continue;
+        }
         if schema.has_transformations() {
             schema
                 .apply_transformations_to_row(&mut decoded)
@@ -138,7 +148,7 @@ fn load_or_infer_schema(
     if let Some(path) = &args.schema {
         Schema::load(path).with_context(|| format!("Loading schema from {path:?}"))
     } else {
-        schema::infer_schema(&args.input, 0, delimiter, encoding)
+        schema::infer_schema(&args.input, 0, delimiter, encoding, None)
             .with_context(|| format!("Inferring schema from {input:?}", input = args.input))
     }
 }
@@ -539,7 +549,7 @@ mod tests {
         assert!(path.exists(), "fixture missing: {path:?}");
         let delimiter = crate::io_utils::resolve_input_delimiter(&path, None);
         let mut schema =
-            crate::schema::infer_schema(&path, 200, delimiter, UTF_8).expect("infer schema");
+            crate::schema::infer_schema(&path, 200, delimiter, UTF_8, None).expect("infer schema");
         let goals_index = schema.column_index(GOALS_COL).expect("goals index");
         let assists_index = schema.column_index(ASSISTS_COL).expect("assists index");
         schema.columns[goals_index].datatype = crate::schema::ColumnType::Integer;

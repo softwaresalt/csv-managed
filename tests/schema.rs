@@ -5,7 +5,10 @@ use std::{
 };
 
 use assert_cmd::Command;
-use csv_managed::schema::{ColumnType, DecimalSpec, Schema};
+use csv_managed::schema::{
+    ColumnType, DecimalSpec, PlaceholderPolicy, Schema, infer_schema_with_stats,
+};
+use encoding_rs::UTF_8;
 use predicates::str::contains;
 use serde_yaml::Value;
 use tempfile::tempdir;
@@ -314,6 +317,80 @@ fn schema_infer_with_overrides_and_mapping_on_big5() {
 }
 
 #[test]
+fn schema_infer_ignores_repeated_header_rows_in_big5_dataset() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let temp = tempdir().expect("temp dir");
+    let schema_path = temp.path().join("big5_large_sample-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "250",
+        ])
+        .assert()
+        .success();
+
+    let schema = Schema::load(&schema_path).expect("load inferred schema");
+    let datatype_for = |name: &str| {
+        schema
+            .columns
+            .iter()
+            .find(|col| col.name == name)
+            .unwrap_or_else(|| panic!("column {name} missing"))
+            .datatype
+            .clone()
+    };
+
+    assert_eq!(
+        datatype_for("Rank"),
+        ColumnType::Integer,
+        "Rank column should remain integer when header rows repeat"
+    );
+    assert_eq!(
+        datatype_for("Performance_Gls"),
+        ColumnType::Integer,
+        "Performance_Gls column should infer as integer"
+    );
+    let decimal_three_one = ColumnType::Decimal(DecimalSpec::new(3, 1).expect("decimal spec"));
+    let decimal_three_two = ColumnType::Decimal(DecimalSpec::new(3, 2).expect("decimal spec"));
+    assert_eq!(
+        datatype_for("Expected_xG"),
+        decimal_three_one,
+        "Expected_xG column should infer as decimal(3,1)"
+    );
+    assert_eq!(
+        datatype_for("Per 90 Minutes_xAG"),
+        decimal_three_two,
+        "Per 90 Minutes_xAG column should infer as decimal(3,2)"
+    );
+}
+
+#[test]
+fn schema_infer_does_not_record_headers_as_placeholder_tokens() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let policy = PlaceholderPolicy::default();
+
+    let (_, stats) = infer_schema_with_stats(csv_path.as_path(), 250, b',', UTF_8, &policy, None)
+        .expect("infer schema with stats");
+
+    let rank_placeholders = stats
+        .placeholder_summary(0)
+        .map(|summary| summary.entries())
+        .unwrap_or_default();
+    assert!(
+        rank_placeholders.is_empty(),
+        "Rank column should not record header tokens as placeholders: {rank_placeholders:?}"
+    );
+}
+
+#[test]
 fn schema_infer_prefers_majority_datatypes_from_fixture() {
     let csv_path = fixture_path("majority_datatypes.csv");
     let temp = tempdir().expect("temp dir");
@@ -370,6 +447,45 @@ fn schema_infer_prefers_majority_datatypes_from_fixture() {
         datatype_for("created_on"),
         ColumnType::Date,
         "created_on column should infer date from majority of values"
+    );
+}
+
+#[test]
+fn schema_infer_detects_headerless_dataset() {
+    let csv_path = fixture_path("sensor_readings_no_header.csv");
+    let policy = PlaceholderPolicy::default();
+    let (schema, stats) =
+        infer_schema_with_stats(csv_path.as_path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema for headerless input");
+
+    assert!(
+        !schema.expects_headers(),
+        "schema should mark headerless input"
+    );
+    assert_eq!(schema.columns.len(), 3);
+    assert_eq!(schema.columns[0].name, "field_0");
+    assert_eq!(schema.columns[1].name, "field_1");
+    assert_eq!(schema.columns[2].name, "field_2");
+    assert_eq!(stats.rows_read(), 3);
+}
+
+#[test]
+fn schema_infer_marks_headered_dataset() {
+    let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
+    let policy = PlaceholderPolicy::default();
+    let (schema, _stats) =
+        infer_schema_with_stats(csv_path.as_path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema for dataset with headers");
+
+    assert!(
+        schema.expects_headers(),
+        "schema should retain header expectation"
+    );
+    assert!(
+        schema
+            .columns
+            .iter()
+            .any(|column| column.name.eq_ignore_ascii_case("player"))
     );
 }
 

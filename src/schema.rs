@@ -1,5 +1,11 @@
 use std::{
-    borrow::Cow, collections::BTreeMap, fmt, fs::File, io::BufReader, path::Path, str::FromStr,
+    borrow::Cow,
+    collections::{BTreeMap, HashSet},
+    fmt,
+    fs::File,
+    io::BufReader,
+    path::Path,
+    str::FromStr,
 };
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
@@ -21,6 +27,49 @@ use crate::{
 };
 
 const DECIMAL_MAX_PRECISION: u32 = 28;
+const HEADER_ALIAS_THRESHOLD_PERCENT: usize = 80;
+const HEADER_ALIAS_MIN_MATCHES: usize = 4;
+const HEADER_DETECTION_SAMPLE_ROWS: usize = 6;
+
+const COMMON_HEADER_TOKENS: &[&str] = &[
+    "address",
+    "amount",
+    "category",
+    "city",
+    "code",
+    "country",
+    "created",
+    "currency",
+    "date",
+    "description",
+    "email",
+    "first_name",
+    "id",
+    "item",
+    "last_name",
+    "name",
+    "phone",
+    "price",
+    "quantity",
+    "state",
+    "status",
+    "total",
+    "type",
+    "updated",
+    "zip",
+];
+
+#[derive(Debug, Clone)]
+pub struct CsvLayout {
+    pub headers: Vec<String>,
+    pub has_headers: bool,
+}
+
+impl CsvLayout {
+    pub fn field_count(&self) -> usize {
+        self.headers.len()
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub enum PlaceholderPolicy {
@@ -428,6 +477,8 @@ pub struct Schema {
     pub columns: Vec<ColumnMeta>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema_version: Option<String>,
+    #[serde(default = "Schema::default_has_headers")]
+    pub has_headers: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -490,7 +541,16 @@ impl Schema {
         Schema {
             columns,
             schema_version: None,
+            has_headers: true,
         }
+    }
+
+    pub const fn default_has_headers() -> bool {
+        true
+    }
+
+    pub fn expects_headers(&self) -> bool {
+        self.has_headers
     }
 
     pub fn column_index(&self, name: &str) -> Option<usize> {
@@ -510,7 +570,17 @@ impl Schema {
             .collect()
     }
 
+    pub(crate) fn header_alias_sets(&self) -> Vec<HashSet<String>> {
+        self.columns
+            .iter()
+            .map(|column| build_header_aliases(&column.name))
+            .collect()
+    }
+
     pub fn validate_headers(&self, headers: &[String]) -> Result<()> {
+        if !self.has_headers {
+            return Ok(());
+        }
         if headers.len() != self.columns.len() {
             return Err(anyhow!(
                 "Header length mismatch: schema expects {} column(s) but file contains {}",
@@ -1615,15 +1685,332 @@ fn placeholder_token_original(value: &str) -> Option<String> {
     }
 }
 
+fn build_header_aliases(header: &str) -> HashSet<String> {
+    let mut aliases = HashSet::new();
+    let trimmed = header.trim();
+    if trimmed.is_empty() {
+        return aliases;
+    }
+
+    let mut try_insert = |candidate: &str| {
+        let token = candidate.trim();
+        if token.is_empty() {
+            return;
+        }
+        aliases.insert(token.to_ascii_lowercase());
+    };
+
+    try_insert(trimmed);
+
+    for sep in ['_', ' ', '/'] {
+        if let Some(part) = trimmed.rsplit(sep).next()
+            && part != trimmed
+        {
+            try_insert(part);
+        }
+    }
+
+    let sanitized: String = trimmed
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-'))
+        .collect();
+    if !sanitized.is_empty() {
+        try_insert(&sanitized);
+        if sanitized.len() >= 2 {
+            let chars: Vec<char> = sanitized.chars().collect();
+            let first = chars.first().copied().unwrap();
+            let last = chars.last().copied().unwrap_or(first);
+            let shorthand = format!("{}{}", first, last);
+            try_insert(&shorthand);
+        }
+        if sanitized.len() >= 3 {
+            try_insert(&sanitized[..3]);
+        }
+        if sanitized.len() >= 4 {
+            try_insert(&sanitized[..4]);
+        }
+    }
+
+    aliases
+}
+
+fn row_values_look_like_header<'a, I>(row: I, header_aliases: &[HashSet<String>]) -> bool
+where
+    I: IntoIterator<Item = Option<Cow<'a, str>>>,
+{
+    let mut alias_hits = 0usize;
+    let mut non_empty_fields = 0usize;
+
+    for (idx, value_opt) in row.into_iter().enumerate() {
+        if idx >= header_aliases.len() {
+            break;
+        }
+        let Some(value) = value_opt else {
+            continue;
+        };
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        non_empty_fields += 1;
+        let lowered = trimmed.to_ascii_lowercase();
+        if header_aliases[idx].contains(&lowered) {
+            alias_hits += 1;
+        }
+    }
+
+    non_empty_fields >= HEADER_ALIAS_MIN_MATCHES
+        && alias_hits >= HEADER_ALIAS_MIN_MATCHES
+        && alias_hits.saturating_mul(100)
+            >= non_empty_fields.saturating_mul(HEADER_ALIAS_THRESHOLD_PERCENT)
+}
+
+fn option_row_looks_like_header(
+    row: &[Option<String>],
+    header_aliases: &[HashSet<String>],
+) -> bool {
+    row_values_look_like_header(
+        row.iter().map(|value| value.as_deref().map(Cow::Borrowed)),
+        header_aliases,
+    )
+}
+
+pub(crate) fn row_looks_like_header(row: &[String], header_aliases: &[HashSet<String>]) -> bool {
+    row_values_look_like_header(
+        row.iter().map(|value| Some(Cow::Borrowed(value.as_str()))),
+        header_aliases,
+    )
+}
+
+fn generate_field_names(count: usize) -> Vec<String> {
+    (0..count).map(|idx| format!("field_{idx}")).collect()
+}
+
+fn token_is_common_header(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let normalized = value.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+    if COMMON_HEADER_TOKENS
+        .iter()
+        .any(|token| normalized == *token)
+    {
+        return true;
+    }
+    let sanitized = normalized
+        .chars()
+        .map(|ch| match ch {
+            ' ' | '-' | '/' => '_',
+            other => other,
+        })
+        .collect::<String>();
+    COMMON_HEADER_TOKENS.iter().any(|token| sanitized == *token)
+}
+
+fn value_is_data_like(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    if matches!(
+        lowered.as_str(),
+        "true" | "false" | "t" | "f" | "yes" | "no" | "y" | "n" | "1" | "0"
+    ) {
+        return true;
+    }
+    if parse_decimal_literal(trimmed).is_ok() {
+        return true;
+    }
+    if parse_currency_decimal(trimmed).is_ok() {
+        return true;
+    }
+    if trimmed.parse::<i64>().is_ok() {
+        return true;
+    }
+    if trimmed.parse::<f64>().is_ok() {
+        return true;
+    }
+    if parse_naive_datetime(trimmed).is_ok() {
+        return true;
+    }
+    if parse_naive_date(trimmed).is_ok() {
+        return true;
+    }
+    if parse_naive_time(trimmed).is_ok() {
+        return true;
+    }
+    let trimmed_guid = trimmed.trim_matches(|c| matches!(c, '{' | '}'));
+    Uuid::parse_str(trimmed_guid).is_ok()
+}
+
+fn value_is_header_like(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if value_is_data_like(trimmed) {
+        return false;
+    }
+    trimmed.chars().any(|c| c.is_ascii_alphabetic()) || token_is_common_header(trimmed)
+}
+
+fn header_tokens_match_dictionary(row: &[String]) -> bool {
+    row.iter()
+        .filter(|value| token_is_common_header(value.trim()))
+        .count()
+        >= 2
+}
+
+fn infer_has_header(first_row: &[String], other_rows: &[Vec<String>]) -> bool {
+    let header_like_first = first_row
+        .iter()
+        .filter(|value| value_is_header_like(value))
+        .count();
+    let data_like_first = first_row
+        .iter()
+        .filter(|value| value_is_data_like(value))
+        .count();
+
+    if header_like_first == 0 && data_like_first == 0 {
+        return false;
+    }
+
+    if data_like_first > header_like_first {
+        return false;
+    }
+
+    if other_rows.is_empty() {
+        return header_like_first >= 2 || header_tokens_match_dictionary(first_row);
+    }
+
+    let mut header_signal = 0usize;
+    let mut data_signal = 0usize;
+
+    for column in 0..first_row.len() {
+        let first_value = first_row.get(column).map(|s| s.as_str()).unwrap_or("");
+        let first_is_header = value_is_header_like(first_value);
+        let first_is_data = value_is_data_like(first_value);
+
+        let mut other_has_data = false;
+        for row in other_rows {
+            if let Some(value) = row.get(column)
+                && value_is_data_like(value)
+            {
+                other_has_data = true;
+                break;
+            }
+        }
+
+        if first_is_header && other_has_data {
+            header_signal += 1;
+        } else if first_is_data && other_has_data {
+            data_signal += 1;
+        }
+    }
+
+    if header_signal > data_signal {
+        return true;
+    }
+    if data_signal > header_signal {
+        return false;
+    }
+
+    if header_tokens_match_dictionary(first_row) && header_like_first >= 1 {
+        return true;
+    }
+
+    header_like_first > data_like_first
+}
+
+pub fn detect_csv_layout(
+    path: &Path,
+    delimiter: u8,
+    encoding: &'static Encoding,
+    header_override: Option<bool>,
+) -> Result<CsvLayout> {
+    if io_utils::is_dash(path) {
+        return Ok(CsvLayout {
+            headers: Vec::new(),
+            has_headers: header_override.unwrap_or(true),
+        });
+    }
+
+    if let Some(force_header) = header_override {
+        let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, force_header)?;
+        if force_header {
+            let header_record = reader.byte_headers()?.clone();
+            let headers = io_utils::decode_headers(&header_record, encoding)?;
+            return Ok(CsvLayout {
+                headers,
+                has_headers: true,
+            });
+        } else {
+            let mut record = csv::ByteRecord::new();
+            let width = if reader.read_byte_record(&mut record)? {
+                record.len()
+            } else {
+                0
+            };
+            let headers = generate_field_names(width);
+            return Ok(CsvLayout {
+                headers,
+                has_headers: false,
+            });
+        }
+    }
+
+    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, false)?;
+    let mut record = csv::ByteRecord::new();
+    let mut decoded_rows = Vec::new();
+
+    while decoded_rows.len() < HEADER_DETECTION_SAMPLE_ROWS
+        && reader.read_byte_record(&mut record)?
+    {
+        let decoded = io_utils::decode_record(&record, encoding)?;
+        decoded_rows.push(decoded);
+    }
+
+    if decoded_rows.is_empty() {
+        return Ok(CsvLayout {
+            headers: Vec::new(),
+            has_headers: true,
+        });
+    }
+
+    let first_row = decoded_rows.first().cloned().unwrap_or_default();
+    let has_header = infer_has_header(&first_row, &decoded_rows[1..]);
+    let headers = if has_header {
+        first_row
+    } else {
+        generate_field_names(first_row.len())
+    };
+
+    Ok(CsvLayout {
+        headers,
+        has_headers: has_header,
+    })
+}
+
 pub fn infer_schema(
     path: &Path,
     sample_rows: usize,
     delimiter: u8,
     encoding: &'static Encoding,
+    header_override: Option<bool>,
 ) -> Result<Schema> {
     let policy = PlaceholderPolicy::default();
-    let (schema, _stats) =
-        infer_schema_with_stats(path, sample_rows, delimiter, encoding, &policy)?;
+    let (schema, _stats) = infer_schema_with_stats(
+        path,
+        sample_rows,
+        delimiter,
+        encoding,
+        &policy,
+        header_override,
+    )?;
     Ok(schema)
 }
 
@@ -1633,14 +2020,24 @@ pub fn infer_schema_with_stats(
     delimiter: u8,
     encoding: &'static Encoding,
     _placeholder_policy: &PlaceholderPolicy,
+    header_override: Option<bool>,
 ) -> Result<(Schema, InferenceStats)> {
-    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, true)?;
-    let header_record = reader.byte_headers()?.clone();
-    let headers = io_utils::decode_headers(&header_record, encoding)?;
+    let layout = detect_csv_layout(path, delimiter, encoding, header_override)?;
+    let mut reader = io_utils::open_csv_reader_from_path(path, delimiter, layout.has_headers)?;
+    let headers = if layout.has_headers {
+        let header_record = reader.byte_headers()?.clone();
+        io_utils::decode_headers(&header_record, encoding)?
+    } else {
+        layout.headers.clone()
+    };
     let mut candidates = vec![TypeCandidate::new(); headers.len()];
     let mut samples = vec![None; headers.len()];
     let mut summaries = vec![SummaryAccumulator::default(); headers.len()];
     let mut placeholders = vec![PlaceholderSummary::default(); headers.len()];
+    let header_aliases: Vec<HashSet<String>> = headers
+        .iter()
+        .map(|header| build_header_aliases(header))
+        .collect();
 
     let mut record = csv::ByteRecord::new();
     let mut processed = 0usize;
@@ -1649,28 +2046,52 @@ pub fn infer_schema_with_stats(
         if sample_rows > 0 && processed >= sample_rows {
             break;
         }
-        for (idx, field) in record.iter().enumerate() {
+        let mut decoded_row: Vec<Option<String>> = Vec::with_capacity(headers.len());
+
+        for field in record.iter().take(headers.len()) {
             if field.is_empty() {
+                decoded_row.push(None);
                 continue;
             }
             match io_utils::decode_bytes(field, encoding) {
                 Ok(decoded) => {
-                    if decoded.is_empty() {
+                    let trimmed = decoded.trim();
+                    if trimmed.is_empty() {
+                        decoded_row.push(None);
                         continue;
                     }
-                    if let Some(token) = placeholder_token_original(&decoded) {
-                        placeholders[idx].record(&token);
-                        continue;
-                    }
-                    candidates[idx].update(&decoded);
-                    summaries[idx].record(&decoded);
-                    if samples[idx].is_none() {
-                        samples[idx] = Some(decoded.clone());
-                    }
+                    let value = trimmed.to_string();
+                    decoded_row.push(Some(value));
                 }
                 Err(_) => {
                     decode_errors += 1;
+                    decoded_row.push(None);
                 }
+            }
+        }
+
+        while decoded_row.len() < headers.len() {
+            decoded_row.push(None);
+        }
+
+        let header_like = option_row_looks_like_header(&decoded_row, &header_aliases);
+
+        if header_like {
+            continue;
+        }
+
+        for (idx, value_opt) in decoded_row.into_iter().enumerate() {
+            let Some(value) = value_opt else {
+                continue;
+            };
+            if let Some(token) = placeholder_token_original(&value) {
+                placeholders[idx].record(&token);
+                continue;
+            }
+            candidates[idx].update(&value);
+            summaries[idx].record(&value);
+            if samples[idx].is_none() {
+                samples[idx] = Some(value.clone());
             }
         }
         processed += 1;
@@ -1691,6 +2112,7 @@ pub fn infer_schema_with_stats(
     let schema = Schema {
         columns,
         schema_version: None,
+        has_headers: layout.has_headers,
     };
     let stats = InferenceStats {
         sample_values: samples,
@@ -1987,7 +2409,7 @@ mod tests {
         writeln!(file, "2,2024-01-02T09:45:00Z,$56.78").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, stats) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy)
+        let (schema, stats) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
             .expect("infer with stats");
 
         assert_eq!(schema.columns.len(), 3);
@@ -2039,6 +2461,7 @@ mod tests {
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
 
         let mut row = vec!["2024-05-10T13:45:00".to_string()];
@@ -2068,6 +2491,7 @@ mod tests {
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["3.1415926535".to_string()];
         schema
@@ -2096,6 +2520,7 @@ mod tests {
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["12.345".to_string()];
         schema
@@ -2122,6 +2547,7 @@ mod tests {
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["123.4567".to_string()];
         schema
@@ -2155,6 +2581,7 @@ mod tests {
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["$123.4567".to_string()];
         schema
@@ -2171,8 +2598,8 @@ mod tests {
         writeln!(file, "56.7800,beta").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
         assert_eq!(schema.columns.len(), 2);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
@@ -2187,8 +2614,8 @@ mod tests {
         writeln!(file, "15").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
         assert_eq!(schema.columns.len(), 1);
         assert_eq!(schema.columns[0].datatype, ColumnType::Currency);
     }
@@ -2202,8 +2629,8 @@ mod tests {
         writeln!(file, "3.5").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
 
         let expected = DecimalSpec::new(2, 1).expect("valid spec");
         match &schema.columns[0].datatype {
@@ -2220,8 +2647,8 @@ mod tests {
         writeln!(file, "2.5e-1").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
 
         let expected = DecimalSpec::new(6, 2).expect("valid spec");
         match &schema.columns[0].datatype {
@@ -2239,8 +2666,8 @@ mod tests {
         writeln!(file, "003").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
 
         assert_eq!(schema.columns[0].datatype, ColumnType::String);
     }
@@ -2253,8 +2680,8 @@ mod tests {
         writeln!(file, "45.67").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
 
         let expected = DecimalSpec::new(4, 2).expect("valid spec");
         match &schema.columns[0].datatype {
@@ -2288,8 +2715,8 @@ mod tests {
         writeln!(file, "unknown,gamma").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
         assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
         assert_eq!(schema.columns[1].datatype, ColumnType::String);
     }
@@ -2303,8 +2730,8 @@ mod tests {
         writeln!(file, "unknown").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, _) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, _) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
         assert_eq!(schema.columns.len(), 1);
         assert_eq!(schema.columns[0].datatype, ColumnType::Boolean);
     }
@@ -2318,8 +2745,8 @@ mod tests {
         writeln!(file, "42").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (_, stats) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer stats");
+        let (_, stats) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer stats");
 
         let summary = stats.placeholder_summary(0).expect("placeholder summary");
         let entries = summary.entries();
@@ -2337,6 +2764,42 @@ mod tests {
     }
 
     #[test]
+    fn assume_header_false_forces_field_names() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "id,value").unwrap();
+        writeln!(file, "1,2").unwrap();
+        writeln!(file, "3,4").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, _) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, Some(false))
+                .expect("force headerless schema");
+
+        assert!(!schema.has_headers);
+        let column_names: Vec<_> = schema.columns.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(column_names, vec!["field_0", "field_1"]);
+    }
+
+    #[test]
+    fn assume_header_true_preserves_first_row_names() {
+        let mut file = NamedTempFile::new().expect("temp file");
+        writeln!(file, "100,200").unwrap();
+        writeln!(file, "1,2").unwrap();
+        writeln!(file, "3,4").unwrap();
+
+        let policy = PlaceholderPolicy::default();
+        let (schema, stats) =
+            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, Some(true))
+                .expect("assume header true");
+
+        assert!(schema.has_headers);
+        let column_names: Vec<_> = schema.columns.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(column_names, vec!["100", "200"]);
+        // Ensure header row was excluded from samples by checking first sample value
+        assert_eq!(stats.sample_value(0), Some("1"));
+    }
+
+    #[test]
     fn apply_placeholder_replacements_respects_policy() {
         let mut file = NamedTempFile::new().expect("temp file");
         writeln!(file, "value").unwrap();
@@ -2345,8 +2808,8 @@ mod tests {
         writeln!(file, "7").unwrap();
 
         let policy = PlaceholderPolicy::default();
-        let (schema, stats) =
-            infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy).expect("infer schema");
+        let (schema, stats) = infer_schema_with_stats(file.path(), 0, b',', UTF_8, &policy, None)
+            .expect("infer schema");
 
         let mut schema_empty = schema.clone();
         let added_empty = apply_placeholder_replacements(&mut schema_empty, &stats, &policy);
@@ -2466,6 +2929,7 @@ columns:
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["123.455".to_string()];
         schema
@@ -2493,6 +2957,7 @@ columns:
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["-87.6549".to_string()];
         schema
@@ -2626,6 +3091,7 @@ columns:
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["12.34".to_string()];
         let err = schema
@@ -2658,6 +3124,7 @@ columns:
         let schema = Schema {
             columns: vec![column],
             schema_version: None,
+            has_headers: true,
         };
         let mut row = vec!["1234567.89".to_string()];
         let err = schema

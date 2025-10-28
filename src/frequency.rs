@@ -8,7 +8,7 @@ use crate::{
     filter::{FilterCondition, evaluate_conditions},
     io_utils,
     rows::{evaluate_filter_expressions, parse_typed_row},
-    schema::Schema,
+    schema::{self, Schema},
 };
 
 pub struct FrequencyOptions<'a> {
@@ -26,11 +26,18 @@ pub fn compute_frequency_rows(
     columns: &[usize],
     options: &FrequencyOptions,
 ) -> Result<Vec<Vec<String>>> {
-    let mut reader = io_utils::open_csv_reader_from_path(input, delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, encoding)?;
-    schema
-        .validate_headers(&headers)
-        .with_context(|| format!("Validating headers for {input:?}", input = input))?;
+    let expects_headers = schema.expects_headers();
+    let mut reader = io_utils::open_csv_reader_from_path(input, delimiter, expects_headers)?;
+    let headers = if expects_headers {
+        let headers = io_utils::reader_headers(&mut reader, encoding)?;
+        schema
+            .validate_headers(&headers)
+            .with_context(|| format!("Validating headers for {input:?}", input = input))?;
+        headers
+    } else {
+        schema.headers()
+    };
+    let header_aliases = schema.header_alias_sets();
 
     let mut stats = FrequencyAccumulator::new(columns, schema);
 
@@ -42,6 +49,9 @@ pub fn compute_frequency_rows(
         }
         let record = record.with_context(|| format!("Reading row {}", row_idx + 2))?;
         let mut decoded = io_utils::decode_record(&record, encoding)?;
+        if schema::row_looks_like_header(&decoded, &header_aliases) {
+            continue;
+        }
         if schema.has_transformations() {
             schema
                 .apply_transformations_to_row(&mut decoded)
@@ -216,7 +226,7 @@ mod tests {
         assert!(path.exists(), "fixture missing: {path:?}");
         let delimiter = crate::io_utils::resolve_input_delimiter(&path, None);
         let schema =
-            crate::schema::infer_schema(&path, 200, delimiter, UTF_8).expect("infer schema");
+            crate::schema::infer_schema(&path, 200, delimiter, UTF_8, None).expect("infer schema");
         let column_index = schema.column_index(GOALS_COL).expect("column index");
         let mut accumulator = FrequencyAccumulator::new(&[column_index], &schema);
         let mut reader =

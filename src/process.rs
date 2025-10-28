@@ -68,14 +68,31 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
     let derived_columns = parse_derived_columns(&args.derives)?;
     let filters = parse_filters(&args.filters)?;
 
-    let mut reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, true)?;
-    let headers = io_utils::reader_headers(&mut reader, input_encoding)?;
+    let mut reader;
+    let headers: Vec<String>;
+    let mut schema: Schema;
 
-    let mut schema = if let Some(schema_path) = &args.schema {
-        Schema::load(schema_path)?
+    if let Some(schema_path) = &args.schema {
+        schema = Schema::load(schema_path)?;
+        let expects_headers = schema.expects_headers();
+        reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, expects_headers)?;
+        headers = if expects_headers {
+            io_utils::reader_headers(&mut reader, input_encoding)?
+        } else {
+            schema.headers()
+        };
     } else {
-        Schema::from_headers(&headers)
-    };
+        let layout =
+            crate::schema::detect_csv_layout(&args.input, delimiter, input_encoding, None)?;
+        reader = io_utils::open_csv_reader_from_path(&args.input, delimiter, layout.has_headers)?;
+        headers = if layout.has_headers {
+            io_utils::reader_headers(&mut reader, input_encoding)?
+        } else {
+            layout.headers.clone()
+        };
+        schema = Schema::from_headers(&headers);
+        schema.has_headers = layout.has_headers;
+    }
 
     reconcile_schema_with_headers(&mut schema, &headers)?;
 

@@ -76,11 +76,15 @@ Options:
           How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
       --na-fill <STRING>
           Replacement token used when --na-behavior=fill (defaults to 'null'). Applied to schema replace arrays when writing via infer.
+      --assume-header <true|false>
+          Force header detection outcome (true treats the first row as headers, false treats it as data)
   -h, --help
           Print help
 ```
 
 When decimals appear in sampled data, the probe output lists them as `decimal(precision,scale)` along with strategy hints if mappings specify rounding or truncation.
+
+Header detection: The first up to 6 physical rows are sampled to decide if the file has a header. If judged headerless, synthetic names `field_0..field_N` are generated (not shown in raw file) and will persist when you later run `schema infer`. Misclassification can be corrected by editing the saved schema, toggling its `has_headers` flag, or forcing the outcome upfront with `--assume-header <true|false>`.
 
 NA Placeholder Handling: When `--na-behavior=empty` (default), tokens `NA`, `N/A`, `#NA`, `#N/A` (and legacy variants like `n.a.`) are ignored for datatype voting and surfaced in a "Placeholder Suggestions" section with proposed `replace` entries. With `--na-behavior=fill` plus optional `--na-fill` (defaults to an empty string, e.g., `--na-fill NULL`), those tokens are treated as if they held the fill value for schema replacement purposes (inferred types still ignore them). Use `schema infer` to persist the suggestions into the generated YAML.
 
@@ -115,20 +119,24 @@ Options:
       --diff <DIFF>
           Show a unified diff between an existing schema file and the inferred schema without modifying the file
       --preview
-          Render the inference report and resulting schema YAML to stdout without writing a file. Suppresses --output when present.
+          Render the resulting schema YAML to stdout without writing a file. Suppresses --output when present. Mapping templates still emit when --mapping is used.
       --na-behavior <na-behavior>
           How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
       --na-fill <STRING>
           Replacement token used when --na-behavior=fill (defaults to 'null'). Added to per-column `replace` arrays for each observed NA placeholder.
+      --assume-header <true|false>
+          Force header detection outcome (true treats the first row as headers, false treats it as data)
   -h, --help
           Print help
 ```
 
-`schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets. Use `--preview` to review the probe table and the exact YAML that would be written (including `--replace-template` scaffolding) without touching the filesystem, and `--diff existing-schema.yml` to inspect a unified diff against a saved schema before committing changes.
+`schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets. Use `--preview` to review the exact YAML that would be written (including `--replace-template` scaffolding, plus mapping templates when `--mapping` is enabled) without touching the filesystem, and `--diff existing-schema.yml` to inspect a unified diff against a saved schema before committing changes.
 
 Majority voting logic identical to `schema probe`; overrides apply after voting. Currency promotion uses the same 30% symbol threshold plus full-column compliance with currency scale rules before displacing Float/Decimal. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#NA`, `#N/A` as empty for inference to avoid diluting numeric majorities.
 \
 NA placeholders are already normalized: they do not count against majority votes. When `schema infer` writes a file—or when you pass `--preview` or `--diff`—observed NA tokens are injected into each affected column's `replace` array either mapping to an empty string (`--na-behavior=empty`) or to the chosen fill token (`--na-behavior=fill --na-fill <VALUE>`, defaulting to empty).
+
+Header detection: Like `schema probe`, inference auto-detects header presence. Persisted schemas include `has_headers: true|false`. For headerless inputs the generated YAML starts with `has_headers: false` and column names `field_0`, `field_1`, ... which you may rename. Use `--assume-header <true|false>` to bypass the heuristic when you already know the correct layout; otherwise edit `has_headers` manually post-inference.
 
 ### schema verify
 
@@ -153,6 +161,8 @@ Options:
 ```
 
 `schema verify` enforces decimal precision and scale exactly as defined in the schema; any value that exceeds the allowed integer digits or fractional places is reported as invalid.
+
+Headerless note: When the schema contains `has_headers: false` the first physical row of each verified file is treated as data, not skipped.
 
 ### schema columns
 
@@ -258,6 +268,8 @@ Options:
 
 Use `--apply-mappings` (enabled automatically when mappings exist) to run decimal rounding or truncation steps before values are written or validated.
 
+Headerless note: If the schema passed with `-m` has `has_headers: false`, the file is read without consuming a header row; column references should match the synthetic or renamed field names persisted in the schema.
+
 ## append
 
 ```text
@@ -280,6 +292,8 @@ Options:
           Character encoding for the output file/stdout (defaults to utf-8)
   -h, --help
           Print help
+
+Headerless note: Provide a schema with `has_headers: false` to append raw headerless extracts; otherwise the first row of the first file will be interpreted as a header and subsequent files must match.
 ```
 
 ## stats
@@ -312,6 +326,8 @@ Options:
           Maximum distinct values to display per column when --frequency is used (0 = all) [default: 0]
   -h, --help
           Print help
+
+Headerless note: When supplied a schema marked `has_headers: false`, the stats engine treats the first physical row as data and uses the synthetic (or renamed) column names for selection and filtering.
 ```
 
 ## install

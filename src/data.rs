@@ -333,13 +333,27 @@ pub fn parse_naive_time(value: &str) -> Result<NaiveTime> {
 }
 
 pub fn normalize_column_name(name: &str) -> String {
-    name.chars()
+    let mut normalized: String = name
+        .chars()
         .map(|c| match c {
             'a'..='z' | 'A'..='Z' | '0'..='9' => c,
             _ => '_',
         })
-        .collect::<String>()
-        .to_ascii_lowercase()
+        .collect();
+
+    if normalized.is_empty() {
+        normalized.push_str("column");
+    }
+
+    if normalized
+        .chars()
+        .next()
+        .is_none_or(|c| !(c.is_ascii_alphabetic() || c == '_'))
+    {
+        normalized.insert(0, '_');
+    }
+
+    normalized.to_ascii_lowercase()
 }
 
 pub fn parse_typed_value(value: &str, ty: &ColumnType) -> Result<Option<Value>> {
@@ -598,6 +612,8 @@ mod tests {
     fn normalize_column_name_replaces_non_alphanumeric() {
         assert_eq!(normalize_column_name("Order ID"), "order_id");
         assert_eq!(normalize_column_name("$Percent%"), "_percent_");
+        assert_eq!(normalize_column_name("123Metric"), "_123metric");
+        assert_eq!(normalize_column_name(""), "column");
     }
 
     #[test]

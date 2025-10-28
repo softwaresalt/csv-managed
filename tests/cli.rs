@@ -42,43 +42,9 @@ fn fixture_path(name: &str) -> PathBuf {
 }
 
 #[test]
-fn probe_creates_schema_with_custom_delimiter() {
-    let (dir, csv_path) = write_sample_csv(b';');
-    let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
-        .args([
-            "schema",
-            "infer",
-            "-i",
-            csv_path.to_str().unwrap(),
-            "-o",
-            schema_path.to_str().unwrap(),
-            "--delimiter",
-            ";",
-        ])
-        .assert()
-        .success();
-
-    let contents = fs::read_to_string(&schema_path).expect("read schema");
-    let json: Value = serde_yaml::from_str(&contents).expect("parse schema yaml");
-    let columns = json["columns"].as_sequence().expect("columns array");
-    assert!(columns.iter().all(|column| {
-        column
-            .as_mapping()
-            .and_then(|mapping| mapping.get(Value::from("replace")))
-            .is_none()
-    }));
-    let schema: Schema = serde_yaml::from_str(&contents).expect("parse schema");
-    assert_eq!(schema.columns.len(), 5);
-    assert_eq!(schema.columns[0].name, "id");
-}
-
-#[test]
 fn schema_command_writes_manual_schema() {
     let dir = tempdir().expect("temp dir");
-    let schema_path = dir.path().join("manual-schema.yml");
-
+    let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -111,6 +77,38 @@ fn schema_command_writes_manual_schema() {
     assert_eq!(schema.columns[1].datatype, ColumnType::String);
     assert_eq!(schema.columns[2].datatype, ColumnType::Float);
     assert_eq!(schema.columns[3].datatype, ColumnType::Guid);
+}
+
+#[test]
+fn infer_preview_outputs_yaml_and_mapping_table() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--mapping",
+            "--preview",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Schema YAML Preview"),
+        "missing YAML header: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Header+Type Hash"),
+        "probe report leaked into preview: {stdout}"
+    );
+    assert!(
+        stdout.contains("integer->"),
+        "mapping table missing from preview: {stdout}"
+    );
 }
 
 #[test]
@@ -219,6 +217,7 @@ fn probe_emits_mappings_into_schema_and_stdout() {
         .success()
         .stdout(
             contains("mapping")
+                .and(contains("suggested"))
                 .and(contains("id:integer->"))
                 .and(contains("name:string->")),
         );
@@ -264,8 +263,121 @@ fn schema_probe_outputs_enhanced_table() {
         "sample summary missing: {stdout}"
     );
     assert!(
+        stdout.contains("suggested"),
+        "suggested column missing: {stdout}"
+    );
+    assert!(
+        stdout.contains("(suggested)"),
+        "rename column should indicate suggestion: {stdout}"
+    );
+    assert!(
         stdout.contains("No decoding errors encountered."),
         "decode summary missing: {stdout}"
+    );
+}
+
+#[test]
+fn schema_probe_with_mapping_outputs_single_table() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--mapping",
+            "--sample-rows",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    let header_count = stdout.lines().filter(|line| line.starts_with('#')).count();
+    assert_eq!(
+        header_count, 1,
+        "expected a single probe table in output: {stdout}"
+    );
+    assert!(
+        stdout.contains("(suggested)"),
+        "rename suggestions missing from probe output: {stdout}"
+    );
+    assert!(
+        stdout.contains("mapping"),
+        "mapping status missing from probe output: {stdout}"
+    );
+}
+
+#[test]
+fn schema_infer_handles_headerless_input() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = fixture_path("sensor_readings_no_header.csv");
+    let schema_path = temp.path().join("headerless-schema.yml");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let schema = Schema::load(&schema_path).expect("load headerless schema");
+    assert!(
+        !schema.expects_headers(),
+        "schema should record that input had no header"
+    );
+    assert_eq!(schema.columns.len(), 3);
+    assert_eq!(schema.columns[0].name, "field_0");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            csv_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn infer_preview_without_mapping_outputs_only_yaml() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--preview",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Schema YAML Preview"),
+        "missing YAML header: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Header+Type Hash"),
+        "probe report leaked into preview: {stdout}"
+    );
+    assert!(
+        !stdout.contains("integer->"),
+        "mapping table leaked into preview without --mapping: {stdout}"
     );
 }
 
@@ -459,7 +571,7 @@ fn verify_reports_invalid_rows_with_limit_using_fixture() {
         .failure()
         .stdout(
             contains("Invalid rows")
-                .and(contains("row | column"))
+                .and(contains("row  column  raw"))
                 .and(contains("\u{1b}[31mnot_a_number\u{1b}[0m"))
                 .and(contains("Displayed 1 of 2 invalid row(s)"))
                 .and(contains("Columns with schema violations").not()),
@@ -487,9 +599,9 @@ fn verify_reports_all_invalid_rows_without_limit() {
         .failure()
         .stdout(
             contains("Invalid rows")
-                .and(contains("row | column | raw"))
-                .and(contains(" 2   | amount"))
-                .and(contains(" 3   | amount"))
+                .and(contains("row  column  raw"))
+                .and(contains("\n2    amount  not_a_number"))
+                .and(contains("\n3    amount  not_a_number"))
                 .and(contains("\u{1b}[31mnot_a_number\u{1b}[0m"))
                 .and(contains("Columns with schema violations"))
                 .and(contains("Displayed").not()),

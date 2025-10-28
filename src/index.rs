@@ -739,6 +739,7 @@ mod tests {
                 },
             ],
             schema_version: None,
+            has_headers: true,
         };
 
         let definition = IndexDefinition::from_columns(vec!["amount".to_string()]).unwrap();
