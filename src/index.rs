@@ -115,18 +115,18 @@ impl IndexDefinition {
         })
     }
 
-    pub fn expand_combo_spec(spec: &str) -> Result<Vec<Self>> {
+    pub fn expand_covering_spec(spec: &str) -> Result<Vec<Self>> {
         let (name_prefix, remainder) = if let Some((raw_name, rest)) = spec.split_once('=') {
             let trimmed_name = raw_name.trim();
             if trimmed_name.is_empty() {
                 return Err(anyhow!(
-                    "Combination specification is missing a name before '=': '{spec}'"
+                    "Covering specification is missing a name before '=': '{spec}'"
                 ));
             }
             let trimmed_rest = rest.trim();
             if trimmed_rest.is_empty() {
                 return Err(anyhow!(
-                    "Combination specification '{spec}' is missing column definitions after '='"
+                    "Covering specification '{spec}' is missing column definitions after '='"
                 ));
             }
             (Some(trimmed_name.to_string()), trimmed_rest)
@@ -138,12 +138,12 @@ impl IndexDefinition {
             .split(',')
             .map(|token| token.trim())
             .filter(|token| !token.is_empty())
-            .map(parse_combo_column)
+            .map(parse_covering_column)
             .collect::<Result<Vec<_>>>()?;
 
         if columns.is_empty() {
             return Err(anyhow!(
-                "Combination specification did not contain any columns: '{spec}'"
+                "Covering specification did not contain any columns: '{spec}'"
             ));
         }
 
@@ -160,7 +160,7 @@ impl IndexDefinition {
                     .map(|column| column.name.clone())
                     .collect::<Vec<_>>();
                 let variant_name =
-                    build_combo_name(name_prefix.as_deref(), &column_names, &directions);
+                    build_covering_name(name_prefix.as_deref(), &column_names, &directions);
                 definitions.push(IndexDefinition {
                     columns: column_names,
                     directions,
@@ -174,18 +174,18 @@ impl IndexDefinition {
 }
 
 #[derive(Debug, Clone)]
-struct ComboColumn {
+struct CoveringColumn {
     name: String,
     directions: Vec<SortDirection>,
 }
 
-fn parse_combo_column(token: &str) -> Result<ComboColumn> {
+fn parse_covering_column(token: &str) -> Result<CoveringColumn> {
     let mut parts = token.split(':');
     let name = parts
         .next()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| anyhow!("Combination specification is missing a column name"))?;
+        .ok_or_else(|| anyhow!("Covering specification is missing a column name"))?;
     let directions = if let Some(dir_part) = parts.next() {
         let options = dir_part
             .split('|')
@@ -206,7 +206,7 @@ fn parse_combo_column(token: &str) -> Result<ComboColumn> {
         vec![SortDirection::Asc]
     };
 
-    Ok(ComboColumn {
+    Ok(CoveringColumn {
         name: name.to_string(),
         directions,
     })
@@ -228,7 +228,7 @@ fn cartesian_product(options: &[&[SortDirection]]) -> Vec<Vec<SortDirection>> {
     acc
 }
 
-fn build_combo_name(
+fn build_covering_name(
     prefix: Option<&str>,
     columns: &[String],
     directions: &[SortDirection],
@@ -687,10 +687,10 @@ mod tests {
     }
 
     #[test]
-    fn expand_combo_spec_generates_prefix_variants() {
-        let variants = IndexDefinition::expand_combo_spec("col1:asc|desc,col2:asc").unwrap();
+    fn expand_covering_spec_generates_prefix_variants() {
+        let variants = IndexDefinition::expand_covering_spec("col1:asc|desc,col2:asc").unwrap();
         assert_eq!(variants.len(), 4);
-        let combos: Vec<(Vec<String>, Vec<SortDirection>, String)> = variants
+        let coverings: Vec<(Vec<String>, Vec<SortDirection>, String)> = variants
             .into_iter()
             .map(|definition| {
                 (
@@ -700,13 +700,13 @@ mod tests {
                 )
             })
             .collect();
-        assert!(combos.iter().any(|(cols, dirs, _)| {
+        assert!(coverings.iter().any(|(cols, dirs, _)| {
             cols == &vec!["col1".to_string()] && dirs == &vec![SortDirection::Asc]
         }));
-        assert!(combos.iter().any(|(cols, dirs, _)| {
+        assert!(coverings.iter().any(|(cols, dirs, _)| {
             cols == &vec!["col1".to_string()] && dirs == &vec![SortDirection::Desc]
         }));
-        assert!(combos.iter().any(|(cols, dirs, name)| {
+        assert!(coverings.iter().any(|(cols, dirs, name)| {
             cols == &vec!["col1".to_string(), "col2".to_string()]
                 && dirs == &vec![SortDirection::Asc, SortDirection::Asc]
                 && name.contains("col1-asc")
@@ -754,9 +754,9 @@ mod tests {
     }
 
     #[test]
-    fn expand_combo_spec_honors_name_prefix() {
+    fn expand_covering_spec_honors_name_prefix() {
         let variants =
-            IndexDefinition::expand_combo_spec("geo=country:asc|desc,region:asc|desc").unwrap();
+            IndexDefinition::expand_covering_spec("geo=country:asc|desc,region:asc|desc").unwrap();
         assert!(variants.len() >= 4);
         for definition in variants {
             let name = definition.name.unwrap();

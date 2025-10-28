@@ -144,9 +144,9 @@ pub struct IndexArgs {
     /// Repeatable index specifications such as `col_a:asc,col_b:desc` or `fast=col_a:asc`
     #[arg(long = "spec", action = clap::ArgAction::Append)]
     pub specs: Vec<String>,
-    /// Generate index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
-    #[arg(long = "combo", action = clap::ArgAction::Append)]
-    pub combos: Vec<String>,
+    /// Generate covering index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
+    #[arg(long = "covering", action = clap::ArgAction::Append)]
+    pub coverings: Vec<String>,
     /// Optional schema file describing column types
     #[arg(short = 'm', long = "schema", alias = "meta")]
     pub schema: Option<PathBuf>,

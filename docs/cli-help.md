@@ -184,8 +184,8 @@ Options:
           Columns to include in a single ascending index (deprecated when --spec is used)
       --spec <SPECS>
           Repeatable index specifications such as `col_a:asc,col_b:desc` or `fast=col_a:asc`
-      --combo <COMBOS>
-          Generate index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
+      --covering <COVERINGS>
+          Generate covering index variants by expanding column prefixes and direction combinations (use `|` to separate directions)
   -m, --schema <SCHEMA>
           Optional schema file describing column types
       --limit <LIMIT>
@@ -198,7 +198,7 @@ Options:
           Print help
 ```
 
-For advanced patterns (multi-variant specs, combo expansion, prefix/remainder sorting behavior, and performance guidance) see the extended guide: `docs/indexing-and-sorting.md`.
+For advanced patterns (multi-variant specs, covering expansion, prefix/remainder sorting behavior, and performance guidance) see the extended guide: `docs/indexing-and-sorting.md`.
 
 ## process
 

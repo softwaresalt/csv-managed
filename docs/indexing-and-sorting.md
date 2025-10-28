@@ -32,7 +32,7 @@ Current index on-disk version: **2** (`INDEX_VERSION = 2`).
 csv-managed.exe index -i data/orders_temporal.csv -o tmp/ordered_at.idx -m data/orders_temporal-schema.yml -C ordered_at
 ```
 
-The `-C/--columns` flag produces a single ascending variant (deprecated once `--spec` or `--combo` are used).
+The `-C/--columns` flag produces a single ascending variant (deprecated once `--spec` or `--covering` are used).
 
 ### 3.2 Explicit Variant Specifications (`--spec`)
 
@@ -51,13 +51,13 @@ Rules:
 - Name optional; if omitted variant has no identifier (still matchable by best-fit logic).
 - At least one column required.
 
-### 3.3 Combination Expansion (`--combo`)
+### 3.3 Covering Expansion (`--covering`)
 
 Generates *prefix* variants across Cartesian products of directions:
 
 ```powershell
-csv-managed.exe index -i data/orders_temporal.csv -o tmp/orders_combo.idx -m data/orders_temporal-schema.yml `
-  --combo "orders=ordered_at:asc|desc,status:asc|desc,ship_time:asc"
+csv-managed.exe index -i data/orders_temporal.csv -o tmp/orders_covering.idx -m data/orders_temporal-schema.yml `
+  --covering "orders=ordered_at:asc|desc,status:asc|desc,ship_time:asc"
 ```
 
 This produces variants for:
@@ -115,7 +115,7 @@ Requirements:
 
 ```powershell
 csv-managed.exe process -i data/orders_temporal.csv -m data/orders_temporal-schema.yml `
-  --index tmp/orders_combo.idx --sort ordered_at:asc --sort status:desc --sort ship_time:asc -o tmp/sorted.csv
+  --index tmp/orders_covering.idx --sort ordered_at:asc --sort status:desc --sort ship_time:asc -o tmp/sorted.csv
 ```
 
 If the variant covers only `ordered_at,status`, then rows sharing the same `(ordered_at,status)` pair are locally sorted by `ship_time` in memory before emission.
@@ -156,9 +156,9 @@ Given requested sort directives `[(col1,dir1),(col2,dir2),...]`:
 | Scenario | Recommended | Notes |
 |----------|-------------|-------|
 | Large file, repeatable single sort | Single variant index | Minimal storage overhead |
-| Several common prefixes | Use `--combo` | Avoid building unnecessary deep combinations |
+| Several common prefixes | Use `--covering` | Avoid building unnecessary deep combinations |
 | Many unrelated sort orders | Separate smaller indexes | Avoid one huge file with dozens of variants |
-| Mixed directions frequently | Explicit `--spec` variants | Reduces combinatorial explosion from `--combo` |
+| Mixed directions frequently | Explicit `--spec` variants | Reduces combinatorial explosion from `--covering` |
 | Changing schema/datatype mappings | Rebuild index | Mappings alter typed values → key ordering may shift |
 
 Memory impact: index processing keeps only the active *bucket* of rows in memory when the variant covers a prefix shorter than the full sort plan. Full in‑memory sort holds all rows.
@@ -169,7 +169,7 @@ Memory impact: index processing keeps only the active *bucket* of rows in memory
 
 | Symptom | Cause | Resolution |
 |---------|-------|-----------|
-| "Column 'X' not found" | Spec/Combo references missing header | Correct column name or regenerate schema for reference |
+| "Column 'X' not found" | Spec/Covering references missing header | Correct column name or regenerate schema for reference |
 | Index ignored | No variant matches requested sort prefix | Build a matching variant or adjust sort directives order |
 | Legacy format message | Old index loaded, converted | Safe to ignore; consider rebuilding to v2 for variants |
 | Slow processing with sort | In‑memory fallback | Add index variant covering leading sort columns |
@@ -180,7 +180,7 @@ Memory impact: index processing keeps only the active *bucket* of rows in memory
 ## 8. Best Practices Summary
 
 - Put most selective column first in variants for efficient prefix bucketing.
-- Use `--combo` sparingly—prefer explicit `--spec` for curated common paths.
+- Use `--covering` sparingly—prefer explicit `--spec` for curated common paths.
 - Keep variant names short but descriptive (e.g., `recent`, `asc_perf`, `geo_country_desc`).
 - Rebuild indexes after datatype mapping changes that materially transform key columns.
 - Store indexes alongside source data with a naming convention: `<base>.<pattern>.idx`.
@@ -197,7 +197,7 @@ csv-managed.exe schema infer -i data/orders_temporal.csv -o tmp/orders_temporal-
 csv-managed.exe index -i data/orders_temporal.csv -o tmp/orders.idx -m tmp/orders_temporal-schema.yml `
   --spec "recent=ordered_at:desc" `
   --spec "ordered_at:asc,status:asc" `
-  --combo "ordered_at:asc|desc,status:asc"
+  --covering "ordered_at:asc|desc,status:asc"
 
 # Accelerated processing using named variant
 csv-managed.exe process -i data/orders_temporal.csv -m tmp/orders_temporal-schema.yml `

@@ -117,9 +117,9 @@ fn handle_index(args: &cli::IndexArgs) -> Result<()> {
             .with_context(|| format!("Parsing index specification '{spec}'"))?;
         definitions.push(definition);
     }
-    for combo in &args.combos {
-        let expanded = index::IndexDefinition::expand_combo_spec(combo)
-            .with_context(|| format!("Parsing index combination '{combo}'"))?;
+    for covering in &args.coverings {
+        let expanded = index::IndexDefinition::expand_covering_spec(covering)
+            .with_context(|| format!("Parsing index covering '{covering}'"))?;
         definitions.extend(expanded);
     }
     if definitions.is_empty() {

@@ -9,8 +9,8 @@ REM Wrap replacement specifications in quotes so PowerShell/CMD do not treat '>'
 .\target\release\csv-managed.exe schema -o .\tmp\schema_list-schema.yml -c "id:integer,status:string,created_at:datetime"
 ::type .\tmp\schema_list-schema.yml
 
-rem Apply NA placeholder policy while inferring a schema
-.\target\release\csv-managed.exe schema infer -i .\tests\data\stats_schema.csv -o .\tmp\stats_schema_na-fill.yml --mapping --replace-template --na-behavior fill --na-fill "NULL"
+.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_covering.idx -m .\tests\data\orders_temporal-schema.yml ^
+  --covering "orders=ordered_at:asc|desc,status:asc"
 
 rem Demonstrate majority-based inference recovering non-string types from noisy data
 .\target\release\csv-managed.exe schema probe -i .\tests\data\majority_datatypes.csv --sample-rows 0
@@ -27,9 +27,9 @@ rem Use a named index variant to accelerate a descending ordered_at sort
 .\target\release\csv-managed.exe process -i .\tests\data\orders_temporal.csv -m .\tests\data\orders_temporal-schema.yml ^
   -x .\tmp\orders_temporal_variants.idx --index-variant recent --sort ordered_at:desc --columns ordered_at --columns status --limit 10 --preview
 
-rem Expand a combo spec to generate prefix indexes for multiple direction combinations
-.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_combo.idx -m .\tests\data\orders_temporal-schema.yml ^
-  --combo "orders=ordered_at:asc|desc,status:asc"
+rem Expand a covering spec to generate prefix indexes for multiple direction combinations
+.\target\release\csv-managed.exe index -i .\tests\data\orders_temporal.csv -o .\tmp\orders_temporal_covering.idx -m .\tests\data\orders_temporal-schema.yml ^
+  --covering "orders=ordered_at:asc|desc,status:asc"
 
 rem Prototype an index from a subset of rows to validate column choices quickly
 .\target\release\csv-managed.exe index -i .\tests\data\big_5_players_stats_2023_2024.csv -o .\tmp\big5_players_perf.idx -m .\tests\data\big_5_players_stats-schema.yml ^

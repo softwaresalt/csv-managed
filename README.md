@@ -15,7 +15,7 @@
 | Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
 | Datatype Transformations | Schema-driven `datatype_mappings` chains convert and standardize values (string→datetime→date, float rounding, string casing) before replacements; toggle via `process --apply-mappings` / `--skip-mappings`. See: [schema](#schema), [process](#process). |
 | Fixed Decimal Datatype | Columns may declare `decimal(precision,scale)` (up to 28 digits of precision). Parsing enforces integer/scale limits, supports `round`/`truncate` strategies, and normalizes output for downstream analytics. See: [schema](#schema), [datatype mappings](#datatype-mappings). |
-| Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and combo expansion (`--combo`) for prefix/direction permutations. See: [index](#index) and detailed guide: [Indexing & Sorting](docs/indexing-and-sorting.md). |
+| Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and covering expansion (`--covering`) for prefix/direction permutations. See: [index](#index) and detailed guide: [Indexing & Sorting](docs/indexing-and-sorting.md). |
 | Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
 | Filtering & Projection | Typed comparison filters (`= != > >= < <= contains startswith endswith`), multi-flag AND semantics; Evalexpr predicates (`--filter-expr`) with temporal helpers; column include/exclude; row limiting; optional 1-based row numbers. See: [process](#process), [Expression Reference](#expression-reference). |
 | Temporal Expression Helpers | Functions like `date_diff_days`, `datetime_format`, `time_diff_seconds` usable in derives and `--filter-expr`. See: [process](#process), [Expression Reference](#expression-reference). |
@@ -381,7 +381,7 @@ Build a B-Tree index for specified key columns (ascending order optimization).
 | `-o, --index <FILE>` | Output `.idx` file. |
 | `-C, --columns <LIST>` | Legacy single ascending index (comma list). Superseded by `--spec`. |
 | `--spec <SPEC>` | Repeatable: `name=col_a:asc,col_b:desc` or `col_a:asc`. Builds named variants per index file. |
-| `--combo <SPEC>` | Generate prefix combinations with optional direction branches using `\|`, e.g. `geo=date:asc\|desc,customer:asc`. |
+| `--covering <SPEC>` | Generate prefix combinations with optional direction branches using `\|`, e.g. `geo=date:asc\|desc,customer:asc`. |
 | `-m, --schema <FILE>` | Optional schema file. |
 | `--limit <N>` | Stop after N rows (partial index). |
 | `--delimiter <VAL>` | Input delimiter. |

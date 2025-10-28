@@ -561,7 +561,7 @@ fn index_is_used_for_sorted_output() {
 }
 
 #[test]
-fn index_combo_spec_generates_multiple_variants() {
+fn index_covering_spec_generates_multiple_variants() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
     Command::cargo_bin("csv-managed")
@@ -577,7 +577,7 @@ fn index_combo_spec_generates_multiple_variants() {
         .assert()
         .success();
 
-    let index_path = dir.path().join("combo.idx");
+    let index_path = dir.path().join("covering.idx");
     Command::cargo_bin("csv-managed")
         .expect("binary exists")
         .args([
@@ -586,7 +586,7 @@ fn index_combo_spec_generates_multiple_variants() {
             csv_path.to_str().unwrap(),
             "-o",
             index_path.to_str().unwrap(),
-            "--combo",
+            "--covering",
             "geo=ordered_at:asc|desc,amount:asc",
             "--schema",
             schema_path.to_str().unwrap(),
@@ -594,7 +594,7 @@ fn index_combo_spec_generates_multiple_variants() {
         .assert()
         .success();
 
-    let index = CsvIndex::load(&index_path).expect("load combo index");
+    let index = CsvIndex::load(&index_path).expect("load covering index");
     assert!(index.variants().len() >= 4);
     assert!(
         index
