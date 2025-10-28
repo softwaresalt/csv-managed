@@ -2242,7 +2242,10 @@ impl ColumnMeta {
         if header == self.name {
             return true;
         }
-        if let Some(rename) = self.rename.as_deref() && !rename.is_empty() && header == rename {
+        if let Some(rename) = self.rename.as_deref()
+            && !rename.is_empty()
+            && header == rename
+        {
             return true;
         }
         false
