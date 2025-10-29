@@ -394,7 +394,7 @@ See consolidated backlog & release planning in `[.plan/backlog.md](.plan/backlog
 
 ## License
 
-See `LICENSE`.
+See [LICENSE](LICENSE).
 
 ## Support
 
