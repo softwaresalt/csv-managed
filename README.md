@@ -400,6 +400,8 @@ See `LICENSE`.
 
 Open issues for bugs, enhancements, or documentation gaps. Pull requests welcome.
 
+Join the community conversation, ask questions, or propose ideas in **[GitHub Discussions](https://github.com/softwaresalt/csv-managed/discussions)**.
+
 ---
 
 ## Documentation Notes
