@@ -82,9 +82,16 @@ jobs:
           name: csv-managed-${{ github.ref_name }}-${{ runner.os }}-x86_64
           path: dist/*.tar.gz
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.tar.gz
+      - name: Create or update GitHub release
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists – updating assets."
+            gh release upload "$TAG" dist/*.tar.gz --clobber
+          else
+            echo "Creating release $TAG."
+            gh release create "$TAG" dist/*.tar.gz --generate-notes
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
