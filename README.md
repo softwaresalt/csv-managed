@@ -1,197 +1,133 @@
 # csv-managed
 
-`csv-managed` is a Rust command-line utility for high‑performance exploration and transformation of CSV data at scale. It emphasizes streaming, typed operations, and reproducible workflows via schema (`-schema.yml`) and index (`.idx`) files.
+`csv-managed` is a high‑performance Rust CLI for exploring, validating, transforming, and indexing very large CSV/TSV (and future delimited) datasets using streaming, typed schemas, and multi‑variant indexes.
 
-## Implemented Features
+## Feature Matrix (Concise)
 
-| Area | Description |
-|------|-------------|
-| Delimiters & Encodings | Read/write comma, tab, pipe, semicolon, or any single ASCII delimiter; independent `--input-encoding` / `--output-encoding`; stdin/stdout streaming (`-`). See: [process](#process), [index](#index). |
-| Schema Discovery (probe / infer) | Fast sample (`--sample-rows`) or full scan detection of String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency; optional mapping & replace scaffolds (`--mapping`, `--replace-template`); overrides via `--override`; NA placeholder normalization (`--na-behavior`, `--na-fill`); unified diff comparisons against existing schemas (`--diff existing-schema.yml`). See: [schema](#schema). |
-| Headerless CSV Detection | Automatically detects presence/absence of a header row (sampling up to first 6 rows). Override detection with `--assume-header=<true\|false>`. For headerless files synthetic column names `field_0..field_N` are generated and persisted with `has_headers: false`; downstream commands (`process`, `stats`, `verify`, `append`) treat the first row as data. Edit the schema's `has_headers` flag if further adjustments are needed. |
-| Schema Preview | `schema infer --preview` emits the probe table and resulting YAML (respecting `--replace-template`, overrides, and NA placeholder handling) without writing files—use with `-o` for a dry run before persisting. See: [schema](#schema). |
-| Manual Schema Authoring | Inline column specs (`-c name:type->Alias`), value replacements (`--replace column=value->new`), persisted to `-schema.yml` (legacy `-schema.yml` accepted). See: [schema](#schema). |
-| Snapshot Regression | `--snapshot <file>` for `schema probe` / `schema infer` writes or validates golden layout & inferred types; guards against formatting/inference drift. See: [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
-| Column Listing | `schema columns` renders column positions, types, and aliases derived from schema mapping. See: [schema columns](#schema-columns). |
-| Value Normalization | Per-column `replace` arrays applied before parsing; flexible boolean token parsing with selectable output format (`process --boolean-format`). See: [schema](#schema), [process](#process). |
-| Datatype Transformations | Schema-driven `datatype_mappings` chains convert and standardize values (string→datetime→date, float rounding, string casing) before replacements; toggle via `process --apply-mappings` / `--skip-mappings`. See: [schema](#schema), [process](#process). |
-| Fixed Decimal Datatype | Columns may declare `decimal(precision,scale)` (up to 28 digits of precision). Parsing enforces integer/scale limits, supports `round`/`truncate` strategies, and normalizes output for downstream analytics. See: [schema](#schema), [datatype mappings](#datatype-mappings). |
-| Indexing | Multi-variant B-tree index files with mixed asc/desc columns; named specs (`--spec name=col:asc,...`) and covering expansion (`--covering`) for prefix/direction permutations. See: [index](#index) and detailed guide: [Indexing & Sorting](docs/indexing-and-sorting.md). |
-| Sort & Stream Processing | `process` selects best index variant (longest matching prefix) or falls back to stable in-memory multi-column sort while streaming transformations. See: [process](#process). |
-| Filtering & Projection | Typed comparison filters (`= != > >= < <= contains startswith endswith`), multi-flag AND semantics; Evalexpr predicates (`--filter-expr`) with temporal helpers; column include/exclude; row limiting; optional 1-based row numbers. See: [process](#process), [Expression Reference](#expression-reference). |
-| Temporal Expression Helpers | Functions like `date_diff_days`, `datetime_format`, `time_diff_seconds` usable in derives and `--filter-expr`. See: [process](#process), [Expression Reference](#expression-reference). |
-| Derived Columns | Evalexpr-based expressions referencing header names or positional aliases (`cN`); arithmetic, string, conditional, temporal operations. See: [process](#process), [Expression Reference](#expression-reference). |
-| Append | Concatenate multiple inputs with header (and optional schema) validation, enforcing consistent types pre-merge. See: [append](#append). |
-| Verification | `schema verify` streams each row against declared types; reporting tiers via `--report-invalid[:detail[:summary]] [LIMIT]`. Non‑zero exit code when any invalid value encountered. See: [schema](#schema), [Snapshot vs Schema Verify](#snapshot-vs-schema-verify). |
-| Statistics & Frequency | `stats` computes count, mean, median, min, max, std dev for numeric & temporal columns; `--frequency` distinct counts with optional `--top`; filters apply prior to aggregation. See: [stats](#stats). |
-| Preview & Table Rendering | `process --preview` elastic table for quick inspection (defaults `--limit` to 10); `process --table` formatted output when streaming to stdout. See: [process](#process). |
-| Joins (engine) | Hash-join engine retained for upcoming streaming pipelines; CLI command temporarily disabled while v1.6.0 join workflows are redesigned. |
-| Installation & Tooling | `install` convenience wrapper around `cargo install`; tag-based release workflow; logging via `RUST_LOG`. See: [install](#install). |
-| Streaming & Memory Efficiency | Forward-only iteration for verify, stats, filtering, projection, and indexed sorted reads; minimizes heap usage for large files. See: [process](#process), [schema](#schema). |
-| Error Reporting & Diagnostics | Contextual errors (I/O, parsing, schema mismatch, expression eval); highlighted invalid cells; snapshot mismatch failures surface layout drifts early. See: [schema](#schema), [process](#process). |
+| Area | Highlights |
+|------|-----------|
+| Delimiters & Encodings | Comma/tab/pipe/semicolon/custom; independent input/output encoding; stdin/stdout streaming |
+| Schema Discovery | Sample or full scan inference; diff, overrides, placeholder normalization, snapshots |
+| Header Detection | Automatic header/headerless with synthetic `field_#`; force via `--assume-header` |
+| Datatype Transformations | Ordered `datatype_mappings` chains (parse, round, trim, case) before final typing |
+| Decimal & Currency | Fixed `decimal(p,s)` (≤28 precision) and currency scale (2 or 4) enforcement |
+| Indexing & Sorting | Multi-variant B-Tree index; longest matching prefix acceleration; covering expansion |
+| Filtering & Derivation | Typed comparisons + Evalexpr expressions; temporal helpers; positional aliases |
+| Verification | Streaming per-cell type enforcement; tiered invalid reporting |
+| Statistics & Frequency | Numeric + temporal metrics; distinct counts with `--frequency` / `--top` |
+| Append & Pipelines | Multi-file union with schema consistency; efficient chained stdin workflows |
+| Boolean & Table Output | Configurable boolean formats; elastic preview/table rendering |
+| Snapshots | Layout/inference regression guard (`--snapshot`) |
+| Error & Logging | Contextual failures; debug logging for inference/index/mappings |
 
-### Mini Derived & Filter Expression Cheat Sheets
+Extended details moved to dedicated docs (see Documentation Map).
 
-#### Derived Expression Patterns
+---
 
-| Pattern | Example | Description |
-|---------|---------|-------------|
-| Header reference | `total_with_tax=amount*1.0825` | Multiply numeric column values. |
-| Positional alias | `margin=c5-c3` | Use `cN` alias (0-based). |
-| Conditional flag | `high_value=if(amount>1000,1,0)` | 1/0 indicator via `if(cond, then, else)`. |
-| Date math | `ship_eta=date_add(ordered_at,2)` | Add days to a date column. |
-| Date diff | `ship_lag=date_diff_days(shipped_at,ordered_at)` | Days between two dates. |
-| Time diff | `window=time_diff_seconds(end_time,start_time)` | Seconds between two times. |
-| Boolean normalization | `is_shipped=if(status="shipped",true,false)` | Emit canonical booleans. |
-| String concat | `channel_tag=concat(channel,"-",region)` | Join string columns. |
-| Guid passthrough | `id_copy=id` | Duplicate a Guid column. |
-| Row number | `row_index=row_number` | Sequential number (with `--row-numbers`). |
+## Global Documentation Table of Contents
 
-#### Filter vs Filter-Expr Cheat Sheet
+### Core (This README)
 
-| Aspect | --filter | --filter-expr |
-|--------|----------|---------------|
-| Syntax style | Simple operator tokens | Full Evalexpr expression |
-| Supported operators | = != > >= < <= contains startswith endswith | arithmetic(+ - * / %), logic(AND OR), functions(if(), concat(), date_*, time_*) |
-| Type awareness | Typed parsing per column | Evaluates on parsed typed values |
-| Temporal helpers | Compare canonical values | date_diff_days, date_add, time_diff_seconds, datetime_format, etc. |
-| Boolean logic | Repeat flag = AND chain | logical operators (AND, OR) or if(...) nesting |
-| String literals | Bare or quoted if spaces | Must use double quotes (outer shell may use single) |
-| Column reference | Header name | Header name or positional alias cN |
-| Row number | Provided when --row-numbers | Variable row_number when --row-numbers |
-| Example | --filter "status = shipped" | --filter-expr 'if(amount>1000 && status="shipped", true, false)' |
-| Temporal example | --filter "ordered_at >= 2024-01-01" | --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 2' |
-| Complex gating | Multiple --filter flags | Single rich conditional expression |
+1. [Feature Matrix](#feature-matrix-concise)
+2. [Global Documentation TOC](#global-documentation-table-of-contents)
+3. [Quick Start](#quick-start)
+4. [Installation](#installation)
+5. [Core Concepts (Brief)](#core-concepts-brief)
+6. [Datatypes](#datatypes-supported)
+7. [Expressions Overview](#expressions--derived-logic-overview)
+8. [Indexes & Sorting Overview](#indexes--sorting-overview)
+9. [Streaming & Pipelines Overview](#streaming--pipelines-overview)
+10. [Command Guide](#command-guide-summary)
+11. [Advanced Topics](#advanced-topics)
+12. [Roadmap](#roadmap)
+13. [Contributing](#contributing)
+14. [License](#license)
+15. [Support](#support)
 
-Common `--filter-expr` snippets:
+### Deep Dives (Docs Directory)
 
-```text
-date_diff_days(shipped_at, ordered_at) > 1
-concat(channel, "-", region) = "web-US"
-if(amount * 1.0825 > 500, 1, 0)
-time_diff_seconds(end_time, start_time) >= 3600
-```
+1. Schema Inference Internals – `docs/schema-inference.md`
+2. Schema Command Examples – `docs/schema-examples.md`
+3. Datatype Mappings Deep Dive – `docs/datatype-mappings.md`
+4. Statistics & Frequency Deep Dive – `docs/stats.md`
+5. Header Detection & FAQ – `docs/header-detection.md`
+6. Naming Conventions – `docs/naming-conventions.md`
+7. Snapshots vs Verification – `docs/snapshots-and-verification.md`
+8. Expressions Reference & Extended Examples – `docs/expressions.md`
+9. Indexing & Sorting Guide – `docs/indexing-and-sorting.md`
+10. Pipelines & Multi-Stage Patterns – `docs/pipelines.md`
+11. Encoding Normalization – `docs/encoding-normalization.md`
+12. Boolean Formatting & Table Output – `docs/boolean-formatting.md`
+13. Operational Notes (Perf / Errors / Logging / Testing) – `docs/operations.md`
+14. CLI Help Reference – `docs/cli-help.md`
 
-### Expression Reference
+### Quick Cross-Reference
 
-Unified reference for derived column expressions, filter vs filter-expr usage, temporal helpers, common pitfalls, and a combined example.
+| Capability | Primary Doc |
+|------------|-------------|
+| Inference algorithm details | `schema-inference.md` |
+| Placeholder / NA handling | `schema-inference.md`, `schema-examples.md` |
+| Decimal & Currency rules | `schema-inference.md`, `datatype-mappings.md` |
+| Mapping strategies & strategies matrix | `datatype-mappings.md` |
+| Overrides vs mappings vs replacements | `schema-examples.md`, `datatype-mappings.md` |
+| Header detection heuristic | `header-detection.md` |
+| Naming / snake_case rationale | `naming-conventions.md` |
+| Snapshot vs verify comparison | `snapshots-and-verification.md` |
+| Invalid reporting tiers | `snapshots-and-verification.md` |
+| Index variant design & covering | `indexing-and-sorting.md` |
+| Streaming pipeline safety (header shape) | `pipelines.md` |
+| Encoding normalization patterns | `encoding-normalization.md` |
+| Boolean output modes | `boolean-formatting.md` |
+| Statistics aggregation & frequency counting | `stats.md` |
+| Expressions functions, quoting, bucketing | `expressions.md` |
+| Performance & logging guidance | `operations.md` |
+| CLI option reference | `cli-help.md` |
 
-#### 1. Derived Columns (Recap)
+> Use this TOC as a hub: internal anchors for quick orientation; deep dives for authoritative detail.
 
-Use `--derive name=expression`. Expressions may reference:
+---
 
-* Header names (normalized after schema mapping)
-* Positional aliases `cN` (0-based, so `c0` is first data column)
-* Functions (see Temporal Helpers below)
-* `row_number` (only when `--row-numbers` enabled)
+## Documentation Map
 
-#### 2. Filter vs Filter-Expr (Recap)
+| Topic | Doc |
+|-------|-----|
+| Expressions (full reference & examples) | `docs/expressions.md` |
+| Indexing & Sorting internals | `docs/indexing-and-sorting.md` |
+| Multi-stage pipelines & header shape rules | `docs/pipelines.md` |
+| Schema inference internals | `docs/schema-inference.md` |
+| Schema command usage examples | `docs/schema-examples.md` |
+| Header detection algorithm & FAQ | `docs/header-detection.md` |
+| Naming conventions (snake_case rationale) | `docs/naming-conventions.md` |
+| Snapshots vs verification + reporting tiers | `docs/snapshots-and-verification.md` |
+| Boolean formatting & table output | `docs/boolean-formatting.md` |
+| Encoding normalization pipelines | `docs/encoding-normalization.md` |
+| Operational notes (performance, errors, logging, testing) | `docs/operations.md` |
+| CLI flag reference (captured help output) | `docs/cli-help.md` |
 
-Two parallel mechanisms:
+Roadmap/backlog: see `.plan/backlog.md` (if present).
 
-* `--filter` provides concise typed comparisons (auto-parsed per datatype; AND chaining across repeats).
-* `--filter-expr` evaluates a full Evalexpr expression after parsing typed values (supports arithmetic, string, conditional, temporal helpers, boolean logic).
+---
 
-Mix them freely; all are combined with AND semantics overall (i.e. row must satisfy every filter and every filter-expr that evaluates true).
-
-#### 3. Temporal Helpers (Full List)
-
-| Function | Description |
-|----------|-------------|
-| `date_add(date, days)` / `date_sub(date, days)` | Shift a date forward or backward by whole days. |
-| `date_diff_days(end, start)` | Difference in days between two dates (can be negative). |
-| `date_format(date, "%d %b %Y")` | Render a date with a custom chrono-compatible format string. |
-| `datetime_add_seconds(ts, seconds)` | Shift a datetime by an offset in seconds. |
-| `datetime_diff_seconds(end, start)` | Difference between datetimes in seconds. |
-| `datetime_to_date(ts)` / `datetime_to_time(ts)` | Extract date or time portions from a datetime. |
-| `datetime_format(ts, "%Y-%m-%dT%H:%M")` | Custom formatting for datetimes. |
-| `time_add_seconds(time, seconds)` | Shift an `HH:MM[:SS]` time of day by seconds. |
-| `time_diff_seconds(end, start)` | Difference between two times (seconds). |
-
-All helpers accept canonical strings (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, `HH:MM:SS`). Time arguments accept `HH:MM`. Fractional numeric offsets are truncated.
-
-#### 4. Common Pitfalls
-
-| Pitfall | Guidance |
-|---------|----------|
-| Quoting (PowerShell) | Wrap the whole expression in single quotes; use double quotes for string literals inside: `'channel="web"'`. |
-| Quoting (cmd.exe) | Escape inner quotes: `"web"`. |
-| Positional alias indexing | `c0` is first column, not `c1`; verify header order after mapping. |
-| Mixed filter logic | Multiple --filter flags AND together; to OR conditions use --filter-expr with (a OR b). |
-| Row number usage | `row_number` available only if `--row-numbers` was set before derives/filters execute. |
-| Temporal comparisons | Prefer helpers (e.g. `date_diff_days`) over manual string comparison for correctness across formats. |
-| Transform vs replace ordering | `datatype_mappings` run first, followed by schema `replace` mappings, then typed parsing & expressions; design expressions based on the fully normalized values. |
-| Boolean output format | `--boolean-format` affects derived boolean rendering; logic still works with internal canonical bool. |
-| Performance & median | Median and large numeric derives may retain many values; limit columns or avoid heavy expressions for huge files. |
-| Using snapshots | Snapshots guard inference output only; they do not validate expression correctness. |
-
-#### 5. Combined Filtering Example
-
-Example mixing concise filters and one complex temporal expression:
+## Quick Start
 
 ```powershell
-./target/release/csv-managed.exe process \
-  -i ./data/orders.csv \
-  -m ./data/orders-schema.yml \
-  --filter "status = shipped" \
-  --filter "amount >= 100" \
-  --filter-expr 'date_diff_days(shipped_at, ordered_at) >= 2 && (region = "US" || region = "CA")' \
-  --derive 'ship_lag_days=date_diff_days(shipped_at, ordered_at)' \
-  --row-numbers \
-  -C order_id,ordered_at,shipped_at,ship_lag_days,amount,status,region,row_number \
-  --limit 25
+# 1. Infer schema
+./target/release/csv-managed.exe schema infer -i ./data/orders.csv -o ./data/orders-schema.yml --sample-rows 0
+# 2. Build indexes
+./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc -m ./data/orders-schema.yml
+# 3. Typed processing (filters / derives / sort)
+./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders-schema.yml -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
+# 4. Stats (numeric & temporal)
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml
+# 5. Frequency counts
+./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml --frequency --top 10
+# 6. Preview (no file output allowed with --preview)
+./target/release/csv-managed.exe process -i ./data/orders.csv --preview --limit 15
 ```
 
-#### 6. Quick Expression Validation Tip
+> See extended examples in collapsible sections throughout this README.
 
-Start with a narrower column selection (`-C`) and a small `--limit` to confirm derived outputs before removing the limit for full processing.
-
-#### 7. Function Index (Alphabetical)
-
-Helper functions usable in `--derive` and `--filter-expr` (temporal & formatting):
-
-`date_add`, `date_diff_days`, `date_format`, `date_sub`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `time_add_seconds`, `time_diff_seconds`
-
-#### 8. Debug Tip
-
-Set an environment variable to increase internal logging verbosity:
-
-PowerShell:
-
-```powershell
-$env:RUST_LOG='csv_managed=debug'
-```
-
-cmd.exe:
-
-```batch
-set RUST_LOG=csv_managed=debug
-```
-
-Future enhancement: a debug mode may emit expression parse/normalize traces (e.g., tokenization, type coercions). When added, they will appear at `debug` level tagged with `expr:` prefixes. This placeholder documents intended usage; if absent, no expression AST logging is currently implemented.
-
-cmd.exe:
-
-```batch
-./target/release/csv-managed.exe process ^
-  -i ./data/orders.csv ^
-  -m ./data/orders-schema.yml ^
-  -x ./data/orders.idx ^
-  --index-variant default ^
-  --sort order_date:asc,customer_id:asc ^
-  --filter "status = shipped" ^
-  --filter "amount >= 100" ^
-  --derive "total_with_tax=1" ^
-  --derive "channel=\"online\"" ^
-  -C order_id,customer_id,amount,total_with_tax ^
-  --exclude-columns internal_flag ^
-  --row-numbers ^
-  --boolean-format one-zero ^
-  --output-delimiter pipe
-```
-
-If `--index-variant` is omitted, `process` automatically chooses the variant that covers the longest prefix of the requested `--sort` columns and directions.
-When no indexed variant matches the requested sort signature, the command falls back to an in-memory stable sort while continuing to stream rows wherever possible.
+---
 
 ## Installation
 
@@ -201,29 +137,25 @@ cargo build --release
 
 Binary (Windows): `target\release\csv-managed.exe`
 
-Install from crates.io:
+From crates.io:
 
 ```bash
 cargo install csv-managed
 ```
 
-Install locally from the workspace (useful when developing):
+Local path dev install:
 
 ```bash
 cargo install --path .
 ```
 
-After building, the CLI can re-run installation on the current machine:
+Helper command (wraps `cargo install`):
 
 ```powershell
 ./target/release/csv-managed.exe install --locked
 ```
 
-The helper wraps `cargo install csv-managed` and accepts `--version`, `--force`, `--locked`, and `--root` pass-through options.
-
-> Release automation: push a tag like `v0.1.0` and provide a `CRATES_IO_TOKEN` repository secret; the GitHub Actions release workflow will build archives and execute `cargo publish --locked` automatically.
-
-Logging examples:
+Environment logging examples:
 
 ```powershell
 $env:RUST_LOG='info'
@@ -233,975 +165,243 @@ $env:RUST_LOG='info'
 set RUST_LOG=info
 ```
 
-## Quick Start
+---
 
-```powershell
-# 1. Infer schema
-./target/release/csv-managed.exe schema infer -i ./data/orders.csv -o ./data/orders-schema.yml --sample-rows 0
-# 2. Build index (optional for sorted reads)
-./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx --spec default=order_date:asc,customer_id:asc --spec recent=order_date:desc --schema ./data/orders-schema.yml
-# 3. Process with filters / derives / sort
-./target/release/csv-managed.exe process -i ./data/orders.csv -m ./data/orders-schema.yml -x ./data/orders.idx --index-variant default --sort order_date:asc,customer_id:asc --filter "status = shipped" --derive 'total_with_tax=amount*1.0825' --row-numbers -o ./data/orders_filtered.csv
-# 4. Normalize legacy tokens via schema replacements
-./target/release/csv-managed.exe process -i ./data/orders.csv -o ./data/orders_clean.csv --schema ./data/orders-schema.yml
-# 5. Summary statistics
-./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml
-# 5b. Temporal summary statistics
-./target/release/csv-managed.exe stats -i ./tests/data/stats_temporal.csv -m ./tests/data/stats_temporal-schema.yml --columns ordered_at --columns ordered_at_ts --columns ship_time
-# 6. Frequency counts (top 10)
-./target/release/csv-managed.exe stats -i ./data/orders.csv -m ./data/orders-schema.yml --frequency --top 10
-# 7. Preview first 15 rows
-./target/release/csv-managed.exe process -i ./data/orders.csv --preview --limit 15
-# 8. Append monthly extracts
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders-schema.yml -o q1.csv
-# 9. Verify integrity (summary default)
-./target/release/csv-managed.exe schema verify -m orders-schema.yml -i q1.csv
-#     Investigate failures with highlighted samples (optional limit)
-./target/release/csv-managed.exe schema verify -m orders-schema.yml -i orders_invalid.csv --report-invalid:detail:summary 5
-```
+## Core Concepts (Brief)
 
-For more advanced derived column and filtering patterns (bucketing, temporal calculations, chained logic), see `docs/expressions.md`.
+Schemas declare column order, types, optional renames, mapping chains, and replacements. Per-cell flow: raw → mappings → replacements → final parse. See `docs/schema-inference.md` and `docs/schema-examples.md`.
 
-## Command Reference
+Header detection, naming guidance, and FAQ: `docs/header-detection.md`, `docs/naming-conventions.md`.
 
-Detailed `--help` output for every command is mirrored in `docs/cli-help.md` for quick reference.
+Overrides vs mappings vs replacements decision table: `docs/schema-examples.md`.
 
-### schema
+Verification tiers + snapshot comparison: `docs/snapshots-and-verification.md`.
 
-Define schemas manually or discover them via `probe` / `infer`; verify datasets against a saved schema and optionally enforce value replacements.
+### Snapshot Internals (Deep Dive)
 
-| Subcommand / Flag | Description |
-|-------------------|-------------|
-| `schema probe` | Display inferred columns and types in a console table (no file written). |
-| `schema infer` | Infer and optionally persist a `-schema.yml` file (`-o/--output`). Legacy `*-schema.yml` written only if explicitly requested. |
-| `schema verify` | Stream-validate one or more files against a schema (`-m/--schema`). |
-| `-i, --input <FILE>` | Input CSV for `probe` or `infer`. Repeat `-i` for multiple inputs in `verify`. |
-| `-o, --output <FILE>` | Destination schema file (alias `--schema` retained). Prefer `-schema.yml` for new files; legacy `*-schema.yml` still accepted. |
-| `-m, --schema <FILE>` | Schema file to use with `verify` (or as destination alias with `infer`). |
-| `-c, --column <SPEC>` | Manual column definitions (`name:type`, or `name:type->Alias`). Repeatable / comma list. |
-| `--replace <SPEC>` | Value replacement directive (`column=value->replacement`) for manual schema authoring. |
-| `--sample-rows <N>` | Rows to sample during inference (`0` = full scan). |
-| `--delimiter <VAL>` | Override input delimiter (`comma`, `tab`, `semicolon`, `pipe`, or single ASCII). |
-| `--input-encoding <ENC>` | Character encoding of input (defaults `utf-8`). |
-| `--mapping` | Emit column mapping templates (aliases) to stdout when probing/infering, including a `suggested` snake_case column for quick copy/paste. |
-| `--replace-template` | Inject empty `replace` arrays per column when inferring. |
-| `--override <SPEC>` | Force specific inferred types (`amount:Float`, `id:Integer`). Repeatable. |
-| `--snapshot <PATH>` | Capture/compare probe or infer output against a golden snapshot. Writes if missing, fails on drift; see [Snapshot Internals](#snapshot-internals). |
-| `--report-invalid[:detail[:summary]] [LIMIT]` | (verify) Base flag adds summary of invalid columns; `:detail` adds ANSI highlighted row samples; `:summary` adds aggregate column violation counts (combine both as needed). LIMIT (after flags) caps row samples when `:detail` present. |
+Snapshot includes: header+type hash (SHA-256), textual inference table, observation summaries. Hash changes on any header reorder or type change. Regenerate intentionally after approved inference adjustments.
 
-Behavior notes:
+---
 
-* `schema probe` renders an elastic table of inferred columns plus sample-based hints; footer indicates scan scope and any decoding skips.
-* `schema infer` shares all probe options and adds persistence, mapping templates, and optional replace scaffolding. Pass `--preview` to review the resulting YAML (including `--replace-template` scaffolding and NA placeholder replacements); mapping templates still emit when `--mapping` is set. Combine with `--diff existing-schema.yml` to emit a unified diff against a saved schema (and optionally `-o` to perform a dry run before persisting).
-* `schema verify` streams every row, applying `replace` mappings before type parsing; any invalid value triggers non‑zero exit code. Reporting tiers: base (`--report-invalid`), detail (`--report-invalid:detail [LIMIT]`), combined (`--report-invalid:detail:summary [LIMIT]`).
-* `--snapshot` applies to `probe` and `infer`, guarding the textual layout & inference heuristics (see [Snapshot Internals](#snapshot-internals) and [Snapshot vs Schema Verify](#snapshot-vs-schema-verify)).
-* Datatype inference uses a majority-based voting algorithm over the sampled (or full) row set; tie scenarios fall back to the most general viable type.
-* Header presence is auto-detected: up to the first 6 physical rows are sampled. If the first row appears header-like (alphabetic tokens, dictionary matches, or position vs data heuristics) it is treated as the header; otherwise synthetic names `field_0`, `field_1`, ... are generated and the schema records `has_headers: false` so downstream operations read the first physical row as data.
-
-#### Headerless CSV Support
-
-Some datasets (exported sensors, legacy ETL extracts) omit a header row. `csv-managed` now infers this automatically:
-
-* Samples up to the first 6 rows even when a schema is not yet available.
-* Classifies each token in row 1 as header-like (contains letters, or matches a curated dictionary such as `id`, `date`, `status`, `amount`) or data-like (parses as numeric, boolean, date/time, GUID, etc.).
-* Compares row‑1 tokens to subsequent rows column-by-column to accumulate header vs data “signals”.
-* Resolves ties using dictionary hits and relative counts of header-like vs data-like tokens.
-* When determined headerless, assigns zero-based synthetic names `field_0..field_{N-1}`. These are treated exactly like real headers (may be referenced directly or via positional aliases `cN`). You can later rename via schema edits or mapping templates.
-* Explicit override: pass `--assume-header true|false` to `schema probe` or `schema infer` when you already know whether the first row is a header. The flag bypasses the heuristic and persists the choice into the generated schema.
-
-Schema persistence:
-
-```yaml
-schema_version: 1.0
-has_headers: false
-columns:
-  - name: field_0
-    datatype: Integer
-  - name: field_1
-    datatype: Float
-```
-
-To override a mistaken classification edit the saved schema file and set `has_headers: true` (or `false`) and, if necessary, adjust column names. All commands that accept `-m/--schema` honor this flag; if omitted it defaults to `true` for backward compatibility.
-
-Quick probe example (headerless):
-
-```powershell
-./target/release/csv-managed.exe schema probe -i ./tests/data/sensor_readings_no_header.csv --preview
-```
-
-Processing with synthetic names:
-
-```powershell
-./target/release/csv-managed.exe process -i sensor_readings_no_header.csv -m sensor_readings_no_header-schema.yml -C field_0,field_2 --limit 5 --preview
-```
-
-If you prefer stable, semantic names, run `schema infer --mapping` and then rename the generated YAML entries (or apply the mapping template) before further processing.
-
-##### FAQ: Header Detection Issues
-
-**Q: The tool decided my file was headerless but the first row actually contains column names.**  
-Cause: Most first-row tokens parsed as data-like (numbers, dates) and lacked alphabetic/dictionary signals.  
-Fix: Open the saved schema, set `has_headers: true`, and rename the `field_#` entries to proper names (or rerun `schema infer` after inserting a temporary clearly alphabetic header line). Future runs using the schema will honor your correction.
-
-**Q: My first data row was treated as a header.**  
-Cause: Tokens looked alphabetic (e.g. sensor IDs like `A1`, `B2`) or matched common header words; limited sample rows produced ambiguous signals.  
-Fix: Edit schema to `has_headers: false`. If you want semantic names, rename the auto-generated `field_#` entries after toggling. Optionally add an explicit dummy header row upstream for clarity, or add an additional early data row before inferring.
-
-**Q: Different files in a batch mix headered and headerless layouts.**  
-Fix: Normalize upstream or create two schemas (one with `has_headers: true`, one with `false`) and process in separate invocations before combining.
-
-**Q: Can I force behavior via a CLI flag?**  
-Yes. Append `--assume-header true` or `--assume-header false` to `schema probe` / `schema infer`. The inferred schema records the chosen value in `has_headers`, so downstream commands inherit the override.
-
-#### Column Naming Conventions (snake_case Preference)
-
-`csv-managed` recommends (not enforces) snake_case header names. You will see a `suggested` snake_case column emitted when using `--mapping` with `schema probe` or `schema infer`. Adopting this convention yields several practical benefits:
-
-* Shell & CLI ergonomics – No spaces or punctuation to quote/escape in PowerShell, cmd.exe, Bash, or when passing expressions (e.g. `--derive total_with_tax=amount*1.0825`).
-* Expression reliability – Evalexpr tokenization stays simple: lowercase + underscore avoids accidental case mismatches or the need for backticks/quotes around names containing spaces or symbols.
-* Cross‑language portability – Aligns with common JSON, Python, Rust, and many data engineering tool defaults; easier re‑use of column names across scripts, notebooks, and code generators.
-* Stable diffs & snapshots – Lowercase, delimiter‑normalized headers reduce noisy changes caused by accidental capitalization or extra spaces, keeping `--snapshot` hash churn low.
-* Safer normalizations – Underscores avoid confusion with minus signs, arithmetic operators, or CSV delimiters inside derived expressions and filters.
-* Interoperability – Tools like `awk`, `grep`, SQL-like DSLs, and future pipeline integrations consume simple tokens more predictably.
-* YAML friendliness – Snake_case keys avoid quoting in YAML and reduce risk of special-character parsing surprises.
-* Index & mapping predictability – Consistent naming improves human recognition of multi-column index variants and reduces ambiguity in covering expansions.
-
-Recommended guidelines:
-
-1. Begin with a letter (`a-z`). If the raw header starts with a digit, prefix with `col_` or a domain hint (e.g., `col_2024_sales` → `sales_2024`).
-2. Lowercase all characters.
-3. Replace contiguous spaces or punctuation (`[\s\-\/\.#$%&()]`) with a single underscore.
-4. Collapse multiple underscores into one.
-5. Remove trailing underscores.
-6. Preserve digits where meaningful (e.g., `http2_requests`).
-7. Resolve collisions by appending a domain qualifier or ordinal (`amount` vs `amount_original`).
-
-Typical conversions:
-
-| Original Header | Suggested | Rationale |
-|-----------------|-----------|-----------|
-| `Order Date` | `order_date` | Spaces → underscore, lowercase. |
-| `OrderDate` | `order_date` | CamelCase split. |
-| `  Gross$ Amount (USD) ` | `gross_amount_usd` | Trim, punctuation stripped, semantic unit retained. |
-| `Customer-ID` | `customer_id` | Hyphen → underscore. |
-| `SKU#` | `sku` | Symbol removed; short code already unique. |
-| `Total.Net` | `total_net` | Period → underscore. |
-| `ShipTime(s)` | `ship_time_s` | Parentheses removed; unit suffix preserved. |
-
-Deriving snake_case from existing headers:
-
-1. Trim leading/trailing whitespace.
-2. Replace punctuation/spaces with underscores.
-3. Insert underscores between lowercase/uppercase boundaries in CamelCase (`OrderDate` → `Order_Date`).
-4. Lowercase the result.
-5. Collapse multiple underscores.
-
-Why not enforce? Some domains require legacy casing (`CustomerID`, `MFRPartNo`). The schema mapping mechanism (`--mapping`) lets you retain raw names while assigning snake_case aliases for processing/derives. Use whichever name feels most natural in downstream expressions—aliases appear post‑mapping.
-
-Rule of thumb: If a header would need quoting in a shell, convert it to snake_case before committing the schema.
-
-#### Datatype Inference Overview
-
-The precise inference algorithm, placeholder handling rules, currency promotion thresholds, decimal precision calculation, and tie behaviors are documented in detail in `docs/schema-inference.md`. The summary below highlights only the most essential operational points:
-
-* Sampling: `--sample-rows <N>` (default 2000) or full scan with `--sample-rows 0`.
-* Voting: Each non-empty, non-placeholder value registers observations for boolean, numeric (integer/decimal/float), date, datetime, time, guid, and currency suitability. Placeholder tokens (e.g. `NA`, `N/A`, `#NA`, `#N/A`, `null`, `missing`, dashed lines) are ignored for voting but can be converted to replacements depending on `--na-behavior`.
-* Decimal vs Float: Consistent fixed-scale numbers within precision limits (<=28) yield `decimal(p,s)`; overflow or mixed scales degrade to `Float`.
-* Currency: Promoted ahead of Decimal/Float only when 100% of non-empty numeric values fit allowed currency scales (0,2,4) AND ≥30% bear a symbol; otherwise normal majority rules apply (majority currency with at least one symbol can still win later in the decision chain).
-* Unclassified Values: Presence of any unclassified token forces a fallback to `String` for that column (guard against accidental narrow type assignment).
-* Overrides: `--override name:Type` applies post-inference and is indicated in the probe table's override column (`type`).
-* NA Placeholders: `--na-behavior fill --na-fill <TOKEN>` injects replacement entries mapping each observed placeholder to the fill token; `--na-behavior empty` maps them to empty strings.
-* Snapshots: `--snapshot` captures the rendered probe/infer output (including hash, summaries, placeholder suggestions) for regression safety.
-
-For full pseudocode, edge cases (leading zeros, exponential numeric forms, parentheses negatives, precision overflow), tie scenarios, and troubleshooting guidance, read: [`docs/schema-inference.md`](docs/schema-inference.md). Additional usage examples remain in [`docs/schema-examples.md`](docs/schema-examples.md).
-
-#### Overrides vs Mappings vs Replacements
-
-Decision guide for choosing schema mutation mechanisms:
-
-| Purpose | Overrides (`--override name:Type`) | Datatype Mappings (`datatype_mappings`) | Value Replacements (`replace:` or `--replace`) |
-|---------|------------------------------------|-------------------------------------------|------------------------------------------------|
-| Force a final datatype despite mixed raw values | Yes | No (transforms, not votes) | No |
-| Parse & convert string representations (dates, numbers) | Sometimes (if inference failed) | Yes (String→DateTime→Date, String→Float, etc.) | No |
-| Normalize token casing / trim whitespace | No | Yes (String→String with `trim`, `lowercase`, `uppercase`) | Sometimes (for isolated tokens) |
-| Round/truncate numeric precision or currency scale | No | Yes (`strategy: round` / `truncate`) | No |
-| Canonicalize categorical variants (Pending→Open) | No | Rarely (String→String strategies) | Yes (map each variant) |
-| Standardize NA-style placeholders | No | Not required | Yes (auto via `--na-behavior`, or manual) |
-| Preserve raw column while exposing cleaned alias | Use with `--mapping` if type must differ | Yes (chain to target type + rename) | Yes (post-mapping cleanup) |
-| Stabilize dirty ID column with stray non-numeric tokens | Yes (override to Integer) | Optional (String→Integer) | Yes (replace stray tokens) |
-| Enforce fixed decimal spec (decimal(p,s)) | Yes if inference chose Float | Yes (String/Float→decimal) | No |
-| Simplify DateTime to Date | Prefer mappings DateTime→Date | Yes | No |
-
-Quick heuristics:
-
-* Prefer inference first; apply overrides only for true domain guarantees.
-* Introduce replacements early for categorical harmonization and placeholder cleanup.
-* Use mappings for structural/format transformations that must occur before validation.
-* Avoid overrides when a mapping chain can safely yield the desired final representation.
-* Re-run `schema infer --diff existing.yml` after adding mappings or replacements to audit changes.
-
-See `docs/schema-inference.md` for algorithm specifics influencing when overrides are necessary.
-
-PowerShell (inference mode):
-
-```powershell
-./target/release/csv-managed.exe schema infer `
-  -i ./data/orders.csv `
-  -o ./data/orders-schema.yml `
-  --delimiter tab `
-  --sample-rows 0 `
-  --mapping `
-  --replace-template
-  --na-behavior fill --na-fill NULL
-```
-
-PowerShell (explicit columns with replacements):
-
-```powershell
-./target/release/csv-managed.exe schema `
-  -o ./schemas/orders-schema.yml `
-  -c id:integer->Identifier `
-  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string `
-  --replace status=Pending->Open `
-  --replace "status=Closed (Legacy)->Closed"
-```
-
-cmd.exe:
-
-```batch
-./target/release/csv-managed.exe schema ^
-  -o ./schemas/orders-schema.yml ^
-  -c id:integer->Identifier ^
-  -c customer_id:integer->Customer ID,order_date:date,amount:float,status:string
-```
-
-### index
-
-Build a B-Tree index for specified key columns (ascending order optimization).
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE>` | Input CSV file. |
-| `-o, --index <FILE>` | Output `.idx` file. |
-| `-C, --columns <LIST>` | Legacy single ascending index (comma list). Superseded by `--spec`. |
-| `--spec <SPEC>` | Repeatable: `name=col_a:asc,col_b:desc` or `col_a:asc`. Builds named variants per index file. |
-| `--covering <SPEC>` | Generate prefix combinations with optional direction branches using `\|`, e.g. `geo=date:asc\|desc,customer:asc`. |
-| `-m, --schema <FILE>` | Optional schema file. |
-| `--limit <N>` | Stop after N rows (partial index). |
-| `--delimiter <VAL>` | Input delimiter. |
-
-PowerShell:
-
-```powershell
-./target/release/csv-managed.exe index `
-  -i ./data/orders.csv `
-  -o ./data/orders.idx `
-  --spec default=order_date:asc,customer_id:asc `
-  --spec recent=order_date:desc `
-  -m ./data/orders-schema.yml
-```
-
-cmd.exe:
-
-```batch
-./target/release/csv-managed.exe index ^
-  -i ./data/orders.csv ^
-  -o ./data/orders.idx ^
-  --spec default=order_date:asc,customer_id:asc ^
-  --spec recent=order_date:desc ^
-  -m ./data/orders-schema.yml
-```
-
-`--spec` accepts comma-separated `column:direction` tokens. Prefix with `name=` to label the variant (e.g. `fast=col_a:asc,col_b:desc`). When omitted, the variant is anonymous but still usable for automatic matching.
-
-### Snapshot Internals
-
-Snapshot files captured by `schema probe --snapshot` or `schema infer --snapshot` now contain structured diagnostics to make regression reviews easier:
-
-* **Header+Type Hash** – a SHA-256 digest that locks the column ordering and inferred datatypes. Any change to headers or datatypes produces a new hash even if table formatting stays the same.
-* **Observations Column** – the probe table now carries the per-column sampling summary inline (`non_empty`, `empty`, representative samples, and placeholder mentions), keeping drift diagnostics attached to the header row without duplicating content in separate sections.
-
-When a snapshot mismatch occurs, these diagnostics highlight exactly which aspect changed—structure, type inference, or observed value distribution—before you decide whether to refresh the snapshot.
-
-### process
-
-Transform pipeline: sort, filter, derive, project, exclude, boolean formatting, row numbers, delimiter changes, optional table output.
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE>` | Input CSV (required). |
-| `-o, --output <FILE>` | Output file (stdout if omitted). |
-| `-m, --schema <FILE>` | Schema file. |
-| `-x, --index <FILE>` | Index file for accelerated sort matching asc/desc directives. |
-| `--index-variant <NAME>` | Pin to a named variant stored in the index file (requires matching `--sort`). |
-| `--sort <SPEC>` | Repeatable: `column[:asc or :desc]`. Comma list or multiple uses. |
-| `-C, --columns <LIST>` | Inclusion list (repeatable). |
-| `--exclude-columns <LIST>` | Exclusion list (repeatable). |
-| `--derive <name=expr>` | Derived column (repeatable). |
-| `--filter <expr>` | Filter expression (repeatable; AND). |
-| `--filter-expr <EXPR>` | Evalexpr-based filter evaluated per row; supports temporal helpers (`date_add`, `date_diff_days`, `time_diff_seconds`, etc.). Use double-quoted string literals for constants (e.g., `"06:00:00"`). |
-| `--row-numbers` | Prepend `row_number`. |
-| `--limit <N>` | Emit at most N rows. |
-| `--delimiter <VAL>` | Input delimiter. |
-| `--output-delimiter <VAL>` | Output delimiter override. |
-| `--boolean-format <FORMAT>` | Normalize boolean output. Formats: `original`, `true-false`, `one-zero`. |
-| `--preview` | Render a preview table on stdout (defaults `--limit` to 10; cannot be combined with `--output`). |
-| `--table` | Render as formatted table when streaming to stdout (ignored when writing to a file). |
-| (see Expression Reference) | Advanced derived, filter, and temporal helper syntax. |
-
-PowerShell:
-
-```powershell
-./target/release/csv-managed.exe process `
-  -i ./data/orders.csv `
-  -m ./data/orders-schema.yml `
-  -x ./data/orders.idx `
-  --index-variant default `
-  --sort order_date:asc,customer_id:asc `
-  --filter "status = shipped" `
-  --filter "amount >= 100" `
-  --derive 'total_with_tax=amount*1.0825' `
-  --derive 'channel="online"' `
-  -C order_id,customer_id,amount,total_with_tax `
-  --exclude-columns internal_flag `
-  --row-numbers `
-  --boolean-format one-zero `
-  --output-delimiter pipe
-```
-
-cmd.exe:
-
-```batch
-./target/release/csv-managed.exe process ^
-  -i ./data/orders.csv ^
-  -m ./data/orders-schema.yml ^
-  -x ./data/orders.idx ^
-  --index-variant default ^
-  --sort order_date:asc,customer_id:asc ^
-  --filter "status = shipped" ^
-  --filter "amount >= 100" ^
-  --derive "total_with_tax=amount*1.0825" ^
-  --derive "channel=\"online\"" ^
-  -C order_id,customer_id,amount,total_with_tax ^
-  --exclude-columns internal_flag ^
-  --row-numbers ^
-  --boolean-format one-zero ^
-  --output-delimiter pipe
-```
-
-If `--index-variant` is omitted, `process` automatically chooses the variant that covers the longest prefix of the requested `--sort` columns and directions.
-
-Schema-driven replacements defined in the `-schema.yml` file are always applied before parsing, so `process` can clean and transform data in a single pass.
-
-### append
-
-Append multiple CSV files into a single output. Ensures consistent headers (baseline or schema enforced).
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE>` | Repeatable input files (first defines header). |
-| `-o, --output <FILE>` | Output file (stdout if omitted). |
-| `-m, --schema <FILE>` | Optional schema for strict validation. |
-| `--delimiter <VAL>` | Delimiter for all inputs. |
-
-Example:
-
-```powershell
-./target/release/csv-managed.exe append -i jan.csv -i feb.csv -i mar.csv -m orders-schema.yml -o q1.csv
-```
-
-### Snapshot vs Schema Verify
-
-The `--snapshot` flag (used with `schema probe` or `schema infer`) and the `schema verify` subcommand serve **complementary but distinct** purposes:
-
-| Aspect | Snapshot (`schema probe --snapshot` / `schema infer --snapshot`) | Schema verify (`schema verify`) |
-|--------|------------------------------------------------------------------|---------------------------------|
-| Primary goal | Guard against unintended changes in probe/infer formatting or inference heuristics (layout, ordering, inferred types) | Enforce that actual CSV row values conform to a declared schema (types, headers, replacements) |
-| Domain | Developer regression / output stability | Data quality / contractual correctness |
-| Data scanned | Headers + optional sampled rows (based on `--sample-rows`) | Entire file(s), streaming every row |
-| Artifact | A snapshot text file (golden layout); created if missing, compared if present | No artifact on success; optional ANSI-highlighted report on failure |
-| Validation granularity | Whole rendered output string (byte/line comparison) | Per‑cell parsing & typed normalization |
-| Failure cause | Rendered output differs from saved snapshot | Any cell cannot be parsed/mapped to its declared datatype |
-| Typical CI use | Lock down formatting & inference behavior so docs/tests stay stable | Block ingestion of malformed or schema‑incompatible data |
-| Performance profile | Very fast (sample + render) | Potentially heavy for large files; optimized via streaming |
-| Update workflow | Rerun with `--snapshot` intentionally to refresh after accepted changes | Update schema file separately as data definitions evolve |
-
-#### When to Use Which
-
-Use a snapshot when you want to ensure the *presentation and inference logic* of schema discovery has not drifted (e.g., after refactors or heuristic tweaks). Use `schema verify` when validating real datasets prior to append, stats, indexing, joins, or downstream ML pipelines.
-
-#### Example Workflow
-
-```powershell
-# 1. Infer schema and create/update snapshot of inference layout
-./target/release/csv-managed.exe schema infer -i data.csv -o data-schema.yml --snapshot infer.snap --sample-rows 0
-
-# 2. Commit both data-schema.yml and infer.snap
-
-# 3. Later, validate new extracts against the frozen schema
-./target/release/csv-managed.exe schema verify -m data-schema.yml -i new_extract.csv --report-invalid:detail:summary 25
-```
-
-If inference heuristics or display formatting changes intentionally, refresh the snapshot:
-
-```powershell
-./target/release/csv-managed.exe schema probe -i data.csv --snapshot infer.snap --sample-rows 10
-```
-
-This will overwrite (if removed first) or fail (if differing) to prompt a conscious review. Keep snapshots small by combining them with modest `--sample-rows` values—full scans are unnecessary for layout regression.
-
-#### Summary
-
-*Snapshot = regression guard on inferred schema presentation.*  
-*Verify = runtime enforcement of data correctness against a schema.*
-
-### preview
-
-Display first N rows in an elastic table.
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE>` | Input file. |
-| `--rows <N>` | Number of data rows (default 10). |
-| `--delimiter <VAL>` | Input delimiter. |
-
-### stats
-
-Summary statistics for numeric and temporal columns.
-
-Supported types:
-
-* Numeric: Integer, Float
-* Temporal: Date, DateTime, Time
-
-Temporal values are internally converted to numeric metrics for aggregation:
-
-* Date => days from Common Era (CE)
-* DateTime => epoch seconds (UTC naive)
-* Time => seconds from midnight
-
-They are rendered back to canonical forms; standard deviation for Date reports `days` and for DateTime/Time reports `seconds`.
-
-| Flag | Description |
-|------|-------------|
-| `-i, --input <FILE or ->` | Input file or `-` (stdin; requires schema). |
-| `-m, --schema <FILE>` | Schema file (recommended). |
-| `-C, --columns <LIST>` | Restrict to listed columns (defaults to numeric & temporal columns, or all columns when `--frequency` is used). |
-| `--delimiter <VAL>` | Input delimiter. |
-| `--frequency` | Emit distinct value counts instead of summary statistics. |
-| `--top <N>` | Limit to the top N values per column when `--frequency` is used (0 = all). |
-| `--limit <N>` | Scan at most N rows (0 = all). |
-| (see Expression Reference) | Extended filter / temporal helper functions. |
-
-> NOTE (Piped / Streaming Usage): When feeding `stats` from a prior `process` stage via stdin (`-i -`), the incoming header row must match the schema exactly (same columns, order, and count). Avoid adding derived columns, dropping columns (`--columns` / `--exclude-columns`), or reordering headers if you will reuse the original schema downstream. Restrict upstream changes to row-level filters, sorts, limits, encoding normalization. See: [Designing Multi-Stage Pipelines](docs/pipelines.md#header-shape-invariance-between-typed-stages).
-
-#### Temporal stats example
-
-Given a temporal schema file:
-
-```yaml
-schema_version: "1.0"
-columns:
-  - name: id
-    datatype: Integer
-  - name: ordered_at
-    datatype: Date
-  - name: ordered_at_ts
-    datatype: DateTime
-  - name: shipped_at
-    datatype: Date
-  - name: shipped_at_ts
-    datatype: DateTime
-  - name: ship_time
-    datatype: Time
-  - name: status
-    datatype: String
-```
-
-Run stats over temporal columns:
-
-```powershell
-./target/release/csv-managed.exe stats -i ./data/orders_temporal.csv -m ./data/orders_temporal-schema.yml \
-  --columns ordered_at --columns ordered_at_ts --columns ship_time
-```
-
-Sample output (elastic table formatting):
-
-```text
-| column         | count | min                | max                | mean                | median              | std_dev        |
-| ordered_at     | 4     | 2024-01-01         | 2024-02-10         | 2024-01-31          | 2024-01-06          | 15.56 days     |
-| ordered_at_ts  | 4     | 2024-01-01 04:45:00| 2024-02-10 14:00:00| 2024-01-30 17:03:45 | 2024-01-06 05:57:30 | 1345678 seconds|
-| ship_time      | 4     | 06:00:00           | 16:30:00           | 09:37:30            | 08:00:00            | 12810 seconds  |
-```
-
-Mean and median for Time represent the central tendency of seconds-from-midnight values, rendered back into `HH:MM:SS`.
-
-Apply filters to restrict the rows included in the calculation:
-
-```powershell
-./target/release/csv-managed.exe stats -i ./data/stats_schema.csv -m ./data/stats_schema-schema.yml \
-  --columns quantity --filter "status=good"
-```
-
-`--filter` accepts the same column comparisons as `process --filter`. For complex predicates, repeat `--filter` or add `--filter-expr` for Evalexpr-based expressions. Filters apply to both summary statistics and `--frequency` output.
-
-#### Frequency counts (--frequency)
-
-`stats --frequency` reports distinct value counts per column. By default, every column is included; use `-C/--columns` to target a subset. Combine with `--top` to cap the number of values displayed per column (0 = all).
-
-Example combining `--frequency` with filters over the Big 5 dataset:
-
-```powershell
-./target/release/csv-managed.exe stats `
-  -i ./tests/data/big_5_players_stats_2023_2024.csv `
-  --frequency `
-  -C Squad `
-  --filter "Player=Max Aarons"
-```
-
-Sample output (elastic table formatting):
-
-```text
-| column | value       | count | percent |
-| Squad  | Bournemouth | 1     | 100.00% |
-```
-
-### join
-
-The hash-join engine remains part of the codebase, but the standalone `join` subcommand has been withdrawn from the CLI while we redesign a streaming-friendly workflow for v1.6.0. Existing scripts should transition to `process`-first pipelines (filters, derives, preview, append) until the new join interface lands. Follow the roadmap in `[.todos/plan-v1.6.0.md](.todos/plan-v1.6.0.md)` for progress updates on the pipeline-oriented join strategy.
-
-### install
-
-### schema columns
-
-List schema columns and their data types in a formatted table.
-
-| Flag | Description |
-|------|-------------|
-| `-m, --schema <FILE>` | Schema file describing the columns to list. |
-
-PowerShell:
-
-```powershell
-./target/release/csv-managed.exe schema columns `
-  --schema ./data/orders-schema.yml
-```
-
-cmd.exe:
-
-```batch
-./target/release/csv-managed.exe schema columns ^
-  --schema ./data/orders-schema.yml
-```
-
-Wrapper around `cargo install csv-managed` with a friendlier interface.
-
-| Flag | Description |
-|------|-------------|
-| `--version <SEMVER>` | Install a specific published version. |
-| `--force` | Reinstall even if already installed. |
-| `--locked` | Pass `--locked` to respect `Cargo.lock`. |
-| `--root <DIR>` | Target an alternate installation directory. |
-
-Example:
-
-```powershell
-./target/release/csv-managed.exe install --locked
-```
-
-### Data Types
+## Datatypes (Supported)
 
 | Type | Examples | Notes |
 |------|----------|-------|
-| String | any UTF‑8 | Normalized header names usable in expressions. |
-| Integer | `42`, `-7` | 64-bit signed. |
-| Float | `3.14`, `2` | f64; integers accepted. |
-| Boolean | `true/false`, `t/f`, `yes/no`, `y/n`, `1/0` | Parsing flexible; output format selectable. |
-| Date | `2024-08-01`, `08/01/2024`, `01/08/2024` | Canonical output `YYYY-MM-DD`. |
-| DateTime | `2024-08-01T13:45:00`, `2024-08-01 13:45` | Naive (no timezone). |
-| Time | `06:00:00`, `14:30`, `08:01:30` | Canonical output `HH:MM:SS`; inference accepts `HH:MM[:SS]`. |
-| Currency | `$12.34`, `123.4567` | Enforces 2 or 4 decimal places; thousands separators and leading symbols permitted; outputs normalized decimals. |
-| Decimal | `123.4567`, `(1,234.50)`, `decimal(18,4)` | Fixed precision/scale numeric type (max precision 28). Accepts optional sign, parentheses for negatives, and separators; schema mappings can `round` or `truncate` to the declared scale. |
-| Guid | `550e8400-e29b-41d4-a716-446655440000`, `550E8400E29B41D4A716446655440000` | Case-insensitive; accepts hyphenated or 32-hex representations. |
+| String | any UTF‑8 | Post-mapping names usable in expressions |
+| Integer | `42`, `-7` | 64-bit signed |
+| Float | `3.14`, `2` | f64 (integers accepted) |
+| Boolean | `true/false`, `yes/no`, `1/0` | Input variants normalized; output format selectable |
+| Date | `2024-08-01`, `08/01/2024` | Canonical `YYYY-MM-DD` |
+| DateTime | `2024-08-01T13:45:00` | Naive (no TZ) |
+| Time | `06:00:00`, `14:30` | Canonical `HH:MM:SS` |
+| Currency | `$12.34`, `123.4567` | Enforce 2 or 4 scale; symbol stripped |
+| Decimal | `123.4567`, `(1,234.50)` | Fixed precision/scale ≤28 |
+| Guid | RFC 4122 hyphenated or 32hex | Case-insensitive |
 
-> See the [Expression Reference](#expression-reference) for temporal helper usage (date/time arithmetic & formatting), boolean output formatting considerations, and quoting rules affecting String, Date, DateTime, Time parsing in derived expressions and filters.
+---
 
-### Datatype Mappings
+## Expressions & Derived Logic (Overview)
 
-`datatype_mappings` let you declare an ordered chain of conversions that run **before** value replacements and final type parsing. Author them inside each column object in the schema file.
+Derived columns: `--derive name=expr`  •  Filters: `--filter`, `--filter-expr`  •  Positional aliases: `c0, c1, ...`  •  `row_number` when `--row-numbers` enabled.
 
-Key points:
+### Quick Cheat Sheets
 
-* Capitalization: Use capitalized data types (`String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Guid`, `Currency`) in production schema files. Decimal columns are declared with lowercase tokens such as `decimal(18,4)` to capture precision and scale.
-* File naming: Prefer `<name>-schema.yml` for new schemas; legacy `<name>-schema.yml` loads fine but is deprecated.
-* Replacement arrays: Use `replace` (array of `{ value, replacement }`). Older internal key `value_replacements` is auto-translated to `replace` when saving.
-* Order matters: Each mapping consumes the previous output; declare from raw → intermediate → final.
-* Strategies: `round` (numeric, including Currency and Decimal), `trim` / `lowercase` / `uppercase` (String→String), `truncate` (Float→Integer, Currency, Decimal). Rounding scale defaults to `4` for floats, the schema-declared scale for decimals, and the detected precision (2 or 4) for currency unless `options.scale` is provided.
-* Options: Provide an `options` object for format guidance (e.g. a datetime `format`) or numeric rounding scale. Currency mappings accept `options.scale` of `2` or `4` to set precision explicitly.
-* Failure: Any mapping parse error invalidates the row for that column during `schema verify`.
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| Arithmetic | `total_with_tax=amount*1.0825` | Multiply numeric column |
+| Conditional flag | `high_value=if(amount>1000,1,0)` | 1/0 indicator |
+| Date diff | `ship_lag=date_diff_days(shipped_at,ordered_at)` | Days between dates |
+| Time diff | `window=time_diff_seconds(end_time,start_time)` | Seconds difference |
+| Concat | `channel_tag=concat(channel,"-",region)` | Combine strings |
+| Guid passthrough | `id_copy=id` | Duplicate column |
+| Row number | `row_index=row_number` | Sequential index |
 
-Example converting an ISO‑8601 timestamp with trailing `Z` to a date and rounding a decimal:
+| Aspect | `--filter` | `--filter-expr` |
+|--------|-----------|-----------------|
+| Operators | Basic typed comparisons | Full Evalexpr syntax |
+| Logic | AND via repetition | AND/OR, nested `if` |
+| Temporal helpers | Direct typed compare | `date_diff_days`, etc. |
+| Complexity | Concise | Arbitrary expression |
 
-```yaml
-- name: ordered_raw
-  datatype: Date
-  rename: ordered_at
-  datatype_mappings:
-    - from: String
-      to: DateTime
-      options:
-        format: "%Y-%m-%dT%H:%M:%SZ"
-    - from: DateTime
-      to: Date
+### Full Expression Reference
 
-- name: amount_raw
-  datatype: Float
-  rename: amount
-  datatype_mappings:
-    - from: String
-      to: Float
-      strategy: round
-      options:
-        scale: 4
-```
+**Temporal Helpers**: `date_add`, `date_sub`, `date_diff_days`, `date_format`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `time_add_seconds`, `time_diff_seconds`.
 
-Built‑in fallback DateTime formats (used when no explicit `options.format` is specified):
+**Pitfalls**:
 
-```text
-%Y-%m-%d %H:%M:%S
-%Y-%m-%dT%H:%M:%S
-%d/%m/%Y %H:%M:%S
-%m/%d/%Y %H:%M:%S
-%Y-%m-%d %H:%M
-%Y-%m-%dT%H:%M
-```
+* PowerShell quoting: wrap whole expression in single quotes, internal literals in double quotes.
+* `c0` is first column (0-based). Verify mapping order.
+* `row_number` exists only if `--row-numbers` set.
+* Use helpers, not raw string comparisons, for temporal correctness.
+* Mapping chains precede replacements which precede final parse; expressions see normalized values.
 
-Common chrono tokens:
+**Function Index (alphabetical)**: `concat`, `date_add`, `date_diff_days`, `date_format`, `date_sub`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `if`, `time_add_seconds`, `time_diff_seconds`.
 
-| Token | Meaning |
-|-------|---------|
-| `%Y`  | 4‑digit year |
-| `%m`  | Month (01–12) |
-| `%d`  | Day of month (01–31) |
-| `%H`  | Hour (00–23) |
-| `%M`  | Minute (00–59) |
-| `%S`  | Second (00–60) |
-| `%f`  | Fractional seconds (nanoseconds) |
+**Debugging**: Increase logging with `RUST_LOG=csv_managed=debug`. Future deep expression tracing may emit `expr:` prefixed debug lines.
 
-Validation flow:
+---
 
-1. Raw value ingested.
-2. `datatype_mappings` chain executes.
-3. Value replacements apply.
-4. Final parsing validates against the declared column `datatype`.
+## Indexes & Sorting (Overview)
 
-See extended examples in `docs/schema-examples.md`.
+Indexes store byte offsets keyed by concatenated column values. A single `.idx` contains multiple named variants (different column sequences and directions). `process` chooses the variant with the longest matching prefix for a requested `--sort` unless `--index-variant` pins a specific one.
 
-#### Schema File Format (Overview)
-
-Minimal `-schema.yml` example (YAML):
-
-```yaml
-schema_version: 1.0
-has_headers: true
-columns:
-  - name: id
-    datatype: Integer
-  - name: ordered_raw
-    rename: ordered_at
-    datatype: Date
-    datatype_mappings:
-      - from: String
-        to: DateTime
-        options:
-          format: "%Y-%m-%dT%H:%M:%SZ"
-      - from: DateTime
-        to: Date
-  - name: amount_raw
-    rename: amount
-    datatype: Float
-    datatype_mappings:
-      - from: String
-        to: Float
-        strategy: round
-        options:
-          scale: 4
-
-  - name: measurement_raw
-    rename: measurement
-    datatype: decimal(18,4)
-    datatype_mappings:
-      - from: String
-        to: decimal(18,4)
-        strategy: truncate
-    replace:
-      - value: "N/A"
-        replacement: "0"
-```
-
-Transformation order per cell:
-
-1. Raw string value read.
-2. `datatype_mappings` chain executes sequentially.
-3. `replace` entries apply (exact match, case-sensitive for strings).
-4. Final parse into declared `datatype`.
-
-Header flag semantics:
-
-* `has_headers: true` (default) – the first physical row is treated as column headers.
-* `has_headers: false` – synthetic or previously persisted column names enumerate data columns; the first physical row is processed as data.
-* When absent (older schemas) it is assumed `true` for backward compatibility.
-
-
-`round` uses `options.scale` (default 4). `truncate` converts Float→Integer removing fractional part (toward zero). String→String strategies: `trim`, `lowercase`, `uppercase`. Invalid strategy/type pairing marks the row invalid during `schema verify`.
-
-#### Verify Reporting Tiers
-
-| Flag Example | Exit Code | Row Samples | Column Summary | Notes |
-|--------------|-----------|-------------|----------------|-------|
-| `--report-invalid` | non-zero if any invalid | no | yes | Fast overview of violating columns. |
-| `--report-invalid:detail` | non-zero | yes (all or limited) | no | Shows `row \| column` (and raw value when combined with `:summary`). |
-| `--report-invalid:detail:summary` | non-zero | yes | yes | Combines row samples + aggregate counts. |
-| `--report-invalid:detail 5` | non-zero | yes (5 rows) | no | Limit only affects samples. |
-| `--report-invalid:detail:summary 5` | non-zero | yes (5 rows) | yes | Summary counts remain total, not truncated. |
-
-Base operation without any `--report-invalid` flag logs overall invalid count to stderr when failures occur.
-
-#### Upcoming Schema Enhancements (Roadmap)
-
-Planned (not yet implemented): primary key & hashed signature indexes, date/time format re-writing transforms, automatic candidate key suggestion, batch JSON definition ingestion.
-
-### Streaming & Pipelines
-
-`csv-managed` supports Unix-style and Windows command chaining via stdin (`-i -`) and stdout. Use a single dash (`-`) as the input file to instruct commands to read from stdin. This enables incremental transformation without writing intermediate files and keeps memory usage low for large datasets.
-
-Key points:
-
-* Use `-i -` (or `--input -`) to read streamed CSV data.
-* A schema (`-m/--schema`) is strongly recommended (and required for typed operations like `stats`, inferred datatypes, temporal helpers, currency/decimal parsing, and most filters).
-* Column selection (`--columns` / `-C`), exclusion, derives, filters, and table/preview output all work with piped data.
-* When chaining multiple commands, each downstream command must specify `-i -` explicitly.
-* You can mix file inputs and streamed inputs (e.g., pipe the first file, pass a second file normally to `append`).
-* If you rename or drop columns in an upstream stage, make sure the downstream schema matches the transformed header (the original schema will reject it).
-* `process --preview` cannot be combined with `-o`; in a pipeline it simply renders the elastic table and stops (no downstream data). For chaining transformations, omit `--preview`.
-* Header validation in downstream typed stages accepts either the original column names or their `name_mapping` (snake_case) forms. However, adding or removing columns (e.g. with `--derive`, `--exclude-columns`) requires an updated schema; otherwise a header mismatch will occur.
-* For `stats`, only numeric / temporal / decimal / currency columns are profiled. If you project or rename away those typed columns upstream, `stats` may find zero eligible columns unless you specify them explicitly with `-C/--columns`.
-* Encoding normalization pipelines can combine `--input-encoding` (upstream) and `--output-encoding` (downstream or same stage with `-o`) to standardize heterogeneous CSV sources.
-
-Cross-reference: For advanced multi-stage design patterns (schema evolution, encoding normalization, safe header modifications) see: [Designing Multi-Stage Pipelines](docs/pipelines.md).
-
-Roadmap & Backlog: A consolidated product roadmap by release (including upcoming versions, deprecations, and larger epics) now lives in `[.plan/backlog.md](.plan/backlog.md)`. Refer there for planned feature sequencing beyond the high‑level notes below (e.g. join redesign v1.6.0, primary key indexing, streaming joins).
-
-#### PowerShell Examples
-
-Process streamed input and project a few columns:
+**Building**:
 
 ```powershell
-Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
-  .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
-  --columns Player --columns Squad --columns Performance_Gls --limit 5 --table
+./target/release/csv-managed.exe index -i ./data/orders.csv -o ./data/orders.idx \
+  --spec default=order_date:asc,customer_id:asc \
+  --spec recent=order_date:desc -m ./data/orders-schema.yml
 ```
 
-Chain `process` into `stats` (filter rows, then compute statistics):
+**Covering** (`--covering`): Generate systematic direction/prefix permutations from a concise pattern (e.g. `geo=date:asc|desc,customer:asc`).
+
+Fallback: When no index variant matches the entire sort signature, an in-memory stable multi-column sort executes (still streaming transforms earlier/later as possible).
+
+---
+
+## Streaming & Pipelines (Overview)
+
+Use `-i -` to read from stdin; schema strongly recommended for typed semantics. Each stage must explicitly declare stdin usage. Avoid header shape changes between typed stages unless you also provide a matching updated schema.
+
+Core guidelines:
+
+* Keep early projections narrow.
+* Apply filters before sorting or heavy derives.
+* Normalize encodings up front (`--input-encoding` / `--output-encoding`).
+* Use `--preview --limit` for fast inspection; remove before chaining downstream.
+
+### Extended Pipeline Examples & Troubleshooting
+
+**Filter then stats**:
 
 ```powershell
-Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv | \
   .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
-  --filter "Performance_Gls >= 10" --limit 40 |
+  --filter "Performance_Gls >= 10" --limit 40 | \
   .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
 ```
 
-Append using a streamed first file and a second file on disk:
+**Append with one streamed input**:
 
 ```powershell
-Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
+Get-Content .\tests\data\big_5_players_stats_2023_2024.csv | \
   .\target\release\csv-managed.exe append -i - -i .\tmp\big_5_preview.csv \
   --schema .\tests\data\big_5_players_stats-schema.yml -o .\tmp\players_union.csv
 ```
 
-Stats from a filtered streamed transformation (filter first, stats second):
+**Encoding normalization**:
 
 ```powershell
-Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
-  .\target\release\csv-managed.exe process -i - --schema .\tests\data\big_5_players_stats-schema.yml \
-  --filter "Performance_Gls >= 5" |
-  .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
+Get-Content .\tmp\big_5_windows1252.csv | \
+  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 \
+  --schema .\tests\data\big_5_players_stats-schema.yml --columns Player --columns Squad --limit 5 --table
 ```
 
-Encoding normalization (Windows-1252 -> UTF-8 in-memory, then stats):
-
-```powershell
-Get-Content .\tmp\big_5_windows1252.csv |
-  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
-  --columns Player --columns Performance_Gls --limit 25 |
-  .\target\release\csv-managed.exe stats -i - --schema .\tests\data\big_5_players_stats-schema.yml -C Performance_Gls
-```
-
-#### cmd.exe Examples
-
-Use `type` instead of `Get-Content`:
-
-```batch
-type tests\data\big_5_players_stats_2023_2024.csv | target\release\csv-managed.exe process -i - --schema tests\data\big_5_players_stats-schema.yml --columns Player --limit 5 --table
-```
-
-All relative paths in this section assume the current directory is the project root (where `Cargo.toml` lives).
-
-For convenience, define helper variables before running the piped examples:
-
-```batch
-set "BIN=target\release\csv-managed.exe"
-set "SCHEMA=tests\data\big_5_players_stats-schema.yml"
-```
-
-Chained transformation and stats:
-
-```batch
-type tests\data\big_5_players_stats_2023_2024.csv ^
-| "%BIN%" process -i - --schema "%SCHEMA%" --filter "Performance_Gls^>=10" --limit 25 ^
-| "%BIN%" stats -i - --schema "%SCHEMA%" -C Performance_Gls
-```
-
-Encoding normalization with explicit input encoding (Windows-1252 source) and chained stats:
-
-```batch
-type tmp\big_5_windows1252.csv ^
-| "%BIN%" process -i - --input-encoding windows-1252 --schema "%SCHEMA%" --columns Player --columns Performance_Gls --limit 25 ^
-| "%BIN%" stats -i - --schema "%SCHEMA%" -C Performance_Gls
-```
-
-Appending (mix streamed & file inputs):
-
-```batch
-type tests\data\big_5_players_stats_2023_2024.csv | "%BIN%" append -i - -i tmp\big_5_preview.csv --schema "%SCHEMA%" -o tmp\players_union.csv
-```
-
-#### Troubleshooting Pipelines
+**Troubleshooting**:
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Command hangs waiting for input | Upstream command didn't produce data yet or previous stage failed silently | Add `--preview --limit 5` temporarily to inspect stage output; verify file path and schema. |
-| "Column not found" in downstream stage | Mapping/rename changed header names between stages | Use `schema columns` or inspect first stage output to confirm header normalization. |
-| Stats reports zero rows | Filter removed all rows upstream | Remove filters or reduce strictness; test with `--limit 50` before stats. |
-| Invalid datatype errors in chained stats | Missing schema or misdeclared types for piped data | Pass the correct `--schema` in every stage needing typed parsing. |
-
-#### When a Schema Is Required
-
-`stats`, typed filters (`--filter` numeric/temporal comparisons), temporal helpers, currency & decimal enforcement, boolean normalization, and datatype mappings all rely on schema context. For raw string-only projection, you may omit the schema—but performance and correctness on mixed datatypes improve markedly with it.
-
-#### Minimal No-Schema Pipeline (String-Only)
-
-```powershell
-Get-Content .\tests\data\big_5_players_stats_2023_2024.csv |
-  .\target\release\csv-managed.exe process -i - --columns Player --limit 3 --table
-```
-
-#### Validation Test Pattern (Recommended)
-
-Use `cargo test` with `assert_cmd` to lock in pipeline behavior:
-
-```rust
-Command::cargo_bin("csv-managed")?
-    .args(["process","-i","-","--schema", schema, "--columns","Player","--limit","3"]) 
-    .write_stdin(std::fs::read_to_string(input)?)
-    .assert()
-    .success();
-```
-
-See `tests/stdin_pipeline.rs` for full chained examples.
-
-#### Performance Note
-
-Each stage streams rows forward—only derived expressions and optional sort/in-memory fallback allocate per row. Avoid unnecessary wide projections early; narrow inputs reduce CPU and memory footprints downstream.
+| Hang | Upstream not producing | Add `--preview --limit` to inspect |
+| Column not found | Rename/mapping changed | Re-check `schema columns` / header output |
+| Zero stats rows | Filters excluded all rows | Relax/remove filters |
+| Invalid datatype downstream | Schema mismatch | Supply correct schema per stage |
 
 ---
 
-#### Encoding Normalization Pipeline
+## Command Guide (Summary)
 
-Normalize a legacy Windows‑1252 encoded file to UTF‑8 while projecting a limited set of columns.
+Concise flag references; see concept sections for deep behavior.
 
-PowerShell:
+### schema
 
-```powershell
-Get-Content .\tmp\big_5_windows1252.csv |
-  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
-  --columns Player --columns Squad --limit 5 --table
-```
+Probe, infer, verify, list columns, diff and snapshot inference output.
 
-cmd.exe:
+| Sub/Flag | Summary |
+|----------|---------|
+| `probe` | Inference preview table (no file) |
+| `infer` | Inference + optional write (`-o`) + diff/snapshot integration |
+| `verify` | Streaming type & replacement validation |
+| `columns` | Tabular listing of schema columns |
+| `--snapshot` | Layout regression guard |
+| `--diff <schema>` | Unified diff vs existing schema |
+| `--assume-header` | Override header detection |
+| `--mapping` | Emit mapping scaffold & snake_case suggestions |
+| `--replace-template` | Inject empty `replace` arrays |
 
-```batch
-type tmp\big_5_windows1252.csv | target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema tests\data\big_5_players_stats-schema.yml --columns Player --columns Squad --limit 5 --table
-```
+### process
 
-Bash / zsh:
+Transform & emit rows: filtering, derives, column selection, sorting (indexed or fallback), boolean formatting, row numbering, preview/table output.
 
-```bash
-cat tmp/big_5_windows1252.csv | ./target/release/csv-managed process -i - --input-encoding windows-1252 --schema tests/data/big_5_players_stats-schema.yml --columns Player --columns Squad --limit 5 --table
-| target\release\csv-managed.exe process -i - --schema tests\data\big_5_players_stats-schema.yml --filter Performance_Gls^>=5 ^
-Write normalized UTF‑8 output:
+### stats
 
-`cmd.exe` treats `>` as a redirection operator even inside quotes; escape comparisons by removing the spaces and prefixing the `>` with `^` (e.g., `Performance_Gls^>=10`). In `.bat` files you need to double the caret (`Performance_Gls^^>=10`) because the first pass strips one `^`.
+Numeric & temporal summary metrics; `--frequency` for distinct counts; filter integration.
 
-```powershell
-Get-Content .\tmp\big_5_windows1252.csv |
-  .\target\release\csv-managed.exe process -i - --input-encoding windows-1252 --schema .\tests\data\big_5_players_stats-schema.yml \
-  --columns Player --columns Squad -o .\tmp\big_5_normalized_utf8.csv --output-encoding utf-8
-```
+### append
 
-> Tip: Place encoding normalization first; downstream stages assume UTF‑8 only.
+Concatenate multiple CSV inputs enforcing header/schema consistency.
 
-### Boolean Formatting Examples
+### index
 
-```powershell
-./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml --boolean-format one-zero -C shipped_flag -o shipped.csv
-./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml --boolean-format true-false --table -C shipped_flag
-```
+Build multi-variant B-tree index files (`--spec`, `--covering`) for accelerated sort alignment.
 
-### Table Output
+### install
 
-`--table` renders transformation results as an elastic-width ASCII table (stdout only; cannot combine with `--output`).
+Wrapper around `cargo install csv-managed` (version / force / locked / root flags).
 
-### Index Strategy
+### schema columns
 
-Index stores byte offsets keyed by concatenated column values. A single `.idx` can hold multiple named variants, each with its own mix of ascending/descending columns. `process` picks the variant that best matches the requested `--sort` signature or you can force one via `--index-variant`. When no compatible variant exists, the command falls back to in-memory sorting.
+List schema-declared columns and datatypes (resolves renames).
+
+---
+
+## Advanced Topics
 
 ### Performance Considerations
 
-* Indexed sort avoids loading all rows into memory.
-* Early filtering cuts sort & derive workload.
-* Derived expressions evaluated per emitted row—keep them lean.
-* Median requires storing column values (potential memory impact for huge numeric columns).
+* Indexed sort avoids retaining all rows in memory.
+* Early filtering diminishes downstream CPU & sort footprint.
+* Median requires buffering column values; limit wide median usage on huge datasets.
+* Decimal & currency parsing add overhead—declare only where needed.
 
 ### Error Handling
 
-* Rich `anyhow` contexts (I/O, parsing, evaluation, schema, index).
-* Fast failure on unknown columns, invalid expressions, header/schema mismatches.
-* Invalid UTF‑8 rows error (never silently skipped).
+`anyhow` contexts annotate origin (I/O, parse, schema, expression). Fast failure on unknown columns, invalid expressions, header mismatches, precision overflow, unsupported mapping strategies.
 
 ### Logging
 
-Set `RUST_LOG=csv_managed=debug` (or `info`) for insight into phases (index use, inference, filtering).
+Set `RUST_LOG=csv_managed=debug` for phase insights (inference voting, index selection, mapping application). Higher verbosity may impact throughput—toggle only when diagnosing.
 
 ### Testing
 
-```bash
-cargo test
-```
+Run `cargo test`. Integration tests cover inference, indexing, process flags, piping, stats. Use `assert_cmd` for pipeline locking. Add new tests for any behavior that changes output formatting (update snapshots intentionally).
 
-Integration tests cover schema inference, index, process (filters, derives, sort, delimiters). Additional tests planned for joins and stats frequency scenarios.
+---
 
-### Contributing
+## Roadmap
 
-1. Fork & branch (`feat/<name>`).
-2. Add tests (unit + integration) for new behavior.
-3. Run `cargo fmt && cargo clippy && cargo test` before PR.
-4. Update README (move items from roadmap when implemented).
+See consolidated backlog & release planning in `[.plan/backlog.md](.plan/backlog.md)` for upcoming features (join redesign, primary key indexes, batch definition ingestion, additional file formats).
 
-### License
+---
+
+## Contributing
+
+1. Fork & branch (`feat/<name>`).  
+2. Add unit + integration tests.  
+3. `cargo fmt && cargo clippy && cargo test` must pass.  
+4. Update README sections or move features from roadmap to implemented list.  
+
+## License
 
 See `LICENSE`.
 
-### Support
+## Support
 
 Open issues for bugs, enhancements, or documentation gaps. Pull requests welcome.
+
+---
+
+## Documentation Notes
+
+Deep dive sections removed from README and relocated to `docs/`. Use the Documentation Map above for full references.
+
+---
