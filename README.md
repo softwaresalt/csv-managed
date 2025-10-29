@@ -394,7 +394,7 @@ See consolidated backlog & release planning in `[.plan/backlog.md](.plan/backlog
 
 ## License
 
-See [LICENSE](LICENSE).
+See [LICENSE](https://github.com/softwaresalt/csv-managed?tab=MIT-1-ov-file#MIT-1-ov-file).
 
 ## Support
 
