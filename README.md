@@ -46,42 +46,42 @@ Extended details moved to dedicated docs (see Documentation Map).
 
 ### Deep Dives (Docs Directory)
 
-1. Schema Inference Internals – `docs/schema-inference.md`
-2. Schema Command Examples – `docs/schema-examples.md`
-3. Datatype Mappings Deep Dive – `docs/datatype-mappings.md`
-4. Statistics & Frequency Deep Dive – `docs/stats.md`
-5. Header Detection & FAQ – `docs/header-detection.md`
-6. Naming Conventions – `docs/naming-conventions.md`
-7. Snapshots vs Verification – `docs/snapshots-and-verification.md`
-8. Expressions Reference & Extended Examples – `docs/expressions.md`
-9. Indexing & Sorting Guide – `docs/indexing-and-sorting.md`
-10. Pipelines & Multi-Stage Patterns – `docs/pipelines.md`
-11. Encoding Normalization – `docs/encoding-normalization.md`
-12. Boolean Formatting & Table Output – `docs/boolean-formatting.md`
-13. Operational Notes (Perf / Errors / Logging / Testing) – `docs/operations.md`
-14. CLI Help Reference – `docs/cli-help.md`
+1. [Schema Inference Internals](docs/schema-inference.md)
+2. [Schema Command Examples](docs/schema-examples.md)
+3. [Datatype Mappings Deep Dive](docs/datatype-mappings.md)
+4. [Statistics & Frequency Deep Dive](docs/stats.md)
+5. [Header Detection & FAQ](docs/header-detection.md)
+6. [Naming Conventions](docs/naming-conventions.md)
+7. [Snapshots vs Verification](docs/snapshots-and-verification.md)
+8. [Expressions Reference & Extended Examples](docs/expressions.md)
+9. [Indexing & Sorting Guide](docs/indexing-and-sorting.md)
+10. [Pipelines & Multi-Stage Patterns](docs/pipelines.md)
+11. [Encoding Normalization](docs/encoding-normalization.md)
+12. [Boolean Formatting & Table Output](docs/boolean-formatting.md)
+13. [Operational Notes (Perf / Errors / Logging / Testing)](docs/operations.md)
+14. [CLI Help Reference](docs/cli-help.md)
 
 ### Quick Cross-Reference
 
 | Capability | Primary Doc |
 |------------|-------------|
-| Inference algorithm details | `schema-inference.md` |
-| Placeholder / NA handling | `schema-inference.md`, `schema-examples.md` |
-| Decimal & Currency rules | `schema-inference.md`, `datatype-mappings.md` |
-| Mapping strategies & strategies matrix | `datatype-mappings.md` |
-| Overrides vs mappings vs replacements | `schema-examples.md`, `datatype-mappings.md` |
-| Header detection heuristic | `header-detection.md` |
-| Naming / snake_case rationale | `naming-conventions.md` |
-| Snapshot vs verify comparison | `snapshots-and-verification.md` |
-| Invalid reporting tiers | `snapshots-and-verification.md` |
-| Index variant design & covering | `indexing-and-sorting.md` |
-| Streaming pipeline safety (header shape) | `pipelines.md` |
-| Encoding normalization patterns | `encoding-normalization.md` |
-| Boolean output modes | `boolean-formatting.md` |
-| Statistics aggregation & frequency counting | `stats.md` |
-| Expressions functions, quoting, bucketing | `expressions.md` |
-| Performance & logging guidance | `operations.md` |
-| CLI option reference | `cli-help.md` |
+| Inference algorithm details | [schema-inference](docs/schema-inference.md) |
+| Placeholder / NA handling | [schema-inference](docs/schema-inference.md), [schema-examples](docs/schema-examples.md) |
+| Decimal & Currency rules | [schema-inference](docs/schema-inference.md), [datatype-mappings](docs/datatype-mappings.md) |
+| Mapping strategies & strategies matrix | [datatype-mappings](docs/datatype-mappings.md) |
+| Overrides vs mappings vs replacements | [schema-examples](docs/schema-examples.md), [datatype-mappings](docs/datatype-mappings.md) |
+| Header detection heuristic | [header-detection](docs/header-detection.md) |
+| Naming / snake_case rationale | [naming-conventions](docs/naming-conventions.md) |
+| Snapshot vs verify comparison | [snapshots-and-verification](docs/snapshots-and-verification.md) |
+| Invalid reporting tiers | [snapshots-and-verification](docs/snapshots-and-verification.md) |
+| Index variant design & covering | [indexing-and-sorting](docs/indexing-and-sorting.md) |
+| Streaming pipeline safety (header shape) | [pipelines](docs/pipelines.md) |
+| Encoding normalization patterns | [encoding-normalization](docs/encoding-normalization.md) |
+| Boolean output modes | [boolean-formatting](docs/boolean-formatting.md) |
+| Statistics aggregation & frequency counting | [stats](docs/stats.md) |
+| Expressions functions, quoting, bucketing | [expressions](docs/expressions.md) |
+| Performance & logging guidance | [operations](docs/operations.md) |
+| CLI option reference | [cli-help](docs/cli-help.md) |
 
 > Use this TOC as a hub: internal anchors for quick orientation; deep dives for authoritative detail.
 
@@ -91,20 +91,22 @@ Extended details moved to dedicated docs (see Documentation Map).
 
 | Topic | Doc |
 |-------|-----|
-| Expressions (full reference & examples) | `docs/expressions.md` |
-| Indexing & Sorting internals | `docs/indexing-and-sorting.md` |
-| Multi-stage pipelines & header shape rules | `docs/pipelines.md` |
-| Schema inference internals | `docs/schema-inference.md` |
-| Schema command usage examples | `docs/schema-examples.md` |
-| Header detection algorithm & FAQ | `docs/header-detection.md` |
-| Naming conventions (snake_case rationale) | `docs/naming-conventions.md` |
-| Snapshots vs verification + reporting tiers | `docs/snapshots-and-verification.md` |
-| Boolean formatting & table output | `docs/boolean-formatting.md` |
-| Encoding normalization pipelines | `docs/encoding-normalization.md` |
-| Operational notes (performance, errors, logging, testing) | `docs/operations.md` |
-| CLI flag reference (captured help output) | `docs/cli-help.md` |
+| Expressions (full reference & examples) | [expressions](docs/expressions.md) |
+| Indexing & Sorting internals | [indexing-and-sorting](docs/indexing-and-sorting.md) |
+| Multi-stage pipelines & header shape rules | [pipelines](docs/pipelines.md) |
+| Schema inference internals | [schema-inference](docs/schema-inference.md) |
+| Schema command usage examples | [schema-examples](docs/schema-examples.md) |
+| Header detection algorithm & FAQ | [header-detection](docs/header-detection.md) |
+| Naming conventions (snake_case rationale) | [naming-conventions](docs/naming-conventions.md) |
+| Snapshots vs verification + reporting tiers | [snapshots-and-verification](docs/snapshots-and-verification.md) |
+| Boolean formatting & table output | [boolean-formatting](docs/boolean-formatting.md) |
+| Encoding normalization pipelines | [encoding-normalization](docs/encoding-normalization.md) |
+| Datatype mappings & transformation strategies | [datatype-mappings](docs/datatype-mappings.md) |
+| Statistics & frequency metrics | [stats](docs/stats.md) |
+| Operational notes (performance, errors, logging, testing) | [operations](docs/operations.md) |
+| CLI flag reference (captured help output) | [cli-help](docs/cli-help.md) |
 
-Roadmap/backlog: see `.plan/backlog.md` (if present).
+Roadmap/backlog: see the [roadmap](.plan/backlog.md) (if present).
 
 ---
 

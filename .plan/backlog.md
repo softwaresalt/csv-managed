@@ -1,6 +1,9 @@
-# TO-DO
+# Roadmap
 
-## Version 0.9.0-beta.1 (Pre-Release)
+## v0.9.0-beta.1
+
+<details>
+<summary>backlog</summary>
 
 - [x] Provide a B-Tree indexing command that writes `.idx` files for selected columns.
 - [x] Allow subsequent commands to select a prebuilt index file (and variant) during processing.
@@ -58,7 +61,12 @@
 - [x] Add timestamps to the output of all operations such that the output after the completion of an operation should include the start date/time, end date/time, and duration in seconds.
 - [x] Add to the verify command a flag to print out all rows or a specified limit of rows that do not fit the schema, highlighting in red the values that do not fit the schema definition for the column, indicating the row number and column.  These should be printed out to the console window in an elastic tab formatted table.  At the end of the console printout, another table should be printed of the columns with errors and their schema defined data types.
 
-## Version 1.0.0: The Stats, Schema, Datatype, and Transformation Edition (Core Operations)
+</details>
+
+## v1.0.0: The Core Operations Edition ![status: released](https://img.shields.io/badge/status-released-green)
+
+<details>
+<summary>backlog</summary>
 
 - [x] Add the ability in filtering & projection and column derivation to perform date, time, and datetime logic with Evalexpr-powered expressions.
 - [x] Add the ability to output the schema definition for a CSV file in a human-readable list format to the console output.
@@ -96,23 +104,37 @@
 - [x] Add explanation in the README of why we prefer snake_case headers.
 - [x] Added unit & integration tests plus README and examples.bat coverage for chaining stdin piped data to enable multi-stage data pipelines.
 
-## Version 1.1.0: Structural Improvements & v1.0 Fixes/Enhancements
+</details>
+
+## v1.1.0: Structural Improvements & v1.0 Fixes/Enhancements ![status: planning](https://img.shields.io/badge/status-planning-blue)
+
+<details>
+<summary>backlog</summary>
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Refactor unit tests out of core code files into the integration test files in the tests directory.
 - [ ] Build a better test harness that uses a coverage tool like cargo llvm-cov or cargo tarpaulin.
 - [ ] Implement schema-evolution emission so the ignored test can be activated. Wire the new schema-evolution doc section into CI examples.
-- [ ]
 
-## Version 2.0.0: The Excel, JSON & Parquet File Edition
+</details>
+
+## v2.0.0: The Excel, JSON & Parquet File Edition ![status: planning](https://img.shields.io/badge/status-planning-blue)
+
+<details>
+<summary>backlog</summary>
 
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 - [ ] Add the ability to read Parquet files.
 - [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
 
-## Version 2.5.0: The JOIN/Lookup Upgrade
+</details>
 
-## Version 3.0.0: The Index & Performance Benchmark Edition
+## v2.5.0: The JOIN/Lookup Upgrade
+
+## v3.0.0: The Index & Performance Benchmark Edition
+
+<details>
+<summary>backlog</summary>
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Define primary keys (single or composite) that uniquely identify rows.
@@ -125,7 +147,12 @@
 - [ ] Review all code for performance improvements and code efficiencies.
 - [ ] Develop full benchmark command capabilities to capture performance baselines.
 
-## Version 4.0.0: The Data Pipeline & Batch Operations Edition
+</details>
+
+## v4.0.0: The Data Pipeline & Batch Operations Edition
+
+<details>
+<summary>backlog</summary>
 
 - [ ] Add the ability to consume a batch processing definition file in which all possible command-line arguments can be defined; file should be in YAML format.
 - [ ] Consume a YAML batch definition describing command-line arguments for automated runs.
@@ -145,17 +172,23 @@
 - [ ] Consider adding a feature for process --emit-schema to formalize transformed layouts.
 - [ ] Add file naming pattern capabilities to allow for multi-file processing and output in a pipeline.
 
-## Version 4.1.0: A Performance Review/Upgrade
+</details>
 
-- [ ]
-- [ ]
+## v4.1.0: A Performance Review/Upgrade
 
-## Version 5.0.0: The Cloud Edition
+## v5.0.0: The Cloud Edition
+
+<details>
+<summary>backlog</summary>
 
 - [ ] Add the ability to run csv-managed as a process in the cloud, starting with Azure.
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
-- [ ]
 
-## Backlog
+</details>
+
+<!--
+## Open Backlog
 
 - [ ] Consider creating a new version that focuses on locale specific input/output.
+
+-->
