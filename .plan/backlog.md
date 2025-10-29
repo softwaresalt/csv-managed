@@ -100,7 +100,7 @@
 
 - [ ] Spike a migration to one of the alternatives for serde_yaml: serde_yaml_ng, serde_yaml_ok, serde_yml.
 - [ ] Refactor unit tests out of core code files into the integration test files in the tests directory.
-- [ ] Build a better test harness that uses a coverage tool lilke cargo llvm-cov or cargo tarpaulin.
+- [ ] Build a better test harness that uses a coverage tool like cargo llvm-cov or cargo tarpaulin.
 - [ ] Implement schema-evolution emission so the ignored test can be activated. Wire the new schema-evolution doc section into CI examples.
 - [ ]
 
