@@ -106,7 +106,7 @@ Extended details moved to dedicated docs (see Documentation Map).
 | Operational notes (performance, errors, logging, testing) | [operations](docs/operations.md) |
 | CLI flag reference (captured help output) | [cli-help](docs/cli-help.md) |
 
-Roadmap/backlog: see the [roadmap](.plan/backlog.md) (if present).
+Roadmap/backlog: see the [roadmap](.plan/backlog.md).
 
 ---
 

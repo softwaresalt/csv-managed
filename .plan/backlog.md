@@ -115,6 +115,7 @@
 - [ ] Refactor unit tests out of core code files into the integration test files in the tests directory.
 - [ ] Build a better test harness that uses a coverage tool like cargo llvm-cov or cargo tarpaulin.
 - [ ] Implement schema-evolution emission so the ignored test can be activated. Wire the new schema-evolution doc section into CI examples.
+- [ ] Enhance string manipulation tranformations, e.g. lowercase, uppercases, camel-case, PascalCase, snake-case, substring, regex, etc.
 
 </details>
 
