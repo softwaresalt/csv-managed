@@ -34,13 +34,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Cache build artifacts
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-target-
+      - name: Clean workspace
+        run: cargo clean
 
       - name: Build binary
         run: cargo build --release
@@ -80,9 +75,6 @@ jobs:
           cp target/release/csv-managed dist/
           cd dist
           tar -czf csv-managed-${{ github.ref_name }}-${{ runner.os }}-x86_64.tar.gz csv-managed
-
-      - name: Publish crate to crates.io
-        run: cargo publish --locked
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
