@@ -13,7 +13,8 @@ v1.1.0 focuses on structural and quality improvements that harden the codebase f
 - Implement schema evolution emission with deterministic diffs.
 - Implement schema evolution emission and activate the associated test.
 - Implement and emit schema evolution artifacts enabling previously ignored test to pass.
-- Add basic string transforms (lowercase, uppercase, snake_case and substring/regex-based) in processing and expression evaluation with clear docs and tests.
+- Add basic string transforms (lowercase, uppercase, camelCase, PascalCase, snake_case and substring/regex-based) in processing and expression evaluation with clear docs and tests.
+- Introduce a minimal load_fixture helper to centralizing fixture path logic.
 
 ## Features
 
