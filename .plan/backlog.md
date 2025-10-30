@@ -2,6 +2,8 @@
 
 ## v0.9.0-beta.1
 
+This initial beta release established the foundational feature set, including schema inference, multi-variant B-Tree indexing, streaming data processing (filter, derive, sort), and robust command-line utilities for statistics, verification, and appending.
+
 <details>
 <summary>backlog</summary>
 
@@ -65,6 +67,8 @@
 
 ## v1.0.0: The Core Operations Edition ![status: released](https://img.shields.io/badge/status-released-green)
 
+This major release focused on maturing the core feature set by introducing powerful `datatype_mappings` for complex transformations, robust temporal expression logic, and first-class support for high-precision Decimal and Currency types. It also streamlined the CLI by consolidating related commands under the `schema` subcommand and migrated schema files to the more readable YAML format.
+
 <details>
 <summary>backlog</summary>
 
@@ -108,6 +112,8 @@
 
 ## v1.1.0: Structural Improvements & v1.0 Fixes/Enhancements ![status: planning](https://img.shields.io/badge/status-planning-blue)
 
+This version focuses on improving the long-term health and quality of the codebase. Key initiatives include refactoring the test suite, integrating a code coverage harness, activating schema evolution reports, and enhancing string manipulation capabilities. It also hardens snapshot support to enable more robust, auditable data pipelines.
+
 <details>
 <summary>backlog</summary>
 
@@ -116,23 +122,30 @@
 - [ ] Build a better test harness that uses a coverage tool like cargo llvm-cov or cargo tarpaulin.
 - [ ] Implement schema-evolution emission so the ignored test can be activated. Wire the new schema-evolution doc section into CI examples.
 - [ ] Enhance string manipulation tranformations, e.g. lowercase, uppercases, camel-case, PascalCase, snake-case, substring, regex, etc.
+- [ ] Enhance snapshot support to effectively support an auditable pipeline.  The schema file defines the transformations and conversions; the snapshot
 
 </details>
 
 ## v2.0.0: The Excel, JSON & Parquet File Edition ![status: planning](https://img.shields.io/badge/status-planning-blue)
+
+This release expands the application's reach beyond delimited files by introducing support for reading and processing data from Excel worksheets, JSON and Parquet files, integrating them into the existing schema, transformation, and processing engine.
 
 <details>
 <summary>backlog</summary>
 
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 - [ ] Add the ability to read Parquet files.
-- [ ] Create plan for implementing efficient Parquet file indexing and data access.  Version 1.5 needs a full product feature plan and strategy.
+- [ ] Create plan for implementing efficient Parquet file indexing and data access. Version 1.5 needs a full product feature plan and strategy.
 
 </details>
 
 ## v2.5.0: The JOIN/Lookup Upgrade
 
+This version will re-introduce and significantly enhance the `join` capabilities, providing robust options for combining datasets with inner, outer, and left joins, along with performance optimizations for lookup-heavy workflows.
+
 ## v3.0.0: The Index & Performance Benchmark Edition
+
+This release is dedicated to performance and large-scale data management. It introduces the concept of primary keys for unique row identification, enables indexing entire directories of files, and adds a comprehensive benchmarking suite to capture and track performance metrics.
 
 <details>
 <summary>backlog</summary>
@@ -151,6 +164,8 @@
 </details>
 
 ## v4.0.0: The Data Pipeline & Batch Operations Edition
+
+This version elevates the tool from a single-command utility to a full data pipeline orchestrator. It introduces the ability to define complex, multi-step workflows and batch jobs in YAML files, process headerless files with virtual column mappings, and apply operations across entire directories of files.
 
 <details>
 <summary>backlog</summary>
@@ -177,7 +192,11 @@
 
 ## v4.1.0: A Performance Review/Upgrade
 
+This is a maintenance release focused exclusively on a comprehensive performance review of the entire codebase, identifying and implementing optimizations to improve throughput and reduce memory usage across all commands.
+
 ## v5.0.0: The Cloud Edition
+
+This release prepares the application for cloud-native environments, starting with the ability to run as a managed process in cloud services like Azure. It will also enhance data validation and reporting features to support large-scale, multi-tenant scenarios.
 
 <details>
 <summary>backlog</summary>
@@ -186,6 +205,10 @@
 - [ ] Enhance data verification and reporting capabilities to support cloud-hosted validation scenarios (multi-tenant, large scale, granular reporting).
 
 </details>
+
+## v6.0.0: The Audit Edition
+
+This version will introduce features that provide full support for audit trails, data sampling reports, and other capabilites that will cover the needs of end-to-end data conversion projects.
 
 <!--
 ## Open Backlog
