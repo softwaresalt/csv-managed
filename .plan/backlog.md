@@ -126,6 +126,18 @@ This version focuses on improving the long-term health and quality of the codeba
 
 </details>
 
+## v1.2.0: Data Classification & Identification and Reporting
+
+<details>
+<summary>backlog</summary>
+
+The purpose of this feature is to support data engineers in identifying and classifying information in data sets for security and reporting demands.
+
+- [ ] Add a "classification" command to add the ability to identify PII, HIPPA, and other potentially other forms of information that should be classified.
+- [ ] Add the ability to produce a classification report in markdown as output of the classification command.
+
+</details>
+
 ## v2.0.0: The Excel, JSON & Parquet File Edition ![status: planning](https://img.shields.io/badge/status-planning-blue)
 
 This release expands the application's reach beyond delimited files by introducing support for reading and processing data from Excel worksheets, JSON and Parquet files, integrating them into the existing schema, transformation, and processing engine.
