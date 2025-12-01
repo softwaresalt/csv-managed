@@ -104,11 +104,13 @@ v1.1.0 focuses on structural and quality improvements that harden the codebase f
 - **CI Integration:** Add a new job to the GitHub Actions workflow (`.github/workflows/build.yml`) that runs `cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info`.
 - **Reporting:** Use an action like `coverallsapp/github-action` or `codecov/codecov-action` to upload the `lcov.info` artifact and report coverage on PRs.
 - **Gating Strategy:** Initially, run the job in a non-blocking "report-only" mode to establish a baseline. After 2-3 PRs, introduce a failure threshold (e.g., `fail_under: 80`) to enforce coverage standards.
+- **Implementation Status:** `ci.yml` now contains a `coverage` job that installs `cargo-llvm-cov`, produces `target/lcov.info`, uploads it as an artifact, and reports to Codecov with `continue-on-error: true` so we can monitor baseline numbers before enforcing thresholds.
 
 ### F4: Schema Evolution
 
 - **Deterministic Output:** The schema evolution diff must be deterministic for reproducible tests. Sort changes first by `SchemaChangeKind` enum order, then alphabetically by column name.
 - **Output Format:** The evolution report should be a separate artifact (`<schema_name>.evo.yml`) by default. This avoids polluting the canonical schema file. An `--embed-evolution` flag could be added later if needed.
+- **Implementation Status:** `schema infer` and `process` now support `--evolution-base` / `--emit-evolution-base` plus optional `--evolution-output` flags. Integration tests cover CLI emission (both default `<schema>.evo.yml` naming and custom destinations), and documentation/examples show how to chain the emitted schema into downstream stages.
 
 ### F5: String Transformations
 
@@ -275,3 +277,77 @@ impl CommandExt for Command {
 ```
 
 -------------------------------
+
+## Feature Comparison with csvkit
+
+This document outlines missing features and capabilities in `csv-managed` when compared to the popular `csvkit` suite of tools.
+
+## Major Feature Gaps
+
+### 1. File Conversion (`in2csv`)
+
+- **Description:** `csvkit`'s `in2csv` tool can convert various file formats like Excel (`.xls`, `.xlsx`), JSON, and fixed-width files into CSV. `csv-managed` currently only supports CSV files as input.
+- **`csvkit` tool:** `in2csv`
+- **`csv-managed` equivalent:** None.
+- **Priority:** High. This is a significant gap in functionality for users who work with data in multiple formats.
+
+### 2. SQL Integration (`csvsql`)
+
+- **Description:** `csvkit`'s `csvsql` allows users to run SQL queries directly on CSV files and can also be used to generate `CREATE TABLE` statements and load data into a SQL database.
+- **`csvkit` tool:** `csvsql`
+- **`csv-managed` equivalent:** None.
+- **Priority:** High. This is a powerful feature for data analysis and integration with relational databases.
+
+### 3. Data Joining (`csvjoin`)
+
+- **Description:** `csvkit`'s `csvjoin` can perform left, right, inner, and outer joins on two CSV files based on common columns.
+- **`csvkit` tool:** `csvjoin`
+- **`csv-managed` equivalent:** `join` (currently commented out in the source code).
+- **Priority:** Medium. The feature is planned but not yet implemented.
+
+### 4. JSON Output (`csvjson`)
+
+- **Description:** `csvkit`'s `csvjson` tool converts CSV files to JSON. `csv-managed` can only output snapshots to JSON, not the full data.
+- **`csvkit` tool:** `csvjson`
+- **`csv-managed` equivalent:** None for full data conversion.
+- **Priority:** Medium. JSON is a common format for data interchange.
+
+## Minor Feature Gaps and Enhancements
+
+### 1. Enhanced Formatting (`csvformat`)
+
+- **Description:** `csvkit`'s `csvformat` provides extensive options for controlling the output format, including quoting, line endings, and escape characters. `csv-managed`'s `process` command has limited options (delimiter and boolean format).
+- **`csvkit` tool:** `csvformat`
+- **`csv-managed` command:** `process`
+- **Enhancement:** Add more formatting options to the `process` command or a new dedicated command.
+
+### 2. Sorting Enhancements (`csvsort`)
+
+- **Description:** `csvkit`'s `csvsort` supports case-insensitive sorting.
+- **`csvkit` tool:** `csvsort`
+- **`csv-managed` command:** `process --sort`
+- **Enhancement:** Add a flag for case-insensitive sorting.
+
+### 3. Stacking Enhancements (`csvstack`)
+
+- **Description:** `csvkit`'s `csvstack` can add a grouping column to identify the origin of stacked data.
+- **`csvkit` tool:** `csvstack`
+- **`csv-managed` command:** `append`
+- **Enhancement:** Add an option to `append` to add a grouping column.
+
+### 4. Statistics Output (`csvstat`)
+
+- **Description:** `csvkit`'s `csvstat` can output statistics in JSON format and allows for selecting specific statistics to display.
+- **`csvkit` tool:** `csvstat`
+- **`csv-managed` command:** `stats`
+- **Enhancement:** Add JSON output and filtering capabilities to the `stats` command.
+
+### 5. Column Utilities (`csvcut`)
+
+- **Description:** `csvkit`'s `csvcut` has a utility flag (`-n`) to quickly list column names and their indices.
+- **`csvkit` tool:** `csvcut`
+- **`csv-managed` equivalent:** `schema --columns` (similar but requires a schema file).
+- **Enhancement:** Add a more direct way to list columns from a CSV file without needing to generate a schema first, perhaps on the `schema probe` command.
+
+
+

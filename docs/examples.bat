@@ -5,6 +5,8 @@ set "BIN_RELEASE=%ROOT%\target\release\csv-managed.exe"
 set "BIN_DEBUG=%ROOT%\target\debug\csv-managed.exe"
 set "CSV_BIG5=%ROOT%\tests\data\big_5_players_stats_2023_2024.csv"
 set "SCHEMA_BIG5=%ROOT%\tests\data\big_5_players_stats-schema.yml"
+set "STATS_CSV=%ROOT%\tests\data\stats_schema.csv"
+set "STATS_SCHEMA=%ROOT%\tests\data\stats_schema-schema.yml"
 
 if not exist .\tmp mkdir .\tmp
 
@@ -190,6 +192,19 @@ rem Stats command examples
 .\target\release\csv-managed.exe stats -i .\tests\data\stats_schema.csv -m .\tests\data\stats_schema-schema.yml --frequency --top 5
 .\target\release\csv-managed.exe stats -i .\tests\data\big_5_players_stats_2023_2024.csv --frequency -C Squad --filter "Player=Max Aarons"
 .\target\release\csv-managed.exe stats -i .\tests\data\sort_types.csv -m .\tests\data\sort_types-schema.yml --filter "bool_col=true" --filter-expr "float_col>=0.0" --limit 10
+
+rem String transform derive example
+.\target\release\csv-managed.exe process -i .\tests\data\big_5_players_stats_2023_2024.csv -m .\tests\data\big_5_players_stats-schema.yml ^
+  --derive "slug=snake_case(Player)" --derive "camel_name=camel_case(Player)" ^
+  --columns Player --limit 5 --table
+
+rem Streaming derive + schema evolution emission example (process -> stats)
+set "DERIVED_SCHEMA=%ROOT%\tmp\stats_with_extra-schema.yml"
+set "DERIVED_EVOLUTION=%ROOT%\tmp\stats_with_extra-schema.evo.yml"
+type "%STATS_CSV%" | "%BIN_RELEASE%" process -i - --schema "%STATS_SCHEMA%" ^
+  --derive "double_price:Float=price*2" --emit-schema "%DERIVED_SCHEMA%" --emit-evolution-base "%STATS_SCHEMA%" | ^
+"%BIN_RELEASE%" stats -i - --schema "%DERIVED_SCHEMA%" -C double_price
+type "%DERIVED_EVOLUTION%"
 
 rem -------------------------------------------------------------
 rem Streaming & Pipelines (stdin '-') Examples

@@ -7,11 +7,13 @@
 //!
 //! NOTE: We rely on existing test fixtures in `tests/data`.
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
+use csv_managed::schema::evolution::{SchemaChangeKind, SchemaEvolution};
+use serde_yaml;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use tempfile::NamedTempFile;
+use tempfile::{tempdir, NamedTempFile};
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -26,7 +28,7 @@ fn process_reads_from_stdin_and_projects_columns() -> anyhow::Result<()> {
     let schema = fixture("big_5_players_stats-schema.yml");
     let data = fs::read_to_string(&input)?;
 
-    let assert = Command::cargo_bin("csv-managed")?
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -69,7 +71,7 @@ fn chained_process_into_stats_via_memory_pipe() -> anyhow::Result<()> {
     let raw = fs::read_to_string(&input)?;
 
     // Stage 1: process derive + projection
-    let stage1 = Command::cargo_bin("csv-managed")?
+    let stage1 = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -101,7 +103,7 @@ fn chained_process_into_stats_via_memory_pipe() -> anyhow::Result<()> {
     );
 
     // Stage 2: stats over streamed output
-    let stats_run = Command::cargo_bin("csv-managed")?
+    let stats_run = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -135,7 +137,7 @@ fn derived_column_before_stats_fails_header_mismatch() -> anyhow::Result<()> {
     let schema = fixture("stats_schema-schema.yml");
     let raw = fs::read_to_string(&input)?;
 
-    let stage1 = Command::cargo_bin("csv-managed")?
+    let stage1 = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -160,7 +162,7 @@ fn derived_column_before_stats_fails_header_mismatch() -> anyhow::Result<()> {
         "Derived column should be present in stage 1 output"
     );
 
-    let stats = Command::cargo_bin("csv-managed")?
+    let stats = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -187,14 +189,14 @@ fn encoding_pipeline_process_to_stats_utf8_output() -> anyhow::Result<()> {
     let mut schema_file = NamedTempFile::new()?;
     writeln!(
         schema_file,
-        "schema_version: 1.0\nhas_headers: true\ncolumns:\n  - name: id\n    datatype: Integer\n  - name: name\n    datatype: String"
+        "schema_version: \"1.0\"\nhas_headers: true\ncolumns:\n  - name: id\n    datatype: Integer\n  - name: name\n    datatype: String"
     )?;
     schema_file.flush()?;
 
     let schema_path = schema_file.path().to_path_buf();
     let encoded: Vec<u8> = b"id,name\n1,Caf\xe9\n2,Ni\xf1o\n".to_vec();
 
-    let stage1 = Command::cargo_bin("csv-managed")?
+    let stage1 = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -221,7 +223,7 @@ fn encoding_pipeline_process_to_stats_utf8_output() -> anyhow::Result<()> {
         "Process output should normalize Ni\u{00F1}o to UTF-8"
     );
 
-    let stats = Command::cargo_bin("csv-managed")?
+    let stats = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -248,7 +250,71 @@ fn encoding_pipeline_process_to_stats_utf8_output() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "Pending schema evolution support for evolved layout chaining"]
-fn encoding_pipeline_with_schema_evolution_pending() {
-    // TODO: Implement once process can emit a derived schema for downstream typed stages.
+fn encoding_pipeline_with_schema_evolution_supports_chaining() -> anyhow::Result<()> {
+    let input = fixture("stats_schema.csv");
+    let schema = fixture("stats_schema-schema.yml");
+    let raw = fs::read_to_string(&input)?;
+    let temp = tempdir()?;
+    let emit_schema_path = temp.path().join("derived-schema.yml");
+
+    let stage1 = cargo_bin_cmd!("csv-managed")
+        .args([
+            "process",
+            "-i",
+            "-",
+            "--schema",
+            schema.to_str().unwrap(),
+            "--derive",
+            "double_price:Float=price*2",
+            "--emit-schema",
+            emit_schema_path.to_str().unwrap(),
+            "--emit-evolution-base",
+            schema.to_str().unwrap(),
+        ])
+        .write_stdin(raw)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let stage1_text = String::from_utf8(stage1.clone())?;
+    assert!(
+        stage1_text.contains("double_price"),
+        "Derived column should exist in emitted stream"
+    );
+
+    let stats = cargo_bin_cmd!("csv-managed")
+        .args([
+            "stats",
+            "-i",
+            "-",
+            "--schema",
+            emit_schema_path.to_str().unwrap(),
+            "-C",
+            "double_price",
+        ])
+        .write_stdin(stage1)
+        .assert()
+        .success();
+
+    let stats_out = String::from_utf8(stats.get_output().stdout.clone())?;
+    assert!(stats_out.contains("double_price"));
+    assert!(stats_out.contains("count"));
+
+    let emitted_schema = fs::read_to_string(&emit_schema_path)?;
+    assert!(
+        emitted_schema.contains("double_price"),
+        "Emitted schema should capture derived column"
+    );
+
+    let evolution_path = emit_schema_path.with_file_name("derived-schema.evo.yml");
+    let evolution_raw = fs::read_to_string(&evolution_path)?;
+    let evolution: SchemaEvolution = serde_yaml::from_str(&evolution_raw)?;
+    assert!(evolution.changes.iter().any(|change| {
+        change.column == "double_price"
+            && matches!(change.change, SchemaChangeKind::ColumnAdded)
+    }));
+
+    Ok(())
 }

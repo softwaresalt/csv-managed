@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv::{ReaderBuilder, WriterBuilder};
 use encoding_rs::WINDOWS_1252;
 use predicates::str::contains;
@@ -131,8 +131,7 @@ fn table_data_lines(rendered: &str) -> Vec<&str> {
 #[test]
 fn preview_limits_to_default_row_count() {
     let input = fixture_path(DATA_FILE);
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args(["process", "-i", input.to_str().unwrap(), "--preview"])
         .assert()
         .success();
@@ -170,8 +169,7 @@ fn preview_limits_to_default_row_count() {
 #[test]
 fn preview_respects_rows_argument() {
     let input = fixture_path(DATA_FILE);
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -193,8 +191,7 @@ fn preview_respects_rows_argument() {
 #[test]
 fn preview_detects_tab_delimiter_from_extension() {
     let subset = write_subset_with_delimiter(PREVIEW_COLUMNS, 3, b'\t', "tsv");
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -221,8 +218,7 @@ fn preview_detects_tab_delimiter_from_extension() {
 #[test]
 fn preview_honors_explicit_delimiter() {
     let subset = write_subset_with_delimiter(PREVIEW_COLUMNS, 3, b'|', PIPE_EXTENSION);
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -245,8 +241,7 @@ fn preview_honors_explicit_delimiter() {
 #[test]
 fn preview_decodes_using_provided_encoding() {
     let subset = write_subset_windows1252(PREVIEW_COLUMNS, 25);
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -268,8 +263,7 @@ fn preview_decodes_using_provided_encoding() {
 #[test]
 fn preview_with_output_fails() {
     let input = fixture_path(DATA_FILE);
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",

@@ -4,10 +4,14 @@ use evalexpr::{
     ContextWithMutableFunctions, ContextWithMutableVariables, Function, HashMapContext,
     Value as EvalValue, eval_with_context,
 };
+use regex::Regex;
 
-use crate::data::{
-    Value, normalize_column_name, parse_naive_date, parse_naive_datetime, parse_naive_time,
-    value_to_evalexpr,
+use crate::{
+    data::{
+        Value, normalize_column_name, parse_naive_date, parse_naive_datetime, parse_naive_time,
+        value_to_evalexpr,
+    },
+    transform::string_ops,
 };
 
 fn register_temporal_functions(context: &mut HashMapContext) -> Result<()> {
@@ -161,6 +165,115 @@ fn register_temporal_functions(context: &mut HashMapContext) -> Result<()> {
     Ok(())
 }
 
+fn register_string_functions(context: &mut HashMapContext) -> Result<()> {
+    context
+        .set_function(
+            "lowercase".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "lowercase")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(string_ops::lowercase(value).into_owned()))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "uppercase".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "uppercase")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(string_ops::uppercase(value).into_owned()))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "snake_case".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "snake_case")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(
+                    string_ops::snake_case(value).into_owned(),
+                ))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "trim".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "trim")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(string_ops::trim(value).into_owned()))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "substring".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 3, "substring")?;
+                let value = expect_string(&args[0], "value")?;
+                let start = parse_i64_arg(&args[1], "start")?.max(0) as usize;
+                let length = parse_i64_arg(&args[2], "length")?;
+                if length <= 0 {
+                    return Ok(EvalValue::String(String::new()));
+                }
+                let result = string_ops::substring(value, start, length as usize);
+                Ok(EvalValue::String(result.into_owned()))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "regex_replace".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 3, "regex_replace")?;
+                let value = expect_string(&args[0], "value")?;
+                let pattern = expect_string(&args[1], "pattern")?;
+                let replacement = expect_string(&args[2], "replacement")?;
+                let regex = Regex::new(pattern)
+                    .map_err(|err| eval_error(&format!("Invalid regex: {err}")))?;
+                let replaced = string_ops::regex_replace(value, &regex, replacement);
+                Ok(EvalValue::String(replaced.into_owned()))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "camel_case".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "camel_case")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(
+                    string_ops::camel_case(value).into_owned(),
+                ))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    context
+        .set_function(
+            "pascal_case".into(),
+            Function::new(|arguments| {
+                let args = expect_args(arguments, 1, "pascal_case")?;
+                let value = expect_string(&args[0], "value")?;
+                Ok(EvalValue::String(
+                    string_ops::pascal_case(value).into_owned(),
+                ))
+            }),
+        )
+        .map_err(anyhow::Error::from)?;
+
+    Ok(())
+}
+
 fn expect_args(
     arguments: &EvalValue,
     expected: usize,
@@ -229,6 +342,7 @@ pub fn build_context(
 ) -> Result<HashMapContext> {
     let mut context = HashMapContext::new();
     register_temporal_functions(&mut context)?;
+    register_string_functions(&mut context)?;
     for (idx, header) in headers.iter().enumerate() {
         let canon = normalize_column_name(header);
         let key = format!("c{idx}");
@@ -273,87 +387,5 @@ pub fn eval_value_truthy(value: EvalValue) -> bool {
         EvalValue::String(s) => !s.is_empty(),
         EvalValue::Tuple(values) => values.into_iter().any(eval_value_truthy),
         EvalValue::Empty => false,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    #[test]
-    fn date_add_and_diff_work() {
-        let mut ctx = HashMapContext::new();
-        register_temporal_functions(&mut ctx).unwrap();
-        let added = eval_with_context("date_add(\"2024-01-01\", 5)", &ctx)
-            .unwrap()
-            .as_string()
-            .unwrap()
-            .to_string();
-        assert_eq!(added, "2024-01-06");
-        let diff = eval_with_context("date_diff_days(\"2024-01-10\", \"2024-01-01\")", &ctx)
-            .unwrap()
-            .as_int()
-            .unwrap();
-        assert_eq!(diff, 9);
-    }
-
-    #[test]
-    fn datetime_functions_roundtrip() {
-        let mut ctx = HashMapContext::new();
-        register_temporal_functions(&mut ctx).unwrap();
-        let added = eval_with_context("datetime_add_seconds(\"2024-01-01 00:00:00\", 3661)", &ctx)
-            .unwrap()
-            .as_string()
-            .unwrap()
-            .to_string();
-        assert_eq!(added, "2024-01-01 01:01:01");
-        let diff = eval_with_context(
-            "datetime_diff_seconds(\"2024-01-01 01:01:01\", \"2024-01-01 00:00:00\")",
-            &ctx,
-        )
-        .unwrap()
-        .as_int()
-        .unwrap();
-        assert_eq!(diff, 3661);
-    }
-
-    #[test]
-    fn time_functions_behave() {
-        let mut ctx = HashMapContext::new();
-        register_temporal_functions(&mut ctx).unwrap();
-        let added = eval_with_context("time_add_seconds(\"08:00:00\", 90)", &ctx)
-            .unwrap()
-            .as_string()
-            .unwrap()
-            .to_string();
-        assert_eq!(added, "08:01:30");
-        let diff = eval_with_context("time_diff_seconds(\"08:01:30\", \"08:00:00\")", &ctx)
-            .unwrap()
-            .as_int()
-            .unwrap();
-        assert_eq!(diff, 90);
-    }
-
-    proptest! {
-        #[test]
-        fn evaluate_expression_handles_random_numeric_context(
-            a in -10_000i64..=10_000,
-            b in -10_000i64..=10_000,
-            header0 in "[A-Za-z0-9_ ]{3,12}",
-            header1 in "[A-Za-z0-9_ ]{3,12}"
-        ) {
-            let headers = vec![header0.clone(), header1.clone()];
-            let raw = vec![a.to_string(), b.to_string()];
-            let typed = vec![Some(Value::Integer(a)), Some(Value::Integer(b))];
-            let context = build_context(&headers, &raw, &typed, None).expect("build context");
-            let name0 = normalize_column_name(&header0);
-            let name1 = normalize_column_name(&header1);
-            let expr_named = format!("({name0} + {name1}) > {name0}");
-            let expr_indexed = "(c0 + c1) > c0";
-            let lhs = evaluate_expression_to_bool(&expr_named, &context).expect("named expression");
-            let rhs = evaluate_expression_to_bool(expr_indexed, &context).expect("indexed expression");
-            prop_assert_eq!(lhs, rhs);
-        }
     }
 }

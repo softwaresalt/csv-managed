@@ -1,6 +1,6 @@
 use std::{env, fs, io::Write, path::PathBuf, process::Command as StdCommand};
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv_managed::{
     index::CsvIndex,
     schema::{ColumnType, Schema, ValueReplacement},
@@ -45,8 +45,7 @@ fn fixture_path(name: &str) -> PathBuf {
 fn schema_command_writes_manual_schema() {
     let dir = tempdir().expect("temp dir");
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -83,8 +82,7 @@ fn schema_command_writes_manual_schema() {
 fn infer_preview_outputs_yaml_and_mapping_table() {
     let (_dir, csv_path) = write_sample_csv(b',');
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -115,8 +113,7 @@ fn infer_preview_outputs_yaml_and_mapping_table() {
 fn probe_includes_replace_template_when_requested() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -146,8 +143,7 @@ fn probe_includes_replace_template_when_requested() {
 fn schema_columns_subcommand_prints_schema_listing() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -159,8 +155,7 @@ fn schema_columns_subcommand_prints_schema_listing() {
         .assert()
         .success();
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "columns",
@@ -178,8 +173,7 @@ fn schema_columns_subcommand_prints_schema_listing() {
 
 #[test]
 fn schema_help_describes_columns_subcommand() {
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args(["schema", "--help"])
         .assert()
         .success()
@@ -188,8 +182,7 @@ fn schema_help_describes_columns_subcommand() {
 
 #[test]
 fn schema_columns_requires_schema_argument() {
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args(["schema", "columns"])
         .assert()
         .failure()
@@ -202,8 +195,7 @@ fn probe_emits_mappings_into_schema_and_stdout() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -239,8 +231,7 @@ fn probe_emits_mappings_into_schema_and_stdout() {
 #[test]
 fn schema_probe_outputs_enhanced_table() {
     let (_dir, csv_path) = write_sample_csv(b',');
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -279,8 +270,7 @@ fn schema_probe_outputs_enhanced_table() {
 #[test]
 fn schema_probe_with_mapping_outputs_single_table() {
     let (_dir, csv_path) = write_sample_csv(b',');
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -315,8 +305,7 @@ fn schema_infer_handles_headerless_input() {
     let csv_path = fixture_path("sensor_readings_no_header.csv");
     let schema_path = temp.path().join("headerless-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -336,8 +325,7 @@ fn schema_infer_handles_headerless_input() {
     assert_eq!(schema.columns.len(), 3);
     assert_eq!(schema.columns[0].name, "field_0");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -354,8 +342,7 @@ fn schema_infer_handles_headerless_input() {
 fn infer_preview_without_mapping_outputs_only_yaml() {
     let (_dir, csv_path) = write_sample_csv(b',');
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -385,8 +372,7 @@ fn infer_preview_without_mapping_outputs_only_yaml() {
 fn process_sorts_filters_and_derives_output() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -399,8 +385,7 @@ fn process_sorts_filters_and_derives_output() {
         .success();
 
     let output_path = dir.path().join("filtered.csv");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -430,8 +415,7 @@ fn process_applies_value_replacements_from_schema() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -458,8 +442,7 @@ fn process_applies_value_replacements_from_schema() {
         .expect("save schema with replacements");
 
     let output_path = dir.path().join("replaced.csv");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -482,8 +465,7 @@ fn verify_reports_header_mismatch_detail() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -502,8 +484,7 @@ fn verify_reports_header_mismatch_detail() {
     )
     .expect("write bad csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -527,8 +508,7 @@ fn verify_reports_summary_only_by_default() {
     let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -555,8 +535,7 @@ fn verify_reports_invalid_rows_with_limit_using_fixture() {
     let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -584,8 +563,7 @@ fn verify_reports_all_invalid_rows_without_limit() {
     let schema_path = fixture_path("orders-schema.yml");
     let csv_path = fixture_path("orders_invalid.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -613,8 +591,7 @@ fn verify_reports_all_invalid_rows_without_limit() {
 fn index_is_used_for_sorted_output() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -627,8 +604,7 @@ fn index_is_used_for_sorted_output() {
         .success();
 
     let index_path = dir.path().join("data.idx");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "index",
             "-i",
@@ -646,8 +622,7 @@ fn index_is_used_for_sorted_output() {
     assert!(index_path.exists());
 
     let output_path = dir.path().join("sorted.csv");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -676,8 +651,7 @@ fn index_is_used_for_sorted_output() {
 fn index_covering_spec_generates_multiple_variants() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -690,8 +664,7 @@ fn index_covering_spec_generates_multiple_variants() {
         .success();
 
     let index_path = dir.path().join("covering.idx");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "index",
             "-i",
@@ -752,7 +725,7 @@ fn install_command_passes_arguments_to_cargo() {
     let root_dir = dir.path().join("install-root");
     fs::create_dir_all(&root_dir).expect("create install root");
 
-    let mut command = Command::cargo_bin("csv-managed").expect("binary exists");
+    let mut command = cargo_bin_cmd!("csv-managed");
     command
         .env("CSV_MANAGED_CARGO_SHIM", shim_bin.as_os_str())
         .env("CSV_MANAGED_TEST_LOG", log_path.as_os_str())
@@ -782,8 +755,7 @@ fn install_command_passes_arguments_to_cargo() {
 fn process_accepts_named_index_variant() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -796,8 +768,7 @@ fn process_accepts_named_index_variant() {
         .success();
 
     let index_path = dir.path().join("multi.idx");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "index",
             "-i",
@@ -815,8 +786,7 @@ fn process_accepts_named_index_variant() {
         .success();
 
     let output_path = dir.path().join("recent.csv");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -846,8 +816,7 @@ fn process_accepts_named_index_variant() {
 fn process_errors_when_variant_missing() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -860,8 +829,7 @@ fn process_errors_when_variant_missing() {
         .success();
 
     let index_path = dir.path().join("single.idx");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "index",
             "-i",
@@ -876,8 +844,7 @@ fn process_errors_when_variant_missing() {
         .assert()
         .success();
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",

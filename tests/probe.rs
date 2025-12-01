@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv_managed::schema::{ColumnType, Schema};
 use encoding_rs::WINDOWS_1252;
 use tempfile::tempdir;
@@ -16,8 +16,7 @@ fn fixture_path(name: &str) -> PathBuf {
 fn probe_full_scan_detects_string_in_mixed_column() {
     let temp = tempdir().expect("temp dir");
     let schema_path = temp.path().join("mixed_full-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -44,8 +43,7 @@ fn probe_full_scan_detects_string_in_mixed_column() {
 fn probe_sampling_can_limit_type_detection() {
     let temp = tempdir().expect("temp dir");
     let schema_path = temp.path().join("mixed_sampled-schema.yml");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -78,8 +76,7 @@ fn probe_honors_input_encoding() {
     let (encoded, _, _) = WINDOWS_1252.encode(content);
     fs::write(&input_path, &encoded).expect("write encoded input");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",

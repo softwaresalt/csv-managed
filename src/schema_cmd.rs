@@ -1,21 +1,25 @@
 use std::collections::HashSet;
+use std::env;
+use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
+use chrono::Utc;
 use log::info;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use similar::TextDiff;
 
 use crate::{
     cli::{
         NaPlaceholderBehavior, SchemaArgs, SchemaColumnsArgs, SchemaInferArgs, SchemaMode,
-        SchemaProbeArgs, SchemaVerifyArgs,
+        SchemaProbeArgs, SchemaVerifyArgs, SnapshotFormat,
     },
     columns, io_utils, printable_delimiter,
     schema::{self, ColumnMeta, ColumnType, InferenceStats, Schema, ValueReplacement},
-    table, verify,
+    table, verify, yaml_provider,
 };
 
 pub fn execute(args: &SchemaArgs) -> Result<()> {
@@ -115,7 +119,15 @@ fn execute_probe(args: &SchemaProbeArgs) -> Result<()> {
         suggested_renames.as_ref(),
     );
     print!("{report}");
-    handle_snapshot(&report, args.snapshot.as_deref())?;
+    let snapshot_request = SnapshotRequest {
+        path: args.snapshot.as_deref(),
+        format: args.snapshot_format,
+        notes: args.snapshot_notes.as_deref(),
+        schema: &schema,
+        report: &report,
+        input,
+    };
+    handle_snapshot(&snapshot_request)?;
 
     Ok(())
 }
@@ -176,7 +188,15 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         if !args.preview {
             print!("{report_ref}");
         }
-        handle_snapshot(report_ref, Some(snapshot_path))?;
+        let snapshot_request = SnapshotRequest {
+            path: Some(snapshot_path),
+            format: probe.snapshot_format,
+            notes: probe.snapshot_notes.as_deref(),
+            schema: &schema,
+            report: report_ref,
+            input: input_path,
+        };
+        handle_snapshot(&snapshot_request)?;
     }
 
     let preview_requested = args.preview;
@@ -291,6 +311,11 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
             println!();
         }
         emit_mappings(&schema);
+    }
+
+    if let Some(base) = args.evolution_base.as_deref() {
+        let evolution_output = resolve_evolution_output(args)?;
+        emit_schema_evolution(base, &schema, &evolution_output)?;
     }
 
     Ok(())
@@ -767,11 +792,52 @@ fn emit_mappings(schema: &Schema) {
     table::print_table(&headers, &rows);
 }
 
-fn handle_snapshot(report: &str, snapshot_path: Option<&Path>) -> Result<()> {
-    let Some(path) = snapshot_path else {
+struct SnapshotRequest<'a> {
+    path: Option<&'a Path>,
+    format: SnapshotFormat,
+    notes: Option<&'a str>,
+    schema: &'a Schema,
+    report: &'a str,
+    input: &'a Path,
+}
+
+#[derive(Serialize)]
+struct Snapshot {
+    metadata: SnapshotMetadata,
+    header_hash: String,
+    columns: Vec<SnapshotColumn>,
+    sample_summary: String,
+}
+
+#[derive(Serialize)]
+struct SnapshotMetadata {
+    timestamp: String,
+    version: String,
+    source_file: String,
+    command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notes: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SnapshotColumn {
+    name: String,
+    position: usize,
+    inferred_type: String,
+}
+
+fn handle_snapshot(request: &SnapshotRequest<'_>) -> Result<()> {
+    let Some(path) = request.path else {
         return Ok(());
     };
 
+    match request.format {
+        SnapshotFormat::Text => write_text_snapshot(path, request.report),
+        SnapshotFormat::Json => write_json_snapshot(path, request),
+    }
+}
+
+fn write_text_snapshot(path: &Path, report: &str) -> Result<()> {
     if path.exists() {
         let expected =
             fs::read_to_string(path).with_context(|| format!("Reading snapshot from {path:?}"))?;
@@ -780,15 +846,101 @@ fn handle_snapshot(report: &str, snapshot_path: Option<&Path>) -> Result<()> {
                 "Probe output does not match snapshot at {path:?}. Inspect differences and update the snapshot if the change is intentional."
             ));
         }
-    } else {
-        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Creating snapshot directory {parent:?}"))?;
-        }
-        fs::write(path, report).with_context(|| format!("Writing snapshot to {path:?}"))?;
-        eprintln!("Snapshot captured at {path:?}");
+        return Ok(());
     }
 
+    ensure_snapshot_dir(path)?;
+    fs::write(path, report).with_context(|| format!("Writing snapshot to {path:?}"))?;
+    eprintln!("Snapshot captured at {path:?}");
+    Ok(())
+}
+
+fn write_json_snapshot(path: &Path, request: &SnapshotRequest<'_>) -> Result<()> {
+    let payload = build_snapshot_payload(request);
+    let serialized = serde_json::to_string_pretty(&payload)?;
+    if path.exists() {
+        let expected =
+            fs::read_to_string(path).with_context(|| format!("Reading snapshot from {path:?}"))?;
+        if expected != serialized {
+            return Err(anyhow!(
+                "Snapshot JSON does not match {path:?}. Inspect differences and update the snapshot if intentional."
+            ));
+        }
+        return Ok(());
+    }
+    ensure_snapshot_dir(path)?;
+    fs::write(path, serialized).with_context(|| format!("Writing snapshot JSON to {path:?}"))?;
+    eprintln!("Snapshot captured at {path:?}");
+    Ok(())
+}
+
+fn build_snapshot_payload(request: &SnapshotRequest<'_>) -> Snapshot {
+    let metadata = SnapshotMetadata {
+        timestamp: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        source_file: request.input.display().to_string(),
+        command: env::args().collect::<Vec<_>>().join(" "),
+        notes: request.notes.map(|value| value.to_string()),
+    };
+    let columns = request
+        .schema
+        .columns
+        .iter()
+        .enumerate()
+        .map(|(idx, column)| SnapshotColumn {
+            name: column.name.clone(),
+            position: idx + 1,
+            inferred_type: column.datatype.to_string(),
+        })
+        .collect();
+    Snapshot {
+        metadata,
+        header_hash: compute_schema_signature(request.schema),
+        columns,
+        sample_summary: request.report.to_string(),
+    }
+}
+
+fn ensure_snapshot_dir(path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Creating snapshot directory {parent:?}"))?;
+    }
+    Ok(())
+}
+
+fn resolve_evolution_output(args: &SchemaInferArgs) -> Result<PathBuf> {
+    if let Some(path) = args.evolution_output.as_ref() {
+        return Ok(path.clone());
+    }
+    let Some(output) = args.output.as_deref() else {
+        return Err(anyhow!(
+            "--evolution-output is required when --evolution-base is provided without --output"
+        ));
+    };
+    let mut stem = output
+        .file_stem()
+        .map(|stem| stem.to_os_string())
+        .unwrap_or_else(|| OsString::from("schema"));
+    stem.push(".evo.yml");
+    Ok(output.with_file_name(stem))
+}
+
+fn emit_schema_evolution(base_path: &Path, current: &Schema, output: &Path) -> Result<()> {
+    let previous = Schema::load(base_path)
+        .with_context(|| format!("Loading evolution base schema from {base_path:?}"))?;
+    let evolution = schema::evolution::SchemaEvolution::diff(&previous, current);
+    if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Creating evolution directory {parent:?}"))?;
+    }
+    yaml_provider::save_to_path(output, &evolution)
+        .with_context(|| format!("Writing schema evolution report to {output:?}"))?;
+    info!(
+        "Schema evolution report with {} change(s) written to {:?}",
+        evolution.changes.len(),
+        output
+    );
     Ok(())
 }
 
@@ -839,135 +991,44 @@ fn to_lower_snake_case(value: &str) -> String {
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[doc(hidden)]
+pub mod test_support {
     use super::*;
 
-    #[test]
-    fn parse_columns_accepts_comma_and_repeats() {
-        let specs = vec![
-            "id:integer,name:string".to_string(),
-            "amount:float".to_string(),
-        ];
-        let columns = parse_columns(&specs).expect("parsed");
-        assert_eq!(columns.len(), 3);
-        assert_eq!(columns[0].name, "id");
-        assert_eq!(columns[1].name, "name");
-        assert_eq!(columns[2].name, "amount");
-        assert_eq!(columns[0].datatype, ColumnType::Integer);
-        assert_eq!(columns[1].datatype, ColumnType::String);
-        assert_eq!(columns[2].datatype, ColumnType::Float);
+    pub fn parse_columns(specs: &[&str]) -> Result<Vec<ColumnMeta>> {
+        let owned = specs.iter().map(|value| value.to_string()).collect::<Vec<_>>();
+        super::parse_columns(&owned)
     }
 
-    #[test]
-    fn duplicate_columns_are_rejected() {
-        let specs = vec!["id:integer,id:string".to_string()];
-        let err = parse_columns(&specs).unwrap_err();
-        assert!(err.to_string().contains("Duplicate column name"));
+    pub fn apply_replacements(columns: &mut [ColumnMeta], specs: &[&str]) -> Result<()> {
+        let owned = specs.iter().map(|value| value.to_string()).collect::<Vec<_>>();
+        super::apply_replacements(columns, &owned)
     }
 
-    #[test]
-    fn missing_type_is_rejected() {
-        let specs = vec!["id".to_string()];
-        let err = parse_columns(&specs).unwrap_err();
-        assert!(err.to_string().contains("must use the form"));
+    pub fn apply_overrides(schema: &mut Schema, specs: &[&str]) -> Result<Vec<String>> {
+        let owned = specs.iter().map(|value| value.to_string()).collect::<Vec<_>>();
+        let applied = super::apply_overrides(schema, &owned)?;
+        Ok(applied.into_iter().collect())
     }
 
-    #[test]
-    fn parse_columns_supports_output_rename() {
-        let specs = vec!["id:integer->Identifier,name:string".to_string()];
-        let columns = parse_columns(&specs).expect("parsed");
-        assert_eq!(columns.len(), 2);
-        assert_eq!(columns[0].rename.as_deref(), Some("Identifier"));
-        assert!(columns[1].rename.is_none());
+    pub fn apply_default_name_mappings(schema: &mut Schema) -> Vec<(String, String)> {
+        let suggested = super::apply_default_name_mappings(schema);
+        let mut collected = Vec::with_capacity(suggested.len());
+        for original in suggested {
+            if let Some(rename) = schema
+                .columns
+                .iter()
+                .find(|column| column.name == original)
+                .and_then(|column| column.rename.clone())
+            {
+                collected.push((original, rename));
+            }
+        }
+        collected.sort_by(|a, b| a.0.cmp(&b.0));
+        collected
     }
 
-    #[test]
-    fn duplicate_output_names_are_rejected() {
-        let specs = vec![
-            "id:integer->Identifier".to_string(),
-            "code:string->Identifier".to_string(),
-        ];
-        let err = parse_columns(&specs).unwrap_err();
-        assert!(err.to_string().contains("Duplicate output column name"));
-    }
-
-    #[test]
-    fn replacements_apply_to_columns() {
-        let specs = vec!["status:string".to_string()];
-        let mut columns = parse_columns(&specs).expect("parsed");
-        let replacements = vec!["status=pending->shipped".to_string()];
-        apply_replacements(&mut columns, &replacements).expect("applied");
-        assert_eq!(columns[0].value_replacements.len(), 1);
-        assert_eq!(columns[0].value_replacements[0].from, "pending");
-        assert_eq!(columns[0].value_replacements[0].to, "shipped");
-    }
-
-    #[test]
-    fn replacements_validate_column_names() {
-        let specs = vec!["status:string".to_string()];
-        let mut columns = parse_columns(&specs).expect("parsed");
-        let replacements = vec!["missing=pending->shipped".to_string()];
-        let err = apply_replacements(&mut columns, &replacements).unwrap_err();
-        assert!(err.to_string().contains("unknown column"));
-    }
-
-    #[test]
-    fn to_lower_snake_case_converts_names() {
-        assert_eq!(to_lower_snake_case("OrderDate"), "order_date");
-        assert_eq!(to_lower_snake_case("customer-name"), "customer_name");
-        assert_eq!(to_lower_snake_case("customer  name"), "customer_name");
-        assert_eq!(to_lower_snake_case("APIKey"), "api_key");
-        assert_eq!(to_lower_snake_case("HTTPStatus"), "http_status");
-    }
-
-    #[test]
-    fn apply_overrides_updates_types() {
-        let mut schema = Schema {
-            columns: vec![ColumnMeta {
-                name: "amount".to_string(),
-                datatype: ColumnType::Float,
-                rename: None,
-                value_replacements: Vec::new(),
-                datatype_mappings: Vec::new(),
-            }],
-            schema_version: None,
-            has_headers: true,
-        };
-        let overrides = vec!["amount:integer".to_string(), "".to_string()];
-        let applied = apply_overrides(&mut schema, &overrides).unwrap();
-        assert_eq!(schema.columns[0].datatype, ColumnType::Integer);
-        assert!(applied.contains("amount"));
-    }
-
-    #[test]
-    fn apply_default_name_mappings_returns_suggested_set() {
-        let mut schema = Schema {
-            columns: vec![
-                ColumnMeta {
-                    name: "OrderID".to_string(),
-                    datatype: ColumnType::Integer,
-                    rename: None,
-                    value_replacements: Vec::new(),
-                    datatype_mappings: Vec::new(),
-                },
-                ColumnMeta {
-                    name: "CustomerName".to_string(),
-                    datatype: ColumnType::String,
-                    rename: Some("customer_name".to_string()),
-                    value_replacements: Vec::new(),
-                    datatype_mappings: Vec::new(),
-                },
-            ],
-            schema_version: None,
-            has_headers: true,
-        };
-
-        let suggested = apply_default_name_mappings(&mut schema);
-
-        assert_eq!(schema.columns[0].rename.as_deref(), Some("order_id"));
-        assert_eq!(schema.columns[1].rename.as_deref(), Some("customer_name"));
-        assert!(suggested.contains("OrderID"));
-        assert!(!suggested.contains("CustomerName"));
+    pub fn to_lower_snake_case(value: &str) -> String {
+        super::to_lower_snake_case(value)
     }
 }

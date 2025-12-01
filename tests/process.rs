@@ -1,11 +1,20 @@
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use csv_managed::{
     data::parse_typed_value,
     io_utils,
-    schema::{ColumnMeta, ColumnType, DecimalSpec, Schema, ValueReplacement},
+    schema::{
+        evolution::{SchemaChangeKind, SchemaEvolution},
+        ColumnMeta,
+        ColumnType,
+        DecimalSpec,
+        Schema,
+        ValueReplacement,
+    },
 };
 use predicates::{prelude::PredicateBooleanExt, str::contains};
 use tempfile::tempdir;
@@ -76,8 +85,7 @@ fn create_schema_internal(
         args.push("--delimiter".to_string());
         args.push(value);
     }
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args(&args)
         .assert()
         .success();
@@ -205,6 +213,97 @@ fn read_csv(path: &Path) -> (StringRecord, Vec<StringRecord>) {
     (headers, rows)
 }
 
+#[test]
+fn process_applies_string_transforms_in_derives() {
+    let dir = tempdir().expect("temp dir");
+    let input = dir.path().join("labels.csv");
+    {
+        let mut file = File::create(&input).expect("create input csv");
+        writeln!(file, "label").unwrap();
+        writeln!(file, "foo bar").unwrap();
+        writeln!(file, "HTTP_STATUS").unwrap();
+        writeln!(file, "cafe-price").unwrap();
+    }
+
+    let output = dir.path().join("out.csv");
+    cargo_bin_cmd!("csv-managed")
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--derive",
+            "camel=camel_case(label)",
+            "--derive",
+            "pascal=pascal_case(label)",
+            "--derive",
+            "snake=snake_case(label)",
+            "--columns",
+            "label",
+            "-o",
+            output.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(&output)
+        .expect("open derived output");
+
+    let expected = vec![
+        ("foo bar", "fooBar", "FooBar", "foo_bar"),
+        ("HTTP_STATUS", "httpStatus", "HttpStatus", "http_status"),
+        ("cafe-price", "cafePrice", "CafePrice", "cafe_price"),
+    ];
+
+    for (record, expect) in reader.records().zip(expected.iter()) {
+        let record = record.expect("record");
+        assert_eq!(record.get(0), Some(expect.0));
+        assert_eq!(record.get(1), Some(expect.1));
+        assert_eq!(record.get(2), Some(expect.2));
+        assert_eq!(record.get(3), Some(expect.3));
+    }
+}
+
+#[test]
+fn process_emits_evolution_report_without_emitting_schema_file() {
+    let temp = tempdir().expect("temp dir");
+    let input = fixture_path("stats_schema.csv");
+    let schema = fixture_path("stats_schema-schema.yml");
+    let evolution_path = temp.path().join("process-output.evo.yml");
+
+    cargo_bin_cmd!("csv-managed")
+        .args([
+            "process",
+            "-i",
+            input.to_str().unwrap(),
+            "--schema",
+            schema.to_str().unwrap(),
+            "--derive",
+            "double_price:Float=price*2",
+            "--limit",
+            "10",
+            "--emit-evolution-base",
+            schema.to_str().unwrap(),
+            "--emit-evolution-output",
+            evolution_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    assert!(
+        evolution_path.exists(),
+        "expected emit-evolution-only invocation to persist report"
+    );
+
+    let raw = fs::read_to_string(&evolution_path).expect("read evolution report");
+    let evolution: SchemaEvolution = serde_yaml::from_str(&raw).expect("parse evolution report");
+    assert!(evolution.changes.iter().any(|change| {
+        change.column == "double_price"
+            && matches!(change.change, SchemaChangeKind::ColumnAdded)
+    }));
+}
+
 fn run_sorted_column(
     input: &Path,
     schema: &Path,
@@ -217,7 +316,7 @@ fn run_sorted_column(
     let schema_str = schema.to_str().expect("schema path utf-8");
     let output_str = output.to_str().expect("output path utf-8");
 
-    let mut command = Command::cargo_bin("csv-managed").expect("binary exists");
+    let mut command = cargo_bin_cmd!("csv-managed");
     command
         .arg("process")
         .arg("-i")
@@ -393,8 +492,7 @@ fn process_with_index_respects_sort_order() {
     let output_path = temp.path().join("sorted.csv");
 
     let spec = format!("{GOALS_COL}:desc,{ASSISTS_COL}:asc");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "index",
             "-i",
@@ -411,8 +509,7 @@ fn process_with_index_respects_sort_order() {
 
     let sort_primary = format!("{GOALS_COL}:desc");
     let sort_secondary = format!("{ASSISTS_COL}:asc");
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -485,8 +582,7 @@ fn process_filters_and_derives_top_scorers() {
 
     let filter_expr = format!("{GOALS_COL} >= 10");
     let derive_expr = "top_scorer=performance_gls >= 10";
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -538,8 +634,7 @@ fn process_supports_temporal_expression_filters_and_derives() {
     let schema_path = create_schema(&temp, &csv_path);
     let output_path = temp.path().join("temporal.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -757,8 +852,7 @@ fn append_merges_player_datasets() {
 
     let expected_rows = count_rows(&input) + count_rows(&subset_path);
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "append",
             "-i",
@@ -803,8 +897,7 @@ fn append_rejects_mismatched_headers() {
     }
     writer.flush().expect("flush mismatch");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "append",
             "-i",
@@ -824,8 +917,7 @@ fn verify_accepts_valid_big5_subset() {
     let schema_path =
         create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -868,8 +960,7 @@ fn verify_rejects_invalid_numeric_value() {
     }
     writer.flush().expect("flush broken");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -928,8 +1019,7 @@ fn verify_accepts_value_after_replacement() {
     });
     schema_doc.save(&schema_path).expect("save schema");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -964,8 +1054,7 @@ fn stats_outputs_summary_for_selected_columns() {
         ],
     );
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -994,8 +1083,7 @@ fn stats_frequency_outputs_top_values_for_boolean_column() {
     let input = primary_dataset();
     let (data, schema_path) = create_boolean_subset(&temp, &input, 500);
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -1023,8 +1111,7 @@ fn process_boolean_format_true_false_outputs_normalized_values() {
     let (data, schema_path) = create_boolean_subset(&temp, &input, 200);
     let output_path = temp.path().join("booleans_true_false.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -1059,8 +1146,7 @@ fn process_boolean_format_one_zero_outputs_digits() {
     let (data, schema_path) = create_boolean_subset(&temp, &input, 200);
     let output_path = temp.path().join("booleans_one_zero.csv");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -1160,8 +1246,7 @@ fn process_sorts_all_supported_datatypes() {
 #[test]
 fn preview_renders_requested_rows() {
     let input = primary_dataset();
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",
@@ -1185,8 +1270,7 @@ fn process_applies_currency_mappings() {
     let input = fixture_path("currency_transactions.csv");
     let schema_path = fixture_path("currency_transactions-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "process",
             "-i",

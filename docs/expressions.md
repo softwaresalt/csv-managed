@@ -11,6 +11,9 @@ Extended examples for complex filtering, derivations, and analytical flag creati
 5. Derived Boolean Analytics Flags
 6. Chaining Replacements + Derives
 7. Performance Tips
+8. String Case & Cleanup
+9. Quoting Differences (Windows Shells)
+10. Combined Example (Full)
 
 ---
 
@@ -111,7 +114,34 @@ Then derive on normalized values:
 | Large temporal diffs | Pre-filter rows before computing many `date_diff_days` calls. |
 | Snapshot + expressions | Snapshots only cover schema inference formatting, not derive logic. |
 
-## 8. Quoting Differences (Windows Shells)
+## 8. String Case & Cleanup
+
+Normalize identifiers or build user-facing labels with the dedicated helpers:
+
+| Function | Example | Notes |
+|----------|---------|-------|
+| `camel_case(str)` | `camel_case("order status")` → `orderStatus` | Word boundaries detected across spaces, hyphens, underscores, and CamelCase transitions. |
+| `pascal_case(str)` | `pascal_case("api version")` → `ApiVersion` | Same detection as `camel_case`, but capitalizes the first token. |
+| `snake_case(str)` | `snake_case("HTTPStatus")` → `http_status` | Uses Unicode-aware heuristics to separate acronym runs. |
+| `trim(str)` | `trim("  value  ")` → `value` | Borrowing-friendly; avoids allocation when whitespace is absent. |
+| `substring(str, start, len)` | `substring(code, 0, 3)` | Operates on Unicode scalars so multi-byte characters stay intact. |
+| `regex_replace(str, pattern, replacement)` | `regex_replace(id, "[^0-9]", "")` | Returns the original string when the pattern does not match. |
+
+Combine them with derives:
+
+```powershell
+--derive 'slug=snake_case(lowercase(Product_Name))' `
+--derive 'pascal_label=pascal_case(regex_replace(category,"[^A-Za-z0-9 ]",""))'
+```
+
+Or ensure display labels remain consistent before analytics:
+
+```powershell
+--derive 'camel_customer=camel_case(trim(Customer_Name))' `
+--derive 'region_key=substring(snake_case(Region), 0, 12)'
+```
+
+## 9. Quoting Differences (Windows Shells)
 
 Correct quoting avoids misinterpretation of comparison operators, inner string literals, or special characters.
 
@@ -138,7 +168,7 @@ Minimal cross-shell safe pattern:
 --filter-expr "date_diff_days(shipped_at, ordered_at) >= 2 && (region = \"US\" || region = \"CA\")"
 ```
 
-## Combined Example (Full)
+## 10. Combined Example (Full)
 
 ```powershell
 ./target/release/csv-managed.exe process -i orders.csv -m orders-schema.yml `

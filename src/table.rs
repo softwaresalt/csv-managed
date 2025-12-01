@@ -102,39 +102,3 @@ fn sanitize_cell(value: &str) -> Cow<'_, str> {
         Cow::Borrowed(value)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn render_table_aligns_columns() {
-        let headers = vec!["id".to_string(), "name".to_string()];
-        let rows = vec![
-            vec!["1".to_string(), "Alice".to_string()],
-            vec!["2".to_string(), "Bob".to_string()],
-        ];
-
-        let rendered = render_table(&headers, &rows);
-        let lines: Vec<&str> = rendered.lines().collect();
-
-        assert_eq!(lines.len(), 4);
-        assert_eq!(lines[0], "id  name");
-        assert_eq!(lines[1], "---  -----");
-        assert_eq!(lines[2], "1   Alice");
-        assert_eq!(lines[3], "2   Bob");
-    }
-
-    #[test]
-    fn display_width_counts_characters() {
-        assert_eq!(display_width("abc"), 3);
-        assert_eq!(display_width(""), 0);
-        assert_eq!(display_width("résumé"), 6);
-    }
-
-    #[test]
-    fn display_width_ignores_ansi_sequences() {
-        let value = "\u{1b}[31minvalid\u{1b}[0m";
-        assert_eq!(display_width(value), "invalid".len());
-    }
-}

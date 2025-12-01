@@ -215,6 +215,7 @@ Derived columns: `--derive name=expr`  •  Filters: `--filter`, `--filter-expr`
 | Date diff | `ship_lag=date_diff_days(shipped_at,ordered_at)` | Days between dates |
 | Time diff | `window=time_diff_seconds(end_time,start_time)` | Seconds difference |
 | Concat | `channel_tag=concat(channel,"-",region)` | Combine strings |
+| Case cleanup | `slug=camel_case(customer_name)` | Normalize labels |
 | Guid passthrough | `id_copy=id` | Duplicate column |
 | Row number | `row_index=row_number` | Sequential index |
 
@@ -229,6 +230,8 @@ Derived columns: `--derive name=expr`  •  Filters: `--filter`, `--filter-expr`
 
 **Temporal Helpers**: `date_add`, `date_sub`, `date_diff_days`, `date_format`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `time_add_seconds`, `time_diff_seconds`.
 
+**String Helpers**: `lowercase`, `uppercase`, `snake_case`, `camel_case`, `pascal_case`, `trim`, `substring`, `regex_replace`.
+
 **Pitfalls**:
 
 * PowerShell quoting: wrap whole expression in single quotes, internal literals in double quotes.
@@ -237,7 +240,7 @@ Derived columns: `--derive name=expr`  •  Filters: `--filter`, `--filter-expr`
 * Use helpers, not raw string comparisons, for temporal correctness.
 * Mapping chains precede replacements which precede final parse; expressions see normalized values.
 
-**Function Index (alphabetical)**: `concat`, `date_add`, `date_diff_days`, `date_format`, `date_sub`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `if`, `time_add_seconds`, `time_diff_seconds`.
+**Function Index (alphabetical)**: `camel_case`, `concat`, `date_add`, `date_diff_days`, `date_format`, `date_sub`, `datetime_add_seconds`, `datetime_diff_seconds`, `datetime_format`, `datetime_to_date`, `datetime_to_time`, `if`, `lowercase`, `pascal_case`, `regex_replace`, `snake_case`, `substring`, `time_add_seconds`, `time_diff_seconds`, `trim`, `uppercase`.
 
 **Debugging**: Increase logging with `RUST_LOG=csv_managed=debug`. Future deep expression tracing may emit `expr:` prefixed debug lines.
 
@@ -376,6 +379,36 @@ Set `RUST_LOG=csv_managed=debug` for phase insights (inference voting, index sel
 ### Testing
 
 Run `cargo test`. Integration tests cover inference, indexing, process flags, piping, stats. Use `assert_cmd` for pipeline locking. Add new tests for any behavior that changes output formatting (update snapshots intentionally).
+
+Coverage (report-only baseline):
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+cargo llvm-cov --workspace --all-features --html
+cargo llvm-cov --workspace --all-features --lcov --output-path target/lcov.info
+```
+
+The CI workflow runs `cargo llvm-cov` in report-only mode, uploads the `lcov.info` artifact, and publishes the report to Codecov for pull-request annotations.
+
+### Schema Evolution & Derived Layouts
+
+When a `process` stage changes the header shape (projection, exclusion, or `--derive`), emit an updated schema directly from the streaming run:
+
+```bash
+csv-managed process -i data.csv \
+  --schema schemas/base.yml \
+  --derive double_price:Float=price*2 \
+  --emit-schema tmp/derived-schema.yml \
+  --emit-evolution-base schemas/base.yml \
+| csv-managed stats -i - --schema tmp/derived-schema.yml -C double_price
+```
+
+`--emit-schema` writes the layout consumed by downstream typed commands, while `--emit-evolution-base` captures a deterministic diff in `<emit-schema>.evo.yml` (or the path supplied via `--emit-evolution-output`). This replaces the manual "materialize → schema infer" cycle when evolving pipelines.
+
+Annotate derived columns with `:<Datatype>` (e.g., `double_price:Float=price*2`) so emitted schemas advertise the correct type to downstream commands. Unannotated derives continue to default to `String` in the generated schema.
+
+To inspect schema drift during inference itself, supply `schema infer --evolution-base existing-schema.yml` (and optionally `--evolution-output custom.evo.yml`). The command will emit an evolution report even when running with `--preview`, enabling CI jobs to capture column-level diffs without mutating the baseline schema file.
 
 ---
 

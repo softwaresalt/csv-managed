@@ -72,6 +72,10 @@ Options:
           Override inferred column types using `name:type`
       --snapshot <SNAPSHOT>
           Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
+      --snapshot-format <SNAPSHOT_FORMAT>
+          Format used for --snapshot when capturing or validating [default: text] [possible values: text, json]
+      --snapshot-notes <SNAPSHOT_NOTES>
+          Optional free-form notes recorded when capturing JSON snapshots
       --na-behavior <na-behavior>
           How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
       --na-fill <STRING>
@@ -112,6 +116,10 @@ Options:
           Override inferred column types using `name:type`
       --snapshot <SNAPSHOT>
           Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
+      --snapshot-format <SNAPSHOT_FORMAT>
+          Format used for --snapshot when capturing or validating [default: text] [possible values: text, json]
+      --snapshot-notes <SNAPSHOT_NOTES>
+          Optional free-form notes recorded when capturing JSON snapshots
   -o, --output <OUTPUT>
           Destination -schema.yml file path (alias --schema retained for compatibility)
       --replace-template
@@ -120,6 +128,10 @@ Options:
           Show a unified diff between an existing schema file and the inferred schema without modifying the file
       --preview
           Render the resulting schema YAML to stdout without writing a file. Suppresses --output when present. Mapping templates still emit when --mapping is used.
+      --evolution-base <EVOLUTION_BASE>
+          Base schema to compare against when emitting schema evolution reports
+      --evolution-output <EVOLUTION_OUTPUT>
+          Destination for the schema evolution report (defaults to <output>.evo.yml when --output is present)
       --na-behavior <na-behavior>
           How to treat NA-style placeholders (NA, N/A, #NA, #N/A) during inference [default: empty] [possible values: empty, fill]
       --na-fill <STRING>
@@ -131,6 +143,8 @@ Options:
 ```
 
 `schema infer` writes decimal metadata into the generated YAML so downstream commands can enforce precision/scale while processing large numeric datasets. Use `--preview` to review the exact YAML that would be written (including `--replace-template` scaffolding, plus mapping templates when `--mapping` is enabled) without touching the filesystem, and `--diff existing-schema.yml` to inspect a unified diff against a saved schema before committing changes.
+
+Pair `--evolution-base` with either `--output` or an explicit `--evolution-output` path to emit a schema-evolution report (`*.evo.yml`) that captures column additions, removals, datatype changes, and rename/replacement mappings relative to a baseline schema. This enables CI workflows to track structural drift even when you only preview the inferred schema.
 
 Majority voting logic identical to `schema probe`; overrides apply after voting. Currency promotion uses the same 30% symbol threshold plus full-column compliance with currency scale rules before displacing Float/Decimal. Upcoming enhancement will allow treating tokens like `NA`, `N/A`, `#NA`, `#N/A` as empty for inference to avoid diluting numeric majorities.
 \
@@ -258,6 +272,12 @@ Options:
           Apply schema-defined datatype mappings before replacements (automatic when mappings exist)
       --skip-mappings
           Skip schema-defined datatype mappings even if they are present
+      --emit-schema <EMIT_SCHEMA>
+          Write a schema describing the processed output layout (after projection/derivation)
+      --emit-evolution-base <EMIT_EVOLUTION_BASE>
+          Base schema to compare against when emitting an evolution report for process output
+      --emit-evolution-output <EMIT_EVOLUTION_OUTPUT>
+          Destination for the process evolution report (defaults to <emit-schema>.evo.yml when emit-schema is provided)
       --preview
           Render results as a preview table on stdout (disables --output and defaults the row limit)
       --table
@@ -267,6 +287,8 @@ Options:
 ```
 
 Use `--apply-mappings` (enabled automatically when mappings exist) to run decimal rounding or truncation steps before values are written or validated.
+
+When a pipeline changes the column layout (projection, exclusion, derives), add `--emit-schema <path>` to persist the transformed schema for downstream typed commands and optionally `--emit-evolution-base <baseline-schema>` to simultaneously emit a deterministic evolution report (`<emit-schema>.evo.yml` by default). For audit-only scenarios, skip `--emit-schema` and provide both `--emit-evolution-base` and `--emit-evolution-output` to capture the diff without writing a new schema file.
 
 Headerless note: If the schema passed with `-m` has `has_headers: false`, the file is read without consuming a header row; column references should match the synthetic or renamed field names persisted in the schema.
 

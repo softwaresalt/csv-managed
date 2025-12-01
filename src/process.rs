@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{ffi::OsString, fs::File, path::Path};
 
 use anyhow::{Context, Result, anyhow};
 use csv::{ByteRecord, Position};
@@ -15,6 +15,7 @@ use crate::{
     rows::{evaluate_filter_expressions, parse_typed_row},
     schema::{ColumnMeta, ColumnType, Schema},
     table,
+    yaml_provider,
 };
 
 use encoding_rs::Encoding;
@@ -245,7 +246,6 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
                 args.input
             );
         }
-        Ok(())
     } else {
         let mut writer = io_utils::open_csv_writer(output_path, output_delimiter, output_encoding)?;
         write_headers(&mut writer, &output_plan)?;
@@ -292,8 +292,11 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
                 engine.process_in_memory(reader, input_encoding, sort_plan)?;
             }
         }
-        writer.flush().context("Flushing output")
+        writer.flush().context("Flushing output")?;
     }
+
+    maybe_emit_output_schema(&schema, &derived_columns, &output_plan, args)?;
+    Ok(())
 }
 
 fn reconcile_schema_with_headers(schema: &mut Schema, headers: &[String]) -> Result<()> {
@@ -640,6 +643,88 @@ fn compare_rows(a: &RowData, b: &RowData, plan: &[SortInstruction]) -> std::cmp:
     a.ordinal.cmp(&b.ordinal)
 }
 
+fn build_emitted_schema(
+    schema: &Schema,
+    derived_columns: &[DerivedColumn],
+    output_plan: &OutputPlan,
+) -> Schema {
+    Schema {
+        columns: output_plan.describe_columns(schema, derived_columns),
+        schema_version: schema.schema_version.clone(),
+        has_headers: true,
+    }
+}
+
+fn maybe_emit_output_schema(
+    schema: &Schema,
+    derived_columns: &[DerivedColumn],
+    output_plan: &OutputPlan,
+    args: &ProcessArgs,
+) -> Result<()> {
+    if args.emit_schema.is_none() && args.emit_evolution_base.is_none() {
+        return Ok(());
+    }
+
+    let emitted_schema = build_emitted_schema(schema, derived_columns, output_plan);
+
+    if let Some(path) = args.emit_schema.as_deref() {
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Creating emit-schema directory {parent:?}"))?;
+        }
+        yaml_provider::save_to_path(path, &emitted_schema)
+            .with_context(|| format!("Writing emitted schema to {path:?}"))?;
+        info!(
+            "Output schema with {} column(s) written to {:?}",
+            emitted_schema.columns.len(),
+            path
+        );
+    }
+
+    if let Some(base_path) = args.emit_evolution_base.as_deref() {
+        let evolution_output =
+            resolve_emit_evolution_output(args, args.emit_schema.as_deref())?;
+        if let Some(parent) = evolution_output.parent().filter(|p| !p.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("Creating emit-evolution directory {parent:?}")
+            })?;
+        }
+        let base = Schema::load(base_path)
+            .with_context(|| format!("Loading evolution base schema from {base_path:?}"))?;
+        let evolution = crate::schema::evolution::SchemaEvolution::diff(&base, &emitted_schema);
+        yaml_provider::save_to_path(&evolution_output, &evolution).with_context(|| {
+            format!("Writing schema evolution report to {evolution_output:?}")
+        })?;
+        info!(
+            "Schema evolution report containing {} change(s) written to {:?}",
+            evolution.changes.len(),
+            evolution_output
+        );
+    }
+
+    Ok(())
+}
+
+fn resolve_emit_evolution_output(
+    args: &ProcessArgs,
+    emit_schema_path: Option<&Path>,
+) -> Result<std::path::PathBuf> {
+    if let Some(path) = args.emit_evolution_output.as_ref() {
+        return Ok(path.clone());
+    }
+    if let Some(schema_path) = emit_schema_path {
+        let mut stem = schema_path
+            .file_stem()
+            .map(|stem| stem.to_os_string())
+            .unwrap_or_else(|| OsString::from("schema"));
+        stem.push(".evo.yml");
+        return Ok(schema_path.with_file_name(stem));
+    }
+    Err(anyhow!(
+        "--emit-evolution-output is required when --emit-evolution-base is set without --emit-schema"
+    ))
+}
+
 #[derive(Debug)]
 struct RowData {
     raw: Vec<String>,
@@ -741,6 +826,42 @@ impl OutputPlan {
 
     fn headers(&self) -> &[String] {
         &self.headers
+    }
+
+    fn describe_columns(&self, schema: &Schema, derived: &[DerivedColumn]) -> Vec<ColumnMeta> {
+        let mut columns = Vec::with_capacity(self.fields.len());
+        for field in &self.fields {
+            match field {
+                OutputField::RowNumber => columns.push(ColumnMeta {
+                    name: "row_number".to_string(),
+                    datatype: ColumnType::Integer,
+                    rename: None,
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                }),
+                OutputField::ExistingColumn(idx) => {
+                    let source = &schema.columns[*idx];
+                    columns.push(ColumnMeta {
+                        name: source.output_name().to_string(),
+                        datatype: source.datatype.clone(),
+                        rename: None,
+                        value_replacements: Vec::new(),
+                        datatype_mappings: Vec::new(),
+                    });
+                }
+                OutputField::Derived(idx) => columns.push(ColumnMeta {
+                    name: derived[*idx].name.clone(),
+                    datatype: derived[*idx]
+                        .output_type
+                        .clone()
+                        .unwrap_or(ColumnType::String),
+                    rename: None,
+                    value_replacements: Vec::new(),
+                    datatype_mappings: Vec::new(),
+                }),
+            }
+        }
+        columns
     }
 }
 

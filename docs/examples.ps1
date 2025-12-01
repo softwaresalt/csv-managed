@@ -7,6 +7,8 @@ $binRelease = Join-Path $repoRoot 'target\release\csv-managed.exe'
 $binDebug = Join-Path $repoRoot 'target\debug\csv-managed.exe'
 $csvBig5 = Join-Path $repoRoot 'tests\data\big_5_players_stats_2023_2024.csv'
 $schemaBig5 = Join-Path $repoRoot 'tests\data\big_5_players_stats-schema.yml'
+$statsCsv = Join-Path $repoRoot 'tests\data\stats_schema.csv'
+$statsSchema = Join-Path $repoRoot 'tests\data\stats_schema-schema.yml'
 
 Push-Location $repoRoot
 try {
@@ -127,6 +129,23 @@ try {
 
     & "$binRelease" process -i 'tests\data\sort_types.csv' -m 'tests\data\sort_types-schema.yml' --filter 'bool_col=false' --columns id --columns bool_col --columns currency_col --columns decimal_col --boolean-format one-zero --output 'tmp\sort_types_filtered.csv' --output-encoding windows-1252
     Get-Content 'tmp\sort_types_filtered.csv'
+
+    # String transform derive example
+    & "$binRelease" process -i 'tests\data\big_5_players_stats_2023_2024.csv' -m 'tests\data\big_5_players_stats-schema.yml' `
+        --derive 'slug=snake_case(Player)' `
+        --derive 'camel_name=camel_case(Player)' `
+        --columns Player --limit 5 --table
+
+    # Streaming derive + schema evolution emission example (process -> stats)
+    $derivedSchema = Join-Path $repoRoot 'tmp\stats_with_extra-schema.yml'
+    $derivedEvolution = Join-Path $repoRoot 'tmp\stats_with_extra-schema.evo.yml'
+    Get-Content -Raw $statsCsv |
+        & "$binRelease" process -i - --schema $statsSchema `
+                --derive double_price:Float=price*2 `
+            --emit-schema $derivedSchema `
+            --emit-evolution-base $statsSchema `
+        | & "$binRelease" stats -i - --schema $derivedSchema -C double_price
+    Get-Content $derivedEvolution
 
     # Prepare subsets for append command demonstrations
     & "$binRelease" process -i 'tests\data\orders_temporal.csv' -m 'tests\data\orders_temporal-schema.yml' --columns id --columns ordered_at --columns status --filter 'status=shipped' -o 'tmp\orders_shipped.csv'

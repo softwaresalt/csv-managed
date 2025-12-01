@@ -2,7 +2,7 @@
 
 ## ADR-001: YAML Parsing Library Selection
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2023-10-27
 
 ## ADR-001: Context
@@ -164,7 +164,7 @@ This approach involves manually instrumenting the code during compilation and th
 
 **Chosen Option:** `cargo-llvm-cov`
 
-`cargo-llvm-cov` is the best choice for our project. It meets all our decision criteria, offering the highest accuracy, excellent cross-platform support, and straightforward CI integration, all while working with the stable Rust toolchain.
+`cargo-llvm-cov` is the best choice for our project. It meets all our decision criteria, offering the highest accuracy, excellent cross-platform support, and straightforward CI integration, all while working with the stable Rust toolchain. The CI workflow now executes `cargo llvm-cov`, publishes the `lcov` artifact, and pushes results to Codecov in a non-blocking job so we can monitor coverage trends before enforcing thresholds.
 
 The minor inconvenience of installing the `llvm-tools-preview` component is a small and acceptable price for the accuracy and reliability it provides. This approach aligns with the recommendation in the v1.1.0 feature plan and provides a robust foundation for our code quality initiatives. `cargo-tarpaulin`'s platform limitations make it a non-starter, and the complexity of a manual `grcov` setup is not justified.
 

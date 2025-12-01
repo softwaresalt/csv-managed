@@ -62,6 +62,13 @@ pub enum NaPlaceholderBehavior {
     Fill,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[value(rename_all = "kebab-case")]
+pub enum SnapshotFormat {
+    Text,
+    Json,
+}
+
 #[derive(Debug, Args, Clone)]
 pub struct SchemaProbeArgs {
     /// Input CSV file to inspect
@@ -85,6 +92,12 @@ pub struct SchemaProbeArgs {
     /// Capture or validate a snapshot with header/type hash and sampled value summaries (writes if missing)
     #[arg(long = "snapshot")]
     pub snapshot: Option<PathBuf>,
+    /// Format used for --snapshot when capturing or validating
+    #[arg(long = "snapshot-format", value_enum, default_value = "text")]
+    pub snapshot_format: SnapshotFormat,
+    /// Optional free-form notes recorded when capturing JSON snapshots
+    #[arg(long = "snapshot-notes")]
+    pub snapshot_notes: Option<String>,
     /// How to treat NA-style placeholders (NA, N/A, #N/A, #NA)
     #[arg(long = "na-behavior", value_enum, default_value = "empty")]
     pub na_behavior: NaPlaceholderBehavior,
@@ -112,6 +125,12 @@ pub struct SchemaInferArgs {
     /// Show a unified diff between an existing schema file and the inferred schema
     #[arg(long = "diff")]
     pub diff: Option<PathBuf>,
+    /// Base schema to compare against when emitting schema evolution reports
+    #[arg(long = "evolution-base")]
+    pub evolution_base: Option<PathBuf>,
+    /// Destination for the schema evolution report (defaults to <output>.evo.yml when --output is present)
+    #[arg(long = "evolution-output")]
+    pub evolution_output: Option<PathBuf>,
 }
 
 #[derive(Debug, Args, Clone)]
@@ -232,6 +251,15 @@ pub struct ProcessArgs {
     /// Skip schema-defined datatype mappings even if they exist
     #[arg(long = "skip-mappings")]
     pub skip_mappings: bool,
+    /// Write a schema describing the processed output layout (after projection/derivation)
+    #[arg(long = "emit-schema")]
+    pub emit_schema: Option<PathBuf>,
+    /// Base schema to compare against when emitting an evolution report for process output
+    #[arg(long = "emit-evolution-base")]
+    pub emit_evolution_base: Option<PathBuf>,
+    /// Destination for the process evolution report (defaults to <emit-schema>.evo.yml when emit-schema is provided)
+    #[arg(long = "emit-evolution-output")]
+    pub emit_evolution_output: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]

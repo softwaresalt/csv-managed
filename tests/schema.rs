@@ -4,8 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv_managed::schema::{
+    evolution::{SchemaChangeKind, SchemaEvolution},
     ColumnType, DecimalSpec, PlaceholderPolicy, Schema, infer_schema_with_stats,
 };
 use encoding_rs::UTF_8;
@@ -38,8 +39,7 @@ fn schema_command_creates_schema_from_repeated_columns() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("basic-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -72,8 +72,7 @@ fn schema_command_supports_comma_delimited_columns() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("comma-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -97,8 +96,7 @@ fn schema_command_emits_renames_and_replacements() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("renamed-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -150,8 +148,7 @@ fn schema_command_rejects_duplicate_column_names() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("duplicate-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -171,8 +168,7 @@ fn schema_command_rejects_duplicate_output_names() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("duplicate_output-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -192,8 +188,7 @@ fn schema_command_rejects_unknown_column_type() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("bad_type-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args(["schema", "-o", output.to_str().unwrap(), "-c", "id:number"])
         .assert()
         .failure()
@@ -205,8 +200,7 @@ fn schema_command_validates_replacement_column_names() {
     let temp = tempdir().expect("temp dir");
     let output = temp.path().join("bad_replace-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "-o",
@@ -225,8 +219,7 @@ fn schema_command_validates_replacement_column_names() {
 fn schema_probe_on_big5_reports_samples_and_formats() {
     let csv_path = fixture_path("big_5_players_stats_2023_2024.csv");
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -267,8 +260,7 @@ fn schema_infer_with_overrides_and_mapping_on_big5() {
     let temp = tempdir().expect("temp dir");
     let schema_path = temp.path().join("big5_override-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -322,8 +314,7 @@ fn schema_infer_ignores_repeated_header_rows_in_big5_dataset() {
     let temp = tempdir().expect("temp dir");
     let schema_path = temp.path().join("big5_large_sample-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -396,8 +387,7 @@ fn schema_infer_prefers_majority_datatypes_from_fixture() {
     let temp = tempdir().expect("temp dir");
     let schema_path = temp.path().join("majority-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -451,6 +441,87 @@ fn schema_infer_prefers_majority_datatypes_from_fixture() {
 }
 
 #[test]
+fn schema_infer_emits_evolution_report_using_output_basename() {
+    let temp = tempdir().expect("temp dir");
+        let base_schema = temp.path().join("base-schema.yml");
+        let base_fixture = fixture_path("schema_evolution_base.yml");
+        fs::copy(&base_fixture, &base_schema).expect("copy base schema fixture");
+
+        let input_path = temp.path().join("augmented.csv");
+        let csv_fixture = fixture_path("schema_evolution_augmented.csv");
+        fs::copy(&csv_fixture, &input_path).expect("copy evolution csv fixture");
+
+    let output_schema = temp.path().join("derived-schema.yml");
+    cargo_bin_cmd!("csv-managed")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            input_path.to_str().unwrap(),
+            "-o",
+            output_schema.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+            "--evolution-base",
+            base_schema.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let evolution_path = output_schema.with_file_name("derived-schema.evo.yml");
+    assert!(
+        evolution_path.exists(),
+        "expected derived schema evolution report to be written"
+    );
+
+    let raw = fs::read_to_string(&evolution_path).expect("read evolution report");
+    let evolution: SchemaEvolution = serde_yaml::from_str(&raw).expect("parse evolution report");
+    assert!(evolution.changes.iter().any(|change| {
+        change.column == "tier" && matches!(change.change, SchemaChangeKind::ColumnAdded)
+    }));
+}
+
+#[test]
+fn schema_infer_emits_evolution_report_without_schema_output_when_destination_provided() {
+    let temp = tempdir().expect("temp dir");
+        let base_schema = temp.path().join("base-schema.yml");
+        let base_fixture = fixture_path("schema_evolution_base.yml");
+        fs::copy(&base_fixture, &base_schema).expect("copy base schema fixture");
+
+        let input_path = temp.path().join("augmented.csv");
+        let csv_fixture = fixture_path("schema_evolution_augmented.csv");
+        fs::copy(&csv_fixture, &input_path).expect("copy evolution csv fixture");
+
+    let custom_evolution = temp.path().join("custom-report.yml");
+    cargo_bin_cmd!("csv-managed")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            input_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+            "--evolution-base",
+            base_schema.to_str().unwrap(),
+            "--evolution-output",
+            custom_evolution.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    assert!(
+        custom_evolution.exists(),
+        "expected explicit evolution path to be written even without --output"
+    );
+
+    let raw = fs::read_to_string(&custom_evolution).expect("read evolution report");
+    let evolution: SchemaEvolution = serde_yaml::from_str(&raw).expect("parse evolution report");
+    assert!(evolution.changes.iter().any(|change| {
+        change.column == "tier" && matches!(change.change, SchemaChangeKind::ColumnAdded)
+    }));
+}
+
+#[test]
 fn schema_infer_detects_headerless_dataset() {
     let csv_path = fixture_path("sensor_readings_no_header.csv");
     let policy = PlaceholderPolicy::default();
@@ -495,8 +566,7 @@ fn schema_probe_snapshot_writes_and_validates_layout() {
     let temp = tempfile::tempdir().expect("temp dir");
     let snapshot_path = temp.path().join("probe.snap");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -517,8 +587,7 @@ fn schema_probe_snapshot_writes_and_validates_layout() {
     );
 
     // Second run should succeed when snapshot matches.
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -534,8 +603,7 @@ fn schema_probe_snapshot_writes_and_validates_layout() {
 
     // Deliberately corrupt snapshot to ensure mismatch is detected.
     fs::write(&snapshot_path, "corrupted snapshot").expect("overwrite snapshot");
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "probe",
@@ -558,8 +626,7 @@ fn schema_infer_snapshot_writes_and_validates_layout() {
     let snapshot_path = temp.path().join("infer.snap");
     let schema_path = temp.path().join("infer-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -588,8 +655,7 @@ fn schema_infer_snapshot_writes_and_validates_layout() {
     );
 
     // Second run should still succeed when snapshot matches the rendered output.
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -607,8 +673,7 @@ fn schema_infer_snapshot_writes_and_validates_layout() {
 
     // Corrupt snapshot to ensure mismatch detection fires.
     fs::write(&snapshot_path, "corrupted snapshot").expect("overwrite snapshot");
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -631,8 +696,7 @@ fn schema_verify_accepts_currency_dataset() {
     let csv_path = fixture_path("currency_transactions.csv");
     let schema_path = fixture_path("currency_transactions-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -650,8 +714,7 @@ fn schema_verify_rejects_invalid_currency_precision() {
     let csv_path = fixture_path("currency_transactions_invalid.csv");
     let schema_path = fixture_path("currency_transactions-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "verify",
@@ -672,8 +735,7 @@ fn schema_infer_preview_emits_yaml_template_without_writing() {
     fs::write(&csv_path, "id,name\n1,Ada\n2,Grace\n").expect("write csv");
 
     let schema_path = temp.path().join("preview-schema.yml");
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -712,8 +774,7 @@ fn schema_infer_preview_includes_placeholder_replacements() {
     let csv_path = temp.path().join("placeholders.csv");
     fs::write(&csv_path, "code,value\n001,NA\n002,#N/A\n003,N/A\n").expect("write csv");
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -751,8 +812,7 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
 
     let baseline_path = temp.path().join("existing-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -776,8 +836,7 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
     baseline_contents = baseline_contents.replacen(&original_line, &modified_line, 1);
     fs::write(&baseline_path, &baseline_contents).expect("write modified baseline");
 
-    let diff_assert = Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    let diff_assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -806,8 +865,7 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
         "expected addition line missing: {diff_stdout}"
     );
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -821,8 +879,7 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
         .assert()
         .success();
 
-    let no_diff_assert = Command::cargo_bin("csv-managed")
-        .expect("binary present")
+    let no_diff_assert = cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",

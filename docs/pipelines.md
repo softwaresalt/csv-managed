@@ -33,10 +33,26 @@ Parsers are bound by position; mismatch yields parse errors or silent type misal
 ## Changing Column Shape Safely
 
 1. Derive then materialize: `process --derive ... -o out.csv`; infer new schema; run typed downstream stages.
-2. (Future) `process --emit-schema` to auto-export transformed layout.
+2. Use `process --emit-schema <path>` (optionally `--emit-evolution-base existing-schema.yml`) to auto-export the transformed layout and emit a schema-evolution diff without leaving the streaming pipeline.
 3. String-only downstream (omit `--schema`) if later steps just textual.
 
 ## Schema Evolution Examples
+
+### Streaming Emit + Evolution Report
+
+```powershell
+Get-Content .\tests\data\stats_schema.csv | \
+  .\target\release\csv-managed.exe process -i - `
+    --schema .\tests\data\stats_schema-schema.yml `
+    --derive double_price:Float=price*2 `
+    --emit-schema .\tmp\stats_with_extra-schema.yml `
+    --emit-evolution-base .\tests\data\stats_schema-schema.yml | \
+  .\target\release\csv-managed.exe stats -i - `
+    --schema .\tmp\stats_with_extra-schema.yml `
+    -C double_price
+```
+
+The process stage writes the transformed schema to `stats_with_extra-schema.yml` and emits an evolution report (`stats_with_extra-schema.evo.yml`) that lists newly added or changed columns. The emitted schema can be fed directly into downstream typed commands (stats, verify, append) without re-running `schema infer`.
 
 ### PowerShell: Derive, Infer, Reuse
 
@@ -197,7 +213,6 @@ Include `snapshots/*.snap` in version control to detect structural drift intenti
 
 ## Roadmap
 
-* `process --emit-schema` for transformed output.
 * Streaming join stage with schema suggestion.
 * Primary key + hash signature integration.
 

@@ -1,0 +1,7 @@
+schema_version: "1.0"
+has_headers: true
+columns:
+  - name: id
+    datatype: Integer
+  - name: status
+    datatype: String

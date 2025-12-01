@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use csv::{ReaderBuilder, WriterBuilder};
 use predicates::{prelude::PredicateBooleanExt, str::contains};
 use tempfile::tempdir;
 
-use csv_managed::schema::{Schema, ValueReplacement};
+use csv_managed::schema::{ColumnType, Schema, ValueReplacement};
 
 const BIG5_DATA: &str = "big_5_players_stats_2023_2024.csv";
 const GOALS_COLUMN: &str = "Performance_Gls";
@@ -105,8 +105,7 @@ fn stats_infers_numeric_columns_from_big5() {
     let temp = tempdir().expect("temp dir");
     let subset_path = temp.path().join("big5_numeric.csv");
     write_big5_numeric_subset(&csv_path, &subset_path, 5, false);
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -132,8 +131,7 @@ fn stats_columns_flag_limits_output_with_big5_schema() {
     write_big5_numeric_subset(&csv_path, &subset_path, 5, false);
     let schema_path = temp.path().join("big5-schema.yml");
 
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -147,8 +145,7 @@ fn stats_columns_flag_limits_output_with_big5_schema() {
         .assert()
         .success();
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -183,8 +180,7 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
     let schema_path = temp.path().join("big5-schema.yml");
 
     write_big5_numeric_subset(&csv_path, &clean_subset_path, 3, false);
-    Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    cargo_bin_cmd!("csv-managed")
         .args([
             "schema",
             "infer",
@@ -220,8 +216,7 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
         format!("{expected_mean:.4}")
     };
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -255,11 +250,73 @@ fn stats_applies_replacements_and_limit_on_big5_subset() {
 }
 
 #[test]
+fn stats_cli_reports_integer_metrics_for_big5_subset() {
+    let csv_path = fixture_path(BIG5_DATA);
+    let temp = tempdir().expect("temp dir");
+    let subset_path = temp.path().join("big5_integer_subset.csv");
+    let schema_path = temp.path().join("big5-schema.yml");
+    write_big5_numeric_subset(&csv_path, &subset_path, 10, false);
+
+    cargo_bin_cmd!("csv-managed")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            subset_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    let mut schema = Schema::load(&schema_path).expect("load schema");
+    for column_name in [GOALS_COLUMN, ASSISTS_COLUMN] {
+        let idx = schema
+            .column_index(column_name)
+            .unwrap_or_else(|| panic!("missing column {}", column_name));
+        schema.columns[idx].datatype = ColumnType::Integer;
+    }
+    schema.save(&schema_path).expect("save schema overrides");
+
+    let assert = cargo_bin_cmd!("csv-managed")
+        .args([
+            "stats",
+            "-i",
+            subset_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+            "--columns",
+            GOALS_COLUMN,
+            "--columns",
+            ASSISTS_COLUMN,
+            "--limit",
+            "100",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    for column_name in [GOALS_COLUMN, ASSISTS_COLUMN] {
+        let row = stdout
+            .lines()
+            .find(|line| line.contains(column_name))
+            .unwrap_or_else(|| panic!("missing stats row for {}: {}", column_name, stdout));
+        let cells = parse_table_row(row);
+        assert_ne!(cells[1], "0", "count should reflect ingested rows");
+        assert!(
+            !cells[4].is_empty(),
+            "mean should be present for {column_name}: {cells:?}"
+        );
+    }
+}
+
+#[test]
 fn stats_frequency_reports_categorical_counts() {
     let csv_path = fixture_path("stats_schema.csv");
     let schema_path = fixture_path("stats_schema-schema.yml");
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -292,8 +349,7 @@ fn stats_filter_limits_rows_for_summary() {
     let subset_path = temp.path().join("big5_filtered.csv");
     write_big5_numeric_subset(&csv_path, &subset_path, 5, false);
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -321,8 +377,7 @@ fn stats_filter_limits_rows_for_summary() {
 fn stats_frequency_honors_filters() {
     let data_path = fixture_path(BIG5_DATA);
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -392,8 +447,7 @@ fn stats_handles_temporal_columns_from_schema() {
     let data_path = fixture_path(ORDERS_TEMPORAL_DATA);
     let schema_path = fixture_path(ORDERS_TEMPORAL_SCHEMA);
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
@@ -462,8 +516,7 @@ fn stats_includes_temporal_columns_by_default() {
     let data_path = fixture_path(STATS_TEMPORAL_DATA);
     let schema_path = fixture_path(STATS_TEMPORAL_SCHEMA);
 
-    let assert = Command::cargo_bin("csv-managed")
-        .expect("binary exists")
+    let assert = cargo_bin_cmd!("csv-managed")
         .args([
             "stats",
             "-i",
