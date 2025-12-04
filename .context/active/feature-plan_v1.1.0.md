@@ -348,6 +348,3 @@ This document outlines missing features and capabilities in `csv-managed` when c
 - **`csvkit` tool:** `csvcut`
 - **`csv-managed` equivalent:** `schema --columns` (similar but requires a schema file).
 - **Enhancement:** Add a more direct way to list columns from a CSV file without needing to generate a schema first, perhaps on the `schema probe` command.
-
-
-

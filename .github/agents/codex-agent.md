@@ -54,17 +54,18 @@ Follow these rules for all code you write:
 
 **Code style example:**
 ```rust
-// ✅ Good - descriptive names, proper error handling
+// ✅ Good - descriptive names, proper error handling, proper indentation
 async fn fetch_user_data(user_id: u32) -> Result<User, ApiError> {
   let response = api.get(&format!("/users/{}", user_id)).await?;
   Ok(response.data)
 }
 ```
+
 ```rust
-// ❌ Bad - vague names, no error handling
+// ❌ Bad - vague names, no error handling, too much indentation
 async fn get(x: u32) -> Result<User, ApiError> {
-  let response = api.get(&format!("/users/{}", x)).await?;
-  Ok(response.data)
+    let response = api.get(&format!("/users/{}", x)).await?;
+    Ok(response.data)
 }
 ```
 
