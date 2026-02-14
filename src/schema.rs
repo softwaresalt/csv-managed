@@ -3179,4 +3179,16 @@ columns:
                 .any(|source| source.to_string().contains("must not exceed"))
         );
     }
+
+    #[test]
+    fn schema_load_rejects_nonexistent_file() {
+        let err = Schema::load(std::path::Path::new("nonexistent_schema_file.yml"))
+            .expect_err("nonexistent file should fail");
+        assert!(
+            err.to_string().contains("nonexistent_schema_file.yml")
+                || err.to_string().contains("No such file")
+                || err.to_string().contains("cannot find"),
+            "Expected file-not-found error, got: {err}"
+        );
+    }
 }

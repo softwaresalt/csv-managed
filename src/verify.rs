@@ -1,3 +1,13 @@
+//! Schema verification engine.
+//!
+//! Validates one or more CSV files against a schema, checking that every cell
+//! matches its declared column type. Supports tiered reporting (summary/detail),
+//! configurable violation limits, and header-mismatch detection.
+//!
+//! # Complexity
+//!
+//! Verification is O(n × c) where n is the row count and c is the column count.
+
 use std::{collections::HashMap, path::Path};
 
 use anyhow::{Context, Result, anyhow};
@@ -11,6 +21,8 @@ use crate::{
     table,
 };
 
+/// Validates one or more CSV files against a schema, reporting type mismatches
+/// and optionally printing an invalid-row detail or summary table.
 pub fn execute(args: &SchemaVerifyArgs) -> Result<()> {
     let input_encoding = io_utils::resolve_encoding(args.input_encoding.as_deref())?;
     let schema = Schema::load(&args.schema)

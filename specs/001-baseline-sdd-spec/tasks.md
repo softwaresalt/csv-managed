@@ -347,37 +347,37 @@
 
 ### Edge Case Validation
 
-- [ ] T125 [P] Verify behavior for empty CSV file (0 bytes) across schema probe, process, stats, verify
-- [ ] T126 [P] Verify behavior for header-only CSV (no data rows) across stats and verify
-- [ ] T127 [P] Verify behavior for unknown column in filter expression — confirm clear error message
-- [ ] T128 [P] Verify behavior for malformed derive expression — confirm parse error with position
-- [ ] T129 [P] Verify behavior for empty stdin pipe — confirm detection and reporting
-- [ ] T130 [P] Verify behavior for decimal precision overflow (>28 digits) — confirm error
-- [ ] T131 [P] Verify behavior for column rename with original header name — confirm transparent mapping
-- [ ] T132 [P] Verify behavior for multiple `--filter` flags — confirm AND semantics
-- [ ] T133 [P] Verify behavior for `--sort` without matching index on large input — confirm in-memory fallback
+- [x] T125 [P] Verify behavior for empty CSV file (0 bytes) across schema probe, process, stats, verify
+- [x] T126 [P] Verify behavior for header-only CSV (no data rows) across stats and verify
+- [x] T127 [P] Verify behavior for unknown column in filter expression — confirm clear error message
+- [x] T128 [P] Verify behavior for malformed derive expression — confirm parse error with position
+- [x] T129 [P] Verify behavior for empty stdin pipe — confirm detection and reporting
+- [x] T130 [P] Verify behavior for decimal precision overflow (>28 digits) — confirm error
+- [x] T131 [P] Verify behavior for column rename with original header name — confirm transparent mapping
+- [x] T132 [P] Verify behavior for multiple `--filter` flags — confirm AND semantics
+- [x] T133 [P] Verify behavior for `--sort` without matching index on large input — confirm in-memory fallback
 
 ### Documentation Completeness
 
-- [ ] T134 [P] Add/verify Rustdoc for all public types in src/index.rs (CsvIndex, IndexVariant, IndexDefinition, SortDirection)
-- [ ] T135 [P] Add/verify Rustdoc for all public types in src/filter.rs (ComparisonOperator, FilterCondition)
-- [ ] T136 [P] Add/verify Rustdoc for all public types in src/expr.rs (expression context, temporal functions)
-- [ ] T137 [P] Add/verify Rustdoc for all public types in src/verify.rs (verification engine, report types)
-- [ ] T138 [P] Add/verify Rustdoc for all public types in src/append.rs (append execution)
-- [ ] T139 [P] Add/verify Rustdoc for all public types in src/stats.rs and src/frequency.rs
+- [x] T134 [P] Add/verify Rustdoc for all public types in src/index.rs (CsvIndex, IndexVariant, IndexDefinition, SortDirection)
+- [x] T135 [P] Add/verify Rustdoc for all public types in src/filter.rs (ComparisonOperator, FilterCondition)
+- [x] T136 [P] Add/verify Rustdoc for all public types in src/expr.rs (expression context, temporal functions)
+- [x] T137 [P] Add/verify Rustdoc for all public types in src/verify.rs (verification engine, report types)
+- [x] T138 [P] Add/verify Rustdoc for all public types in src/append.rs (append execution)
+- [x] T139 [P] Add/verify Rustdoc for all public types in src/stats.rs and src/frequency.rs
 
 ### Constitution Compliance
 
-- [ ] T155 [P] Audit failure-path test coverage for all public parsers — confirm each has at least one failure test per Constitution Testing Strategy
-- [ ] T156 [P] Audit hot-path modules (src/data.rs, src/process.rs, src/schema.rs) for unnecessary String allocations or cloning — confirm Zero-Copy / Borrowing principle per Constitution Principle III
+- [x] T155 [P] Audit failure-path test coverage for all public parsers — confirm each has at least one failure test per Constitution Testing Strategy
+- [x] T156 [P] Audit hot-path modules (src/data.rs, src/process.rs, src/schema.rs) for unnecessary String allocations or cloning — confirm Zero-Copy / Borrowing principle per Constitution Principle III
 
 ### Final Validation
 
-- [ ] T140 Run full `cargo test --all` — confirm all existing and new tests pass
-- [ ] T141 Run `cargo clippy --all-targets --all-features -- -D warnings` — confirm zero warnings
-- [ ] T142 Run `cargo doc --no-deps` — confirm Rustdoc builds without warnings
-- [ ] T143 Run quickstart.md examples against test fixtures — validate documented workflows
-- [ ] T144 Cross-reference all 59 functional requirements (FR-001 through FR-059) against task completions — confirm 100% coverage
+- [x] T140 Run full `cargo test --all` — confirm all existing and new tests pass
+- [x] T141 Run `cargo clippy --all-targets --all-features -- -D warnings` — confirm zero warnings
+- [x] T142 Run `cargo doc --no-deps` — confirm Rustdoc builds without warnings
+- [x] T143 Run quickstart.md examples against test fixtures — validate documented workflows
+- [x] T144 Cross-reference all 59 functional requirements (FR-001 through FR-059) against task completions — confirm 100% coverage
 
 ---
 
