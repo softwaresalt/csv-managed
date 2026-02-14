@@ -1,3 +1,13 @@
+//! Multi-file CSV concatenation with header validation.
+//!
+//! Concatenates two or more CSV files into a single output stream, writing the
+//! header row once and validating that all input files share the same column
+//! layout. Optionally applies schema-driven type checking during append.
+//!
+//! # Complexity
+//!
+//! Append is O(n) where n is the total row count across all input files.
+
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow};
@@ -5,6 +15,8 @@ use log::info;
 
 use crate::{cli::AppendArgs, data::parse_typed_value, io_utils, schema::Schema};
 
+/// Concatenates multiple CSV files into a single output stream, validating header
+/// consistency and optionally applying schema-driven type transformations.
 pub fn execute(args: &AppendArgs) -> Result<()> {
     if args.inputs.is_empty() {
         return Err(anyhow!("At least one input file must be provided"));

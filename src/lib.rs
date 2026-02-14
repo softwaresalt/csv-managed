@@ -1,3 +1,22 @@
+//! csv-managed crate root — module declarations, CLI dispatch, and operation timing.
+//!
+//! This crate provides a high-performance CLI for streaming, transforming, validating,
+//! indexing, and profiling large CSV/TSV datasets. The entry point is [`run()`], which
+//! parses CLI arguments via `clap` and dispatches to the appropriate subcommand handler.
+//!
+//! Every subcommand executes inside `run_operation()`, which wraps the operation
+//! with structured timing output (start time, end time, duration) and outcome logging
+//! (success or error with context) per FR-056 through FR-058.
+//!
+//! ## Subcommands
+//!
+//! - `schema` — probe, infer, verify, columns, or create schemas
+//! - `index` — build B-tree index files for sort acceleration
+//! - `process` — filter, sort, project, derive, and transform CSV data
+//! - `append` — concatenate multiple CSV files with header validation
+//! - `stats` — summary statistics and frequency analysis
+//! - `install` — self-install via `cargo install`
+
 pub mod append;
 pub mod cli;
 pub mod columns;

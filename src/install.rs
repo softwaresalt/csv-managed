@@ -1,3 +1,8 @@
+//! Self-install via `cargo install` with optional version, force, locked, and root flags.
+//!
+//! Wraps `cargo install csv-managed` and forwards CLI arguments. Supports a
+//! `CSV_MANAGED_CARGO_SHIM` environment variable for test interception.
+
 use std::{env, process::Command};
 
 use anyhow::{Context, Result, anyhow};

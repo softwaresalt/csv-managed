@@ -1,3 +1,12 @@
+//! Row parsing and filter expression evaluation helpers.
+//!
+//! Provides [`parse_typed_row()`] which converts a raw string row into typed
+//! [`Value`] cells using a schema's column definitions
+//! (including value normalization via datatype mappings and replacements).
+//!
+//! Also provides [`evaluate_filter_expressions()`] which evaluates `--filter-expr`
+//! boolean expressions against a row's context.
+
 use anyhow::Result;
 
 use crate::{

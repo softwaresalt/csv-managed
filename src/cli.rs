@@ -1,3 +1,12 @@
+//! CLI argument definitions using `clap` derive macros.
+//!
+//! Defines the top-level [`Cli`] struct and [`Commands`] enum for all
+//! subcommands: `schema`, `index`, `process`, `append`, `stats`, and `install`.
+//! Each subcommand has a dedicated `*Args` struct with typed fields.
+//!
+//! Special argument preprocessing (e.g., `--report-invalid:stats:counts`
+//! expansion) is handled in `preprocess_cli_args()` (see [`crate`] root).
+
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};

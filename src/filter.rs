@@ -1,3 +1,15 @@
+//! Row-level filter parsing and evaluation.
+//!
+//! Translates `--filter` CLI strings into typed [`FilterCondition`] values and
+//! evaluates them against each row during streaming. Supports equality, ordering,
+//! and string-matching operators. Multiple conditions are combined with AND
+//! semantics.
+//!
+//! # Complexity
+//!
+//! Parsing is O(f) where f is the number of filter strings. Evaluation is O(f)
+//! per row, with typed comparison delegated to [`crate::data::parse_typed_value`].
+
 use anyhow::{Result, anyhow};
 
 use crate::{
@@ -5,19 +17,30 @@ use crate::{
     schema::{ColumnType, Schema},
 };
 
+/// Comparison operators supported in `--filter` expressions (equality, ordering, string matching).
 #[derive(Debug, Clone, Copy)]
 pub enum ComparisonOperator {
+    /// Exact equality (`=`).
     Eq,
+    /// Inequality (`!=`).
     NotEq,
+    /// Greater than (`>`).
     Gt,
+    /// Greater than or equal (`>=`).
     Ge,
+    /// Less than (`<`).
     Lt,
+    /// Less than or equal (`<=`).
     Le,
+    /// Case-sensitive substring match.
     Contains,
+    /// Case-sensitive prefix match.
     StartsWith,
+    /// Case-sensitive suffix match.
     EndsWith,
 }
 
+/// A parsed filter clause binding a column name, comparison operator, and raw right-hand-side value.
 #[derive(Debug, Clone)]
 pub struct FilterCondition {
     pub column: String,
@@ -25,6 +48,7 @@ pub struct FilterCondition {
     pub raw_value: String,
 }
 
+/// Parses a slice of raw `--filter` strings into typed [`FilterCondition`] values.
 pub fn parse_filters(filters: &[String]) -> Result<Vec<FilterCondition>> {
     filters.iter().map(|f| parse_filter(f)).collect()
 }
@@ -88,6 +112,8 @@ fn unquote(value: &str) -> Result<&str> {
     Ok(value)
 }
 
+/// Evaluates all filter conditions against a single row, returning `true` only when every
+/// condition passes (AND semantics).
 pub fn evaluate_conditions(
     conditions: &[FilterCondition],
     schema: &Schema,
@@ -169,6 +195,53 @@ fn evaluate_condition(
                 (None, Some(_)) => Ok(matches!(condition.operator, NotEq)),
                 (Some(_), None) => Ok(matches!(condition.operator, NotEq)),
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_filters_rejects_empty_filter_string() {
+        let filters = vec!["".to_string()];
+        let err = parse_filters(&filters).expect_err("empty filter should fail");
+        assert!(
+            err.to_string().contains("Empty filter"),
+            "Expected 'Empty filter' error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_filters_rejects_missing_operator() {
+        let filters = vec!["column_without_operator".to_string()];
+        let err = parse_filters(&filters).expect_err("missing operator should fail");
+        assert!(
+            err.to_string().contains("parse filter"),
+            "Expected parse error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_filters_accepts_valid_operators() {
+        let cases = vec![
+            "col = value",
+            "col != value",
+            "col > 10",
+            "col >= 10",
+            "col < 10",
+            "col <= 10",
+            "col contains needle",
+            "col startswith pre",
+            "col endswith suf",
+        ];
+        for case in cases {
+            let result = parse_filters(&[case.to_string()]);
+            assert!(
+                result.is_ok(),
+                "Expected success for '{case}', got: {result:?}"
+            );
         }
     }
 }

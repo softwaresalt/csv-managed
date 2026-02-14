@@ -1,3 +1,15 @@
+//! Distinct-value frequency counts for CSV columns.
+//!
+//! Streams a CSV file and tallies per-column value occurrences, returning
+//! top-N results with counts and percentages. Supports row-level filters
+//! and configurable row limits.
+//!
+//! # Complexity
+//!
+//! Frequency analysis is O(n × c) where n is the row count and c is the
+//! number of tracked columns, with O(d log d) sorting per column where d
+//! is the distinct-value count.
+
 use std::{collections::HashMap, path::Path};
 
 use anyhow::{Context, Result};
@@ -11,6 +23,7 @@ use crate::{
     schema::{self, Schema},
 };
 
+/// Configuration for frequency analysis: top-N limit, row cap, and optional row-level filters.
 pub struct FrequencyOptions<'a> {
     pub top: usize,
     pub row_limit: Option<usize>,
@@ -18,6 +31,7 @@ pub struct FrequencyOptions<'a> {
     pub filter_exprs: &'a [String],
 }
 
+/// Streams a CSV file and returns per-column distinct-value frequency counts as printable rows.
 pub fn compute_frequency_rows(
     input: &Path,
     schema: &Schema,
@@ -137,12 +151,12 @@ impl FrequencyAccumulator {
             let total = self
                 .totals
                 .get_mut(column_index)
-                .expect("Column should exist in totals");
+                .context("Column should exist in totals")?;
             *total += 1;
             let counter = self
                 .counts
                 .get_mut(column_index)
-                .expect("Column should exist in counts");
+                .context("Column should exist in counts")?;
             *counter.entry(value).or_insert(0) += 1;
         }
         Ok(())

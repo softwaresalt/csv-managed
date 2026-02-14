@@ -1,0 +1,33 @@
+{
+  "source": "microsoft/hve-core",
+  "version": "2.3.7",
+  "collection": "rpi-core",
+  "files": {
+    ".github/agents/task-planner.agent.md": {
+      "sha256": "b4f7b76ba83f62768d6c2fe93b873e239a5f939ded7ae864625764bdf7ab3df3",
+      "version": "2.3.7",
+      "status": "managed"
+    },
+    ".github/agents/rpi-agent.agent.md": {
+      "sha256": "f766b20a98409c0924689e3c2fece450dc13639a1f1b6e853ef2d41ee210c233",
+      "version": "2.3.7",
+      "status": "managed"
+    },
+    ".github/agents/task-researcher.agent.md": {
+      "sha256": "64be51e300d0b9b5b14068559896424e3b6fe29322910fc3f37b48cd9629c68c",
+      "version": "2.3.7",
+      "status": "managed"
+    },
+    ".github/agents/task-reviewer.agent.md": {
+      "sha256": "5babe37c8a5414183ca13379d85b275b5a785a726a5af64086593d70a06376e3",
+      "version": "2.3.7",
+      "status": "managed"
+    },
+    ".github/agents/task-implementor.agent.md": {
+      "sha256": "53fe12c092087c402bb26657fa905251a59c09dcffb8c4c0d38ae46b2f16d776",
+      "version": "2.3.7",
+      "status": "managed"
+    }
+  },
+  "installed": "2026-02-13T18:53:54.3160460-08:00"
+}

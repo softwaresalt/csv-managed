@@ -198,6 +198,51 @@ fn schema_columns_requires_schema_argument() {
 }
 
 #[test]
+fn schema_columns_displays_renames_in_output() {
+    let dir = tempdir().expect("temp dir");
+    let schema_path = dir.path().join("renamed-schema.yml");
+
+    // Create a schema with renames using manual schema creation
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "-o",
+            schema_path.to_str().unwrap(),
+            "-c",
+            "id:integer->Identifier",
+            "-c",
+            "name:string->Full Name",
+            "-c",
+            "amount:float",
+        ])
+        .assert()
+        .success();
+
+    // Run schema columns and verify renames appear in output
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "columns",
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(
+            contains("Identifier")
+                .and(contains("Full Name"))
+                .and(contains("id"))
+                .and(contains("name"))
+                .and(contains("amount"))
+                .and(contains("integer"))
+                .and(contains("string"))
+                .and(contains("float")),
+        );
+}
+
+#[test]
 fn probe_emits_mappings_into_schema_and_stdout() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
@@ -669,7 +714,10 @@ fn index_is_used_for_sorted_output() {
     let header = lines.next().expect("header");
     assert!(header.contains("ordered_at"));
     let first_row = lines.next().expect("first row");
-    assert!(first_row.starts_with("1"));
+    assert!(
+        first_row.starts_with("\"1\"") || first_row.starts_with("1"),
+        "Expected first sorted row to start with id 1, got: {first_row}"
+    );
 }
 
 #[test]
@@ -779,6 +827,105 @@ fn install_command_passes_arguments_to_cargo() {
 }
 
 #[test]
+fn install_command_defaults_without_optional_flags() {
+    let dir = tempdir().expect("temp dir");
+    let shim_src = dir.path().join("cargo_shim_default.rs");
+    fs::write(
+        &shim_src,
+        r#"
+        use std::{env, fs, path::PathBuf};
+
+        fn main() {
+            let log_path = env::var_os("CSV_MANAGED_TEST_LOG").expect("CSV_MANAGED_TEST_LOG");
+            let joined = env::args().skip(1).collect::<Vec<_>>().join(" ");
+            let path = PathBuf::from(log_path);
+            fs::write(path, joined).expect("write log");
+        }
+        "#,
+    )
+    .expect("write shim source");
+
+    let shim_bin = dir
+        .path()
+        .join(format!("cargo-shim-default{}", env::consts::EXE_SUFFIX));
+    let status = StdCommand::new("rustc")
+        .arg(&shim_src)
+        .arg("-O")
+        .arg("-o")
+        .arg(&shim_bin)
+        .status()
+        .expect("compile shim");
+    assert!(status.success(), "failed to compile shim binary");
+
+    let log_path = dir.path().join("captured_default_args.txt");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("CSV_MANAGED_CARGO_SHIM", shim_bin.as_os_str())
+        .env("CSV_MANAGED_TEST_LOG", log_path.as_os_str())
+        .arg("install")
+        .assert()
+        .success();
+
+    let captured = fs::read_to_string(&log_path).expect("read captured args");
+    assert!(
+        captured.contains("install csv-managed"),
+        "expected base 'install csv-managed' command, got: {captured}"
+    );
+    assert!(
+        !captured.contains("--version"),
+        "should not contain --version when omitted"
+    );
+    assert!(
+        !captured.contains("--force"),
+        "should not contain --force when omitted"
+    );
+    assert!(
+        !captured.contains("--locked"),
+        "should not contain --locked when omitted"
+    );
+    assert!(
+        !captured.contains("--root"),
+        "should not contain --root when omitted"
+    );
+}
+
+#[test]
+fn install_command_reports_error_on_nonzero_exit() {
+    let dir = tempdir().expect("temp dir");
+    let shim_src = dir.path().join("cargo_shim_fail.rs");
+    fs::write(
+        &shim_src,
+        r#"
+        fn main() {
+            std::process::exit(1);
+        }
+        "#,
+    )
+    .expect("write shim source");
+
+    let shim_bin = dir
+        .path()
+        .join(format!("cargo-shim-fail{}", env::consts::EXE_SUFFIX));
+    let status = StdCommand::new("rustc")
+        .arg(&shim_src)
+        .arg("-O")
+        .arg("-o")
+        .arg(&shim_bin)
+        .status()
+        .expect("compile shim");
+    assert!(status.success(), "failed to compile shim binary");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("CSV_MANAGED_CARGO_SHIM", shim_bin.as_os_str())
+        .arg("install")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cargo install csv-managed"));
+}
+
+#[test]
 fn process_accepts_named_index_variant() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
@@ -839,7 +986,10 @@ fn process_accepts_named_index_variant() {
     let mut lines = output.lines();
     lines.next().expect("header");
     let first_row = lines.next().expect("first data row");
-    assert!(first_row.starts_with("2"));
+    assert!(
+        first_row.starts_with("\"2\"") || first_row.starts_with("2"),
+        "Expected first sorted row to start with id 2, got: {first_row}"
+    );
 }
 
 #[test]
@@ -894,4 +1044,323 @@ fn process_errors_when_variant_missing() {
         .assert()
         .failure()
         .stderr(contains("Index variant 'missing' not found"));
+}
+
+// ---------------------------------------------------------------------------
+// Observability tests (FR-056 through FR-059)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn successful_operation_exits_with_code_zero() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .code(0);
+}
+
+#[test]
+fn failed_operation_exits_with_nonzero_code() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["process", "-i", "nonexistent_file_that_does_not_exist.csv"])
+        .assert()
+        .failure()
+        .code(1);
+}
+
+#[test]
+fn operation_emits_timing_output() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=info")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .stderr(
+            contains("duration_secs")
+                .and(contains("start:"))
+                .and(contains("end:")),
+        );
+}
+
+#[test]
+fn operation_logs_success_outcome() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=info")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .stderr(contains("status=ok"));
+}
+
+#[test]
+fn operation_logs_error_outcome() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=error")
+        .args(["process", "-i", "nonexistent_file_that_does_not_exist.csv"])
+        .assert()
+        .failure()
+        .stderr(contains("status=error"));
+}
+
+#[test]
+fn rust_log_controls_verbosity() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+
+    // With debug level, we should see debug-level output.
+    let debug_output = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=debug")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success();
+    let debug_stderr = String::from_utf8_lossy(&debug_output.get_output().stderr).to_string();
+
+    // With error-only level, debug messages should not appear.
+    let error_output = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=error")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success();
+    let error_stderr = String::from_utf8_lossy(&error_output.get_output().stderr).to_string();
+
+    // Debug mode should produce more output than error-only mode.
+    assert!(
+        debug_stderr.len() > error_stderr.len(),
+        "Debug logging should produce more output than error-only logging"
+    );
+}
+
+// =============================================================================
+// Phase 8: User Story 6 — Multi-File Append (FR-048 through FR-050)
+// =============================================================================
+
+/// FR-048 acceptance scenario 1: Appending multiple CSV files with identical
+/// headers produces a single output with the header written once and all rows
+/// from both inputs present.
+#[test]
+fn append_identical_headers_writes_header_once_with_all_rows() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n2,Bob,200\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name,amount\n3,Charlie,300\n4,Diana,400\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read combined CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+
+    // Header appears exactly once (first line)
+    assert_eq!(lines[0], "\"id\",\"name\",\"amount\"");
+
+    // All 4 data rows are present
+    assert_eq!(lines.len(), 5, "Expected 1 header + 4 data rows");
+
+    // Verify row content from both files
+    assert!(contents.contains("\"Alice\""), "Row from file a missing");
+    assert!(contents.contains("\"Diana\""), "Row from file b missing");
+}
+
+/// FR-049 acceptance scenario 2: Appending CSV files with mismatched headers
+/// produces an error and does not write output.
+#[test]
+fn append_header_mismatch_reports_error() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,email,amount\n2,bob@test.com,200\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("mismatch").or(contains("Mismatch")));
+}
+
+/// FR-050 acceptance scenario 3: Appending with a schema validates each row
+/// against declared types. Valid data succeeds; invalid data triggers an error.
+#[test]
+fn append_schema_validated_rejects_type_violation() {
+    let dir = tempdir().expect("temp dir");
+
+    // Create a schema YAML requiring id:integer, name:string, amount:float
+    let schema_path = dir.path().join("test-schema.yml");
+    let schema_yaml = r#"columns:
+  - name: id
+    datatype: integer
+  - name: name
+    datatype: string
+  - name: amount
+    datatype: float
+"#;
+    fs::write(&schema_path, schema_yaml).unwrap();
+
+    // File a: valid data
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100.50\n").unwrap();
+
+    // File b: invalid data — "not_a_number" in the integer id column
+    let file_b = dir.path().join("b.csv");
+    fs::write(
+        &file_b,
+        "id,name,amount\n2,Bob,200.75\nnot_a_number,Charlie,300\n",
+    )
+    .unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+}
+
+/// FR-050 positive path: Appending with a schema succeeds when all rows
+/// conform to the declared types.
+#[test]
+fn append_schema_validated_succeeds_for_valid_data() {
+    let dir = tempdir().expect("temp dir");
+
+    let schema_path = dir.path().join("test-schema.yml");
+    let schema_yaml = r#"columns:
+  - name: id
+    datatype: integer
+  - name: name
+    datatype: string
+  - name: amount
+    datatype: float
+"#;
+    fs::write(&schema_path, schema_yaml).unwrap();
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100.50\n2,Bob,200.75\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name,amount\n3,Charlie,300.00\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read combined CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+    assert_eq!(lines.len(), 4, "Expected 1 header + 3 data rows");
+}
+
+/// FR-048 edge case: Appending a single file produces a valid output with
+/// header and all rows (degenerate case of concatenation).
+#[test]
+fn append_single_file_produces_valid_output() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name\n1,Alice\n2,Bob\n").unwrap();
+
+    let output_path = dir.path().join("out.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read output CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+    assert_eq!(lines.len(), 3, "Expected 1 header + 2 data rows");
+}
+
+/// FR-049 edge case: Header mismatch due to different column count
+/// triggers an error.
+#[test]
+fn append_header_column_count_mismatch_reports_error() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name\n2,Bob\n").unwrap();
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("mismatch").or(contains("Mismatch")));
 }

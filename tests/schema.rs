@@ -744,6 +744,38 @@ fn schema_infer_preview_includes_placeholder_replacements() {
 }
 
 #[test]
+fn schema_probe_shows_placeholder_fill_with_custom_value() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = temp.path().join("placeholders.csv");
+    fs::write(&csv_path, "code,value\n001,NA\n002,#N/A\n003,N/A\n").expect("write csv");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--na-behavior",
+            "fill",
+            "--na-fill",
+            "MISSING",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Placeholder Suggestions"),
+        "placeholder section missing from probe output: {stdout}"
+    );
+    assert!(
+        stdout.contains("MISSING"),
+        "custom fill value 'MISSING' missing from probe output: {stdout}"
+    );
+}
+
+#[test]
 fn schema_infer_diff_reports_changes_and_no_changes() {
     let temp = tempdir().expect("temp dir");
     let csv_path = temp.path().join("diff.csv");
@@ -842,4 +874,65 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
         no_diff_stdout.contains("no changes detected"),
         "expected no-change message missing: {no_diff_stdout}"
     );
+}
+
+#[test]
+fn schema_verify_validates_multiple_files_independently() {
+    let temp = tempdir().expect("temp dir");
+    let schema_path = temp.path().join("multi-schema.yml");
+    let valid_path = temp.path().join("valid.csv");
+    let also_valid_path = temp.path().join("also_valid.csv");
+    let invalid_path = temp.path().join("invalid.csv");
+
+    fs::write(&valid_path, "id,name\n1,Alice\n2,Bob\n").expect("write valid csv");
+    fs::write(&also_valid_path, "id,name\n3,Charlie\n4,Diana\n").expect("write also_valid csv");
+    fs::write(&invalid_path, "id,name\nnotanumber,Eve\n").expect("write invalid csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    // Both valid files should pass verification together.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-i",
+            also_valid_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Including an invalid file should cause failure.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-i",
+            invalid_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("notanumber"));
 }

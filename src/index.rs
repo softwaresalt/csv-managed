@@ -1,3 +1,15 @@
+//! B-tree index construction, serialization, and variant selection.
+//!
+//! Builds one or more sorted index variants over a CSV file, enabling seek-based
+//! row retrieval in sorted order without buffering the entire dataset. Supports
+//! named variants, covering-index expansion, per-column sort direction, versioned
+//! binary serialization via `bincode`, and longest-prefix best-match selection.
+//!
+//! # Complexity
+//!
+//! Index build is O(n log n) per variant where n is the row count. Variant
+//! selection and ordered-offset iteration are O(v) and O(n) respectively.
+
 use std::{borrow::Cow, collections::BTreeMap, fs::File, io::BufWriter, path::Path};
 
 use anyhow::{Context, Result, anyhow};
@@ -13,13 +25,17 @@ use encoding_rs::Encoding;
 
 const INDEX_VERSION: u32 = 2;
 
+/// Sort order for an indexed column — ascending or descending.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SortDirection {
+    /// Ascending (smallest first).
     Asc,
+    /// Descending (largest first).
     Desc,
 }
 
 impl SortDirection {
+    /// Returns `true` when the direction is [`Asc`](SortDirection::Asc).
     pub fn is_ascending(self) -> bool {
         matches!(self, SortDirection::Asc)
     }
@@ -38,6 +54,7 @@ impl std::fmt::Display for SortDirection {
     }
 }
 
+/// Describes which columns and sort directions to include in a single index variant.
 #[derive(Debug, Clone)]
 pub struct IndexDefinition {
     pub columns: Vec<String>,
@@ -46,6 +63,7 @@ pub struct IndexDefinition {
 }
 
 impl IndexDefinition {
+    /// Creates an index definition from column names, defaulting every direction to ascending.
     pub fn from_columns(columns: Vec<String>) -> Result<Self> {
         let cleaned: Vec<String> = columns
             .into_iter()
@@ -62,6 +80,7 @@ impl IndexDefinition {
         })
     }
 
+    /// Parses a `name=col1:dir,col2:dir` specification string into an [`IndexDefinition`].
     pub fn parse(spec: &str) -> Result<Self> {
         let (name, remainder) = if let Some((raw_name, rest)) = spec.split_once('=') {
             let trimmed_name = raw_name.trim();
@@ -115,6 +134,7 @@ impl IndexDefinition {
         })
     }
 
+    /// Expands a covering specification into all prefix-length and direction-product index variants.
     pub fn expand_covering_spec(spec: &str) -> Result<Vec<Self>> {
         let (name_prefix, remainder) = if let Some((raw_name, rest)) = spec.split_once('=') {
             let trimmed_name = raw_name.trim();
@@ -263,6 +283,10 @@ fn sanitize_identifier(value: &str) -> String {
         .collect()
 }
 
+/// Serializable B-tree index over a CSV file, containing one or more sorted variants.
+///
+/// Each variant maps composite typed keys to byte offsets within the source CSV,
+/// enabling seek-based sorted reads without loading the full dataset.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CsvIndex {
     version: u32,
@@ -272,6 +296,7 @@ pub struct CsvIndex {
 }
 
 impl CsvIndex {
+    /// Builds an in-memory index by streaming every row and inserting typed keys into B-tree maps.
     pub fn build(
         csv_path: &Path,
         definitions: &[IndexDefinition],
@@ -324,6 +349,7 @@ impl CsvIndex {
         })
     }
 
+    /// Serializes the index to a binary file using `bincode`.
     pub fn save(&self, path: &Path) -> Result<()> {
         let file = File::create(path).with_context(|| format!("Creating index file {path:?}"))?;
         let mut writer = BufWriter::new(file);
@@ -332,6 +358,7 @@ impl CsvIndex {
         Ok(())
     }
 
+    /// Deserializes an index from a binary file, with fallback to legacy format migration.
     pub fn load(path: &Path) -> Result<Self> {
         let bytes = std::fs::read(path).with_context(|| format!("Opening index file {path:?}"))?;
         let config = bincode::config::legacy();
@@ -356,20 +383,25 @@ impl CsvIndex {
         }
     }
 
+    /// Returns a slice of all index variants stored in this index.
     pub fn variants(&self) -> &[IndexVariant] {
         &self.variants
     }
 
+    /// Returns the total number of data rows indexed.
     pub fn row_count(&self) -> usize {
         self.row_count
     }
 
+    /// Looks up a variant by its assigned name, returning `None` if no match exists.
     pub fn variant_by_name(&self, name: &str) -> Option<&IndexVariant> {
         self.variants
             .iter()
             .find(|variant| variant.name.as_deref() == Some(name))
     }
 
+    /// Selects the variant whose columns and directions form the longest matching prefix
+    /// of the requested sort directives.
     pub fn best_match(&self, directives: &[(String, SortDirection)]) -> Option<&IndexVariant> {
         let mut best: Option<&IndexVariant> = None;
         for variant in &self.variants {
@@ -387,6 +419,7 @@ impl CsvIndex {
     }
 }
 
+/// A single sorted view within a [`CsvIndex`], mapping composite typed keys to byte offsets.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexVariant {
     columns: Vec<String>,
@@ -398,28 +431,35 @@ pub struct IndexVariant {
 }
 
 impl IndexVariant {
+    /// Returns the column names that form this variant's composite key.
     pub fn columns(&self) -> &[String] {
         &self.columns
     }
 
+    /// Returns the sort direction for each column in the composite key.
     pub fn directions(&self) -> &[SortDirection] {
         &self.directions
     }
 
+    /// Returns the optional human-readable name assigned to this variant.
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
+    /// Returns the inferred or schema-provided data types for each key column.
     pub fn column_types(&self) -> &[ColumnType] {
         &self.column_types
     }
 
+    /// Returns an iterator of byte offsets in sorted key order for seek-based CSV reading.
     pub fn ordered_offsets(&self) -> impl Iterator<Item = u64> + '_ {
         self.map
             .values()
             .flat_map(|offsets| offsets.iter().copied())
     }
 
+    /// Returns `true` when this variant's columns and directions are a prefix match
+    /// for the given sort directives.
     pub fn matches(&self, directives: &[(String, SortDirection)]) -> bool {
         if directives.len() < self.columns.len() {
             return false;
@@ -435,6 +475,7 @@ impl IndexVariant {
             )
     }
 
+    /// Formats a human-readable summary of the variant's columns, directions, and optional name.
     pub fn describe(&self) -> String {
         let body = self
             .columns
@@ -813,5 +854,79 @@ mod tests {
         assert_eq!(offsets.len(), 3);
         // Ensure first offset corresponds to highest "a" value (3)
         assert!(offsets[0] > offsets[2]);
+    }
+
+    /// FR-037: When sort has more columns than any single variant, the longest
+    /// matching prefix is selected (true partial match scenario).
+    #[test]
+    fn best_match_selects_longest_prefix_variant() {
+        let dir = tempdir().unwrap();
+        let csv_path = dir.path().join("data.csv");
+        std::fs::write(&csv_path, "a,b,c\n1,x,alpha\n2,y,beta\n3,z,gamma\n").unwrap();
+
+        let definitions = vec![
+            IndexDefinition::parse("short=a:asc").unwrap(),
+            IndexDefinition::parse("long=a:asc,b:asc").unwrap(),
+        ];
+
+        let index = CsvIndex::build(&csv_path, &definitions, None, None, b',', UTF_8).unwrap();
+        assert_eq!(index.variants().len(), 2);
+
+        // Sort by (a:asc, b:asc, c:asc) — both variants match as prefix, but
+        // "long" covers 2 columns vs "short" covering 1, so "long" wins.
+        let matched = index
+            .best_match(&[
+                ("a".to_string(), SortDirection::Asc),
+                ("b".to_string(), SortDirection::Asc),
+                ("c".to_string(), SortDirection::Asc),
+            ])
+            .expect("should find a matching variant");
+        assert_eq!(matched.name(), Some("long"));
+        assert_eq!(matched.columns().len(), 2);
+    }
+
+    /// FR-039: Loading an index with a mismatched version returns a clear error.
+    #[test]
+    fn load_rejects_incompatible_index_version() {
+        let dir = tempdir().unwrap();
+        let csv_path = dir.path().join("data.csv");
+        std::fs::write(&csv_path, "a\n1\n2\n").unwrap();
+
+        let definition = IndexDefinition::from_columns(vec!["a".to_string()]).unwrap();
+        let mut index = CsvIndex::build(&csv_path, &[definition], None, None, b',', UTF_8).unwrap();
+
+        // Tamper with the version to simulate a future incompatible format.
+        index.version = INDEX_VERSION + 99;
+        let index_path = dir.path().join("bad_version.idx");
+        index.save(&index_path).expect("save tampered index");
+
+        let err = CsvIndex::load(&index_path).expect_err("should reject incompatible version");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Unsupported index version") || msg.contains("index"),
+            "Error should mention version incompatibility, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn expand_covering_spec_rejects_empty_spec() {
+        let err =
+            IndexDefinition::expand_covering_spec("").expect_err("empty covering spec should fail");
+        assert!(
+            err.to_string().contains("column")
+                || err.to_string().contains("missing")
+                || err.to_string().contains("empty"),
+            "Expected descriptive error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn expand_covering_spec_rejects_missing_columns_after_name() {
+        let err = IndexDefinition::expand_covering_spec("prefix=")
+            .expect_err("spec missing columns should fail");
+        assert!(
+            err.to_string().contains("missing column"),
+            "Expected 'missing column' error, got: {err}"
+        );
     }
 }

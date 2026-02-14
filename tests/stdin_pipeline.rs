@@ -248,6 +248,55 @@ fn encoding_pipeline_process_to_stats_utf8_output() -> anyhow::Result<()> {
 }
 
 #[test]
+fn preview_mode_emits_table_not_csv_in_pipeline() -> anyhow::Result<()> {
+    let input = fixture("big_5_players_stats_2023_2024.csv");
+    let data = fs::read_to_string(&input)?;
+
+    let assert = Command::cargo_bin("csv-managed")?
+        .args([
+            "process",
+            "-i",
+            "-", // stdin sentinel
+            "--preview",
+            "--limit",
+            "5",
+        ])
+        .write_stdin(data)
+        .assert()
+        .success();
+
+    let out = String::from_utf8(assert.get_output().stdout.clone())?;
+
+    // Preview mode should produce table output, not CSV.
+    // CSV output would have comma-separated quoted fields on every data line.
+    // Table output has pipe-delimited columns with alignment padding.
+    let data_lines: Vec<&str> = out
+        .lines()
+        .skip(2) // skip header + separator
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+
+    assert_eq!(data_lines.len(), 5, "Expected 5 data rows in preview");
+
+    // Table lines should NOT be parseable as CSV with quoted fields —
+    // they use fixed-width alignment instead.
+    for line in &data_lines {
+        assert!(
+            !line.starts_with('"'),
+            "Preview output should be table-formatted, not CSV-quoted: {line}"
+        );
+    }
+
+    // Header line should contain column names rendered in table format.
+    let header_line = out.lines().next().unwrap_or_default();
+    assert!(
+        header_line.contains("Player"),
+        "Preview table should contain 'Player' column header"
+    );
+    Ok(())
+}
+
+#[test]
 #[ignore = "Pending schema evolution support for evolved layout chaining"]
 fn encoding_pipeline_with_schema_evolution_pending() {
     // TODO: Implement once process can emit a derived schema for downstream typed stages.

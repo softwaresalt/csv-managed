@@ -1,3 +1,12 @@
+//! Derived column specification and expression evaluation.
+//!
+//! A derived column is defined by a `name=expression` string (e.g.,
+//! `total_with_tax=amount*1.0825`). The [`DerivedColumn::evaluate()`] method
+//! builds an `evalexpr` context from the current row's headers, raw values,
+//! and typed values, then evaluates the expression to produce a string result.
+//!
+//! Used by the `process` command's `--derive` flag.
+
 use anyhow::{Context, Result, anyhow};
 use evalexpr::{Value as EvalValue, eval_with_context};
 

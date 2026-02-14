@@ -1,3 +1,8 @@
+//! Column listing from a schema file.
+//!
+//! Reads a schema YAML file and renders its column names, types, and aliases
+//! as an ASCII table.
+
 use anyhow::{Context, Result};
 use log::info;
 

@@ -1,3 +1,12 @@
+//! ASCII table renderer for preview and table-mode output.
+//!
+//! Renders headers and rows as an elastic-width ASCII table with column
+//! separators and a header underline. Used by `--preview` and `--table`
+//! modes in the `process` command (FR-027, FR-028).
+//!
+//! Unicode-aware: column widths are computed from display width, not byte
+//! length, to handle multi-byte characters correctly.
+
 use std::borrow::Cow;
 use std::fmt::Write as _;
 

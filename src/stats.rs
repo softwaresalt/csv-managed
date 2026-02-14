@@ -1,3 +1,15 @@
+//! Summary statistics and frequency analysis for CSV columns.
+//!
+//! Computes count, min, max, mean, median, and standard deviation for numeric
+//! and temporal columns. Delegates top-N distinct-value frequency counts to
+//! [`crate::frequency`]. Supports column selection, row filters, and
+//! schema-driven typed parsing.
+//!
+//! # Complexity
+//!
+//! Summary statistics are O(n log n) per column (median requires sorting).
+//! Frequency analysis is O(n) per column.
+
 use std::collections::HashMap;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -14,6 +26,8 @@ use crate::{
     table,
 };
 
+/// Computes and prints summary statistics (count, min, max, mean, median, std-dev)
+/// or frequency counts for numeric and temporal columns in a CSV file.
 pub fn execute(args: &StatsArgs) -> Result<()> {
     if args.schema.is_none() && io_utils::is_dash(&args.input) {
         return Err(anyhow!(
@@ -332,7 +346,7 @@ impl ColumnStats {
             return None;
         }
         let mut sorted = self.values.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.total_cmp(b));
         let mid = sorted.len() / 2;
         if sorted.len().is_multiple_of(2) {
             Some((sorted[mid - 1] + sorted[mid]) / 2.0)

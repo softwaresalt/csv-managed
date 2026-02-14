@@ -1,237 +1,174 @@
-# Copilot & Contributor Instructions for `csv-managed`
+# Copilot Instructions for csv-managed
 
-This document guides AI-assisted and human contributions for a high‑performance Rust command-line tool that manages very large CSV/TSV datasets (hundreds of GB+) for data engineering, data science, and ML workflows. It establishes coding, testing, performance, and release practices so generated or manual changes remain consistent, robust, and memory‑efficient.
+High-performance Rust CLI (edition 2024, v1.0.x) that streams, transforms, validates, indexes, and profiles large CSV/TSV datasets. Targets minimal memory footprint on Windows, macOS, and Linux.
 
-## Core Goals
-1. Stream, transform, validate, and index tabular datasets with minimal memory footprint.
-2. Provide schema-driven guarantees (types, aliases, renames, primary/composite keys, currency/decimal precision, temporal parsing, candidate key probing).
-3. Support batch pipelines, unions, deduplication, splitting, indexing, statistics, verification, and schema inference at scale.
-4. Maintain predictable performance characteristics across platforms (Windows, macOS, Linux) and Rust stable toolchains.
+## Project Layout
 
-## High-Level Architecture Principles
-| Principle | Rationale | Guidance |
-|----------|-----------|----------|
-| Streaming / Iterators | Avoid loading entire files | Favor `csv::Reader` with `byte_records()` or `records()`; wrap in lazy adapters. |
-| Separation of Concerns | Simplify maintenance | Distinct modules: parsing, schema, indexing, stats, filtering, expressions, CLI. |
-| Zero-Copy / Borrowing | Reduce allocations | Prefer `&str` / slices, avoid unnecessary `String` cloning, use `Cow<'_, str>` if conditional ownership. |
-| Explicit Error Types | Improves debuggability | Use custom enums with `thiserror` or manual `Display` impl; wrap lower-level errors. |
-| Deterministic Performance | Reproducible runs | Avoid hidden global state; gate costly features behind flags. |
-| Extensibility via Traits | Future column operations | Define trait abstractions for transforms and validators. |
-| Config-First | Batch + repeatable runs | Support JSON pipeline definition and YAML schema as canonical inputs. |
+| Path | Purpose |
+|------|---------|
+| `src/lib.rs` | Crate root: module declarations, CLI dispatch via `run()`, operation timing |
+| `src/cli.rs` | `clap` derive definitions: `Cli`, `Commands` enum, all `*Args` structs |
+| `src/schema.rs` | `Schema` model, `ColumnType` enum (10 types), YAML load/save, type inference |
+| `src/data.rs` | `Value` enum, typed parsers (bool, date, time, GUID, currency, decimal) |
+| `src/process.rs` | `process` subcommand: sort, filter, project, derive, write |
+| `src/index.rs` | B-tree index build, `CsvIndex`, `IndexDefinition`, `IndexVariant` |
+| `src/filter.rs` | `FilterCondition`, `ComparisonOperator`, row-level filter parsing |
+| `src/expr.rs` | `evalexpr`-based filter expressions |
+| `src/stats.rs` | Summary statistics for numeric columns |
+| `src/frequency.rs` | Distinct-value frequency counts |
+| `src/append.rs` | Multi-file CSV concatenation with header validation |
+| `src/verify.rs` | Schema verification against CSV files |
+| `src/schema_cmd.rs` | Schema subcommand dispatch: probe, infer, verify, columns, manual create |
+| `src/io_utils.rs` | Reader/writer construction, delimiter/encoding resolution, stdin/stdout |
+| `src/derive.rs` | Derived column expressions (`name=expression`) |
+| `src/rows.rs` | Row-level typed parsing and filter expression evaluation |
+| `src/columns.rs` | Column listing from schema files |
+| `src/join.rs` | Join two CSV files (inner, left, right, full) -- currently commented out |
+| `src/table.rs` | ASCII table rendering for `--preview` and `--table` output |
+| `src/install.rs` | Self-install via `cargo install` |
+| `tests/*.rs` | Integration tests using `assert_cmd` + `predicates` |
+| `tests/data/` | Fixture CSV and schema YAML files |
+| `benches/` | Criterion benchmarks |
+| `docs/` | ADRs, CLI help, operation guides |
+| `specs/` | Feature specifications and task plans |
 
-## Rust Coding Standards
-1. Rust Edition: Use latest stable edition (update `Cargo.toml` only after CI passes on stable/nightly). 
-2. Formatting: Enforce `rustfmt` defaults—do not manually reflow unless readability improves semantics.
-3. Linting: Treat `cargo clippy --all-targets --all-features -D warnings` as mandatory pre-merge.
-4. Error Handling:
-	- Never silently discard errors. Propagate with `?` unless recovery is required.
-	- Use `Result<T, E>` for fallible operations; prefer `Option<T>` only when absence is expected and non-error.
-5. Avoid premature `unsafe`. If unavoidable, isolate in a single module with comments: invariants, preconditions, UB avoidance.
-6. Favor explicit lifetimes only when the compiler cannot infer.
-7. Limit macro usage to reducing boilerplate (e.g., repetitive enum conversions); prefer functions and traits.
-8. Document public items with Rustdoc including invariants, complexity (Big‑O), and error cases.
-9. Use clear naming: `snake_case` for fields/functions; `PascalCase` for types; avoid abbreviations.
-10. Keep function bodies ideally <100 LOC; refactor logic into internal helpers for clarity.
+## Architecture Rules
 
-## Data Engineering Specific Patterns
-1. Large File Handling:
-	- Use streaming; don’t collect entire column sets unnecessarily.
-	- Chunk operations (e.g., indexing) with bounded buffers configurable via CLI.
-2. Type Normalization:
-	- Centralize parse logic: implement a `DataType` enum with associated `parse(&str) -> Result<Value, ParseError>`.
-	- Maintain currency precision (≤ 4 decimals) via a `Decimal` wrapper (e.g., `rust_decimal::Decimal`).
-3. Schema Application:
-	- Resolve alias mapping early; maintain both original and canonical name maps.
-	- Validate column presence + type before heavy transforms.
-4. Candidate Key Probing:
-	- Sample first N rows + reservoir sample thereafter for large files.
-	- Track uniqueness via fast `FxHashSet` or `hashbrown::HashSet` keyed on concatenated normalized values or a row hash.
-5. Row Hashing / Indexes:
-	- Use stable hashing (e.g., `ahash` or `twox-hash`) gated behind feature flags for reproducibility concerns.
-	- Persist indexes with versioned headers (magic bytes + semantic version + hash algo identifier).
-6. Unions & Deduplication:
-	- Maintain canonical ordering of columns based on schema; insert missing columns as null/default.
-	- Deduplicate using a streaming set membership strategy; for very large sets, consider on-disk bloom or partitioning.
+* Stream CSV data row-by-row using `csv::Reader`. Never load entire files into memory.
+* Each subcommand follows the pattern: public `execute(args: &XArgs) -> Result<()>` in its own module, dispatched from `lib.rs::run()`.
+* All operations run inside `run_operation()`, which wraps execution with structured timing output (start, end, duration) and outcome logging.
+* Use `anyhow::Result` and `anyhow::Context` for error propagation throughout the codebase. There is no custom error enum; all modules use `anyhow`.
+* Log via `log` crate macros (`info!`, `debug!`, `error!`). The `env_logger` backend initializes once in `init_logging()`. Never `println!` from deep logic; bubble status up to the CLI layer.
+* Exit codes: `0` success, `1` error.
 
-## Memory & Performance Practices
-1. Profile early using `cargo bench` and `criterion` for critical operations (scan, index build, union). 
-2. Use `cargo flamegraph` (feature gated in CI) for hotspots.
-3. Prefer `&[u8]` operations for raw CSV lines, decoding only when required.
-4. Minimize allocations: reuse buffers (e.g., one `String` scratch per thread). 
-5. Consider parallelism with `rayon` only after confirming CPU-bound scenarios; avoid over-threading on I/O bound tasks.
-6. Avoid broad `collect::<Vec<_>>()` on large iterators; if needed, annotate rationale.
-7. SIMD / fast paths: Use crates (`simdutf8`, `lexical-core`) behind a `performance` feature flag.
-8. Provide metrics counters (rows processed, parse failures, duplicates) optionally via a `--stats` flag.
-9. Bench naming convention: `benches/<area>_<operation>.rs` (e.g., `index_vs_sort.rs`).
+## Key Dependencies and Usage
 
-## Testing Strategy
-| Test Type | Location | Purpose | Notes |
-|----------|----------|---------|-------|
-| Unit | `src/**` (inline module tests) | Validate small pure functions | Keep minimal fixtures inline. |
-| Integration | `tests/*.rs` | Cross-module behavior, CLI flows | Use fixture loader helpers. |
-| Property | `tests/` (feature: `proptest`) | Fuzz parsers, schema inference | Disable heavy cases in CI by default. |
-| Snapshot | `tests/` with `insta` | Stable textual outputs (schema list, stats) | Redact volatile fields (timestamps). |
-| Benchmark | `benches/` | Performance regression detection | Not run on every PR unless label `perf`. |
+| Crate | Role |
+|-------|------|
+| `clap` (derive) | CLI argument parsing; all args in `cli.rs` |
+| `csv` | Streaming CSV read/write with `QuoteStyle::Always` for output |
+| `anyhow` | Error handling (`Result`, `Context`, `bail!`, `ensure!`) |
+| `serde` + `serde_yaml` | Schema YAML serialization/deserialization |
+| `chrono` | Date, time, datetime parsing (`NaiveDate`, `NaiveDateTime`, `NaiveTime`) |
+| `rust_decimal` | Currency and fixed-precision decimal values with rounding |
+| `encoding_rs` | Character encoding detection and transcoding |
+| `evalexpr` | Runtime expression evaluation for `--filter-expr` and `--derive` |
+| `sha2` | Content hashing for snapshot verification |
+| `uuid` | GUID column type parsing |
+| `similar` | Unified diff output for `schema infer --diff` |
+| `itertools` | Iterator combinators |
 
-### Test Fixtures
-1. Put large or reusable sample files under `tests/data/` or `tmp/` if ephemeral.
-2. Keep fixture size small (< 50KB) for unit tests; larger (MB–GB) only for local performance validation.
-3. Provide helper `fn load_fixture(name: &str) -> PathBuf` to standardize path resolution.
-4. Use synthetic deterministic datasets for index and key probing tests (avoid randomness unless property testing).
-5. For currency, include edge precision (0, 0.0001, 123456.9999, invalid forms). 
+## Schema and Type System
 
-### Writing Tests
-1. Always assert both success path and at least one failure path per public parser.
-2. Use `assert_eq!` with descriptive messages or `pretty_assertions` (behind feature flag) for readability.
-3. For CLI tests, use `assert_cmd` + `predicates` to validate stdout/stderr; avoid brittle full-line matches, prefer substring or structured JSON if available.
-4. Ensure tests are independent; avoid global mutable state.
-5. Mark slow tests with `#[ignore]` (attribute applied above test function) and document how to run them manually.
+* Schemas are YAML files (`-schema.yml`) containing version, columns (name, alias, datatype, nullable, precision, format, replacements, mappings), and primary keys.
+* The `ColumnType` enum has 10 variants: `String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Currency`, `Decimal`, `Guid`.
+* The `Value` enum mirrors `ColumnType` with parsed values plus `Null`.
+* Currency values use `rust_decimal::Decimal` with allowed scales of 2 or 4.
+* Fixed-precision decimals (`DecimalSpec`) carry precision and scale with configurable rounding strategies (truncate, round-half-up).
+* Type inference samples a configurable number of rows (default 2000) and detects types via heuristic parsing order.
+* Column renames and alias mappings resolve at ingestion boundary before any transforms.
 
-### Test Data Integrity
-Add invariants comments: e.g., `// Invariant: first column is unique for candidate key detection test`.
+## Coding Conventions Specific to This Codebase
 
-## Error Handling & Logging
-1. Central error enum (`Error`) with variants: `Io`, `Parse`, `Schema`, `Validation`, `Index`, `Cli`, `Other(String)`.
-2. Use structured logging (e.g., `tracing`) with spans: `schema_load`, `index_build`, `union_execute`.
-3. Log levels: `info` for progress, `debug` for internal decisions, `trace` for per-row diagnostics (guarded by feature `trace-rows`).
-4. Never print directly to stdout/stderr from deep logic—bubble status up; CLI layer handles user messaging.
+* Rust edition 2024: use `let` chains and other stabilized features.
+* Prefer `&str` and `Cow<'_, str>` over `String` cloning. Reuse scratch buffers in hot loops.
+* Delimiter resolution is centralized in `io_utils`: extension-based auto-detection (`.csv` comma, `.tsv` tab) with manual override.
+* The `-` path convention routes through stdin/stdout.
+* `--preview` mode sets a default limit of 10 rows and renders an ASCII table.
+* Use `parse_delimiter()` in `cli.rs` for any new delimiter arguments; it supports named values (`tab`, `pipe`, `semicolon`) and single ASCII characters.
+* Keep function bodies under 100 lines; extract helpers for clarity.
+* Add `//!` module-level Rustdoc to every source file describing scope and complexity.
 
-## Concurrency Guidelines
-1. Only parallelize CPU-intensive transforms (e.g., hashing, type conversion) after profiling.
-2. Guarantee deterministic output ordering when union or sort is requested (collect + stable sort or order-preserving merges).
-3. Use channels sparingly; prefer iterator adaptors unless cross-thread streaming required.
+## Testing Conventions
 
-## Schema & Type System
-1. YAML schema: include: version, columns (name, alias?, datatype, nullable, precision?, format?), primary_key (list), transforms.
-2. Provide CLI command to emit schema as markdown or list form (already supported—keep compatibility).
-3. Column renames applied exactly once at ingestion boundary.
-4. Validation steps order: (1) Header detection → (2) Column count check → (3) Rename/Alias mapping → (4) Type parsing → (5) Constraint checks (primary key uniqueness, currency precision) → (6) Optional transforms.
+* Unit tests go in inline `#[cfg(test)]` modules within each source file.
+* Integration tests go in `tests/*.rs`, using `assert_cmd::Command` and `predicates::str::contains` for CLI validation.
+* Fixture helper pattern: `fn fixture_path(name: &str) -> PathBuf` resolving to `tests/data/`.
+* Use `tempfile::tempdir()` for ephemeral outputs; fixture CSVs stay under 50 KB.
+* Property tests use `proptest` (example in `lib.rs::tests`).
+* Benchmarks use `criterion` in `benches/` (run with `cargo bench`).
+* Always test both success and at least one failure path per public function.
+* Add `// Invariant:` comments above test data explaining assumptions.
+* Mark slow tests with `#[ignore]`.
 
-## CLI UX Guidelines
-1. All commands must support `--help` with examples (see `docs/cli-help.md`).
-2. Fail fast: invalid flags produce a concise error + suggest `--help`.
-3. Provide dry-run modes (`--dry-run` or `--plan`) for destructive or heavy operations (unions, indexing, splits).
-4. Support `--output -` (stdout) where feasible for piping.
-5. Ensure exit codes: `0` success, `1` user error, `2` internal/unexpected (log details). 
+## Adding a New Subcommand
 
-## Feature Flags (Cargo)
-| Feature | Purpose | Notes |
-|---------|---------|-------|
-| `performance` | SIMD & fast parsing | Optional; verify on stable. |
-| `trace-rows` | Deep per-row logging | Disabled by default; avoid in benchmarks. |
-| `benchmarks` | Criterion dependency | Not in production builds. |
-| `proptest` | Property tests | CI optional tier. |
+1. Define a new `*Args` struct in `cli.rs` with `#[derive(Debug, Args)]`.
+2. Add a variant to the `Commands` enum with the doc comment serving as CLI help text.
+3. Create a module (`src/<name>.rs`) with `pub fn execute(args: &XArgs) -> Result<()>`.
+4. Declare the module in `lib.rs` and add the dispatch arm in `run()` using `run_operation()`.
+5. Write integration tests in `tests/` using `assert_cmd`.
 
-## Benchmarking & Profiling Workflow
-1. Local: `cargo bench --features benchmarks`.
-2. Flamegraph: `cargo flamegraph --bin csv-managed` (ensure `perf` / `dtrace` permissions).
-3. Track median, mean, std-dev for hot paths; store historical results in `docs/perf/` (CSV).
-4. Prefer relative comparisons (before vs after change) over absolute numbers across machines.
+## Adding a New Column Type
 
-## Performance Review Checklist
-- [ ] Streaming iteration (no full-file load)
-- [ ] Minimal allocations (no large `Vec` unless justified)
-- [ ] No unnecessary clones/hashes
-- [ ] Bounded memory growth under worst-case file size
-- [ ] Deterministic ordering when required
-- [ ] Latency documented for large sample (e.g., 10M rows)
+1. Add a variant to `ColumnType` in `schema.rs` and update serde, `FromStr`, `Display`, and the inference order.
+2. Add a corresponding variant to `Value` in `data.rs` with a parsing function.
+3. Update `parse_typed_value()` in `data.rs` and `ComparableValue` ordering.
+4. Add test fixtures with valid and invalid samples.
 
-## CI / Quality Gates
-1. Build matrix: stable + latest nightly (nightly only for future gating, no required success to merge).
-2. Steps:
-	- `cargo fmt --check`
-	- `cargo clippy -D warnings`
-	- `cargo test --all --features ""`
-	- (Optional labeled perf runs) `cargo bench`
-3. Cache: use GitHub Actions cache for `~/.cargo/registry` and `~/.cargo/git` keyed by Cargo.lock hash.
-4. Security audit: `cargo audit` on schedule (weekly) + manual on release.
-5. Release build: `cargo build --release` with `RUSTFLAGS='-C opt-level=3 -C codegen-units=1 -C strip=symbols'`.
+## Performance Expectations
 
-## Release & Deployment
-1. Semantic Versioning: MAJOR (breaking), MINOR (feature, backward-compatible), PATCH (fixes/perf, no behavior change).
-2. Tag process: ensure CHANGELOG entry + updated README usage examples.
-3. Provide prebuilt binaries (Windows x86_64, Linux x86_64/musl, macOS aarch64/x86_64) via GitHub Actions artifacts.
-4. Use `cross` for multi-platform builds when native toolchains problematic.
-5. After release: run smoke tests invoking core CLI commands on small fixtures.
+* All row processing uses streaming iterators; `collect::<Vec<_>>()` on large datasets requires a justifying comment.
+* Index-accelerated reads use seek-based I/O without buffering the full file.
+* In-memory sort is the fallback only when no matching index variant exists.
+* Benchmarks live in `benches/<area>_<operation>.rs` and use `criterion`.
 
-## Documentation Standards
-1. Each module: top-level comment summarizing responsibilities + complexity points.
-2. Rustdoc examples must compile (`cargo test --doc`).
-3. Keep `README.md` concise—defer deep examples to `docs/`.
-4. Add ADRs (`docs/adr.md`) for major design decisions (index format, hashing strategy, currency representation).
+## Quality Gates
 
-## Observability & Diagnostics
-1. Structured logs with context keys: `row_index`, `column_name`, `datatype`.
-2. Optional stats output: JSON or tabular; stable schema for downstream automation.
-3. Panic policy: avoid panics except unrecoverable invariants (document rationale).
+Run these commands before committing (each as a separate invocation):
 
-## Copilot Prompting Guidance
-When requesting AI-generated code:
-- Specify: "streaming iterator for CSV rows" instead of generic "parse CSV".
-- Include desired data structures (e.g., `HashMap<String, ColumnMeta>`).
-- Mention constraints: memory cap, deterministic ordering, error propagation pattern (`Result<_, Error>`).
-- Ask for tests simultaneously (happy path + failure case) to reduce omissions.
-- For performance improvements, request microbench harness if complexity > trivial.
+1. `cargo fmt --check`
+2. `cargo clippy -- -D warnings`
+3. `cargo test`
 
-### Example Good Prompts
-> Generate a function that applies schema type parsing to a single CSV record using a reusable scratch buffer; return a Vec<ParsedValue> or Error. Include unit tests for valid, invalid currency precision.
-> Provide an iterator adapter that deduplicates rows based on a precomputed hash set; ensure memory stays bounded; add benchmark skeleton.
+## Terminal Command Execution Policy
 
-## Common Pitfalls to Avoid
-1. Reading entire file into memory before transforming.
-2. Using `String` where `&str` suffices.
-3. Unbounded `HashSet` growth without documenting memory trade-offs.
-4. Silent type coercion (e.g., trimming precision without logging). 
-5. Inconsistent column rename order causing mismatched indexes.
+Run each terminal command as a separate, standalone invocation. Never chain commands with `;`, `&&`, `||`, or `|` except for output redirection.
 
-## Edge Cases Checklist
-- Empty file (0 bytes)
-- Header only, no data rows
-- Mixed line endings (CRLF vs LF)
-- Quoted fields with embedded delimiter
-- Invalid UTF-8 (fallback to lossy decode or error?)
-- Extremely wide rows (thousands of columns)
-- Currency with >4 decimals
-- Date/time in multiple formats when schema expects one
-- Duplicate primary key rows
-- Missing required columns
+### Rules
 
-## Adding New Features – Mini Contract Template
-When introducing a new operation (e.g., column pivot):
-1. Inputs: CLI args, schema requirements, file patterns.
-2. Outputs: New file(s), index, stats.
-3. Errors: Validation failure, I/O error, parse failure, constraint violation.
-4. Performance target: Complexity analysis + memory notes.
-Include this contract in PR description.
+1. One command per terminal call.
+2. No `cmd /c` wrappers. Run commands directly in the shell.
+3. No exit-code echo suffixes.
+4. Inspect output and exit code before running the next command.
+5. Always use `pwsh`, never `powershell` or `powershell.exe`.
 
-## Review Checklist (Pre-Merge)
-- [ ] Rustdoc added/updated
-- [ ] Tests pass & coverage for failure paths
-- [ ] Clippy clean (`-D warnings`)
-- [ ] Benchmark unaffected or improved (if modified hot path)
-- [ ] No new `unsafe` or justified + documented
-- [ ] CHANGELOG updated if user-visible behavior changed
+### Allowed Exceptions
 
-## Suggested Future Enhancements
-- Pluggable output formats (Parquet/Arrow) behind features
-- Adaptive sampling for candidate key inference
-- On-disk spill for dedupe when memory threshold exceeded
-- Incremental index updates (append-only strategy)
-- Parallel columnar type conversion pipeline
+Output redirection is permitted because it is I/O plumbing, not command chaining:
 
-## Security & Safety
-1. Validate paths to avoid directory traversal in batch definitions.
-2. Avoid executing arbitrary expressions from user-provided schema.
-3. Treat malformed CSV as recoverable where feasible; log and continue if configured.
-4. Restrict currency transformation to documented rounding rules (bankers vs truncation—choose and document).
+* Shell redirection operators: `>`, `>>`, `2>&1`
+* Pipe to `Out-File`, `Set-Content`, or `Out-String`
 
-## Contributing Flow Summary
-1. Create branch
-2. Implement feature with tests
-3. Run fmt, clippy, tests
-4. Add docs / CHANGELOG
-5. Open PR with feature contract & performance notes
-6. Await review + potential benchmark validation
+### Auto-Approve Patterns
 
----
-By following these guidelines, Copilot and contributors can produce consistent, performant, and maintainable Rust code that scales to very large tabular datasets while preserving correctness and observability.
+```json
+{
+    ".specify/scripts/bash/": true,
+    ".specify/scripts/powershell/": true,
+    "/^cargo (build|test|run|clippy|fmt|check|doc|update|install|search|publish|login|logout|new|init|add|upgrade|version|help|bench)(\\s[^;|&`]*)?(\\s*(>|>>|2>&1|\\|\\s*(Out-File|Set-Content|Out-String))\\s*[^;|&`]*)*$/": {
+        "approve": true,
+        "matchCommandLine": true
+    },
+    "/^cargo --(help|version|verbose|quiet|release|features)(\\s[^;|&`]*)?$/": {
+        "approve": true,
+        "matchCommandLine": true
+    },
+    "/^git (status|add|commit|diff|log|fetch|pull|push|checkout|branch|--version)(\\s[^;|&`]*)?(\\s*(>|>>|2>&1|\\|\\s*(Out-File|Set-Content|Out-String))\\s*[^;|&`]*)*$/": {
+        "approve": true,
+        "matchCommandLine": true
+    },
+    "/^(Out-File|Set-Content|Add-Content|Get-Content|Get-ChildItem|Copy-Item|Move-Item|New-Item|Test-Path)(\\s[^;|&`]*)?$/": {
+        "approve": true,
+        "matchCommandLine": true
+    },
+    "/^(echo|dir|mkdir|where\\.exe|vsWhere\\.exe|rustup|rustc|refreshenv)(\\s[^;|&`]*)?$/": {
+        "approve": true,
+        "matchCommandLine": true
+    },
+    "/^cmd /c \"cargo (test|check|clippy|fmt|build|doc|bench)(\\s[^;|&`]*)?\"(\\s*[;&|]+\\s*echo\\s.*)?$/": {
+        "approve": true,
+        "matchCommandLine": true
+    }
+}
+```
