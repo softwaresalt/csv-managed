@@ -669,7 +669,10 @@ fn index_is_used_for_sorted_output() {
     let header = lines.next().expect("header");
     assert!(header.contains("ordered_at"));
     let first_row = lines.next().expect("first row");
-    assert!(first_row.starts_with("1"));
+    assert!(
+        first_row.starts_with("\"1\"") || first_row.starts_with("1"),
+        "Expected first sorted row to start with id 1, got: {first_row}"
+    );
 }
 
 #[test]
@@ -839,7 +842,10 @@ fn process_accepts_named_index_variant() {
     let mut lines = output.lines();
     lines.next().expect("header");
     let first_row = lines.next().expect("first data row");
-    assert!(first_row.starts_with("2"));
+    assert!(
+        first_row.starts_with("\"2\"") || first_row.starts_with("2"),
+        "Expected first sorted row to start with id 2, got: {first_row}"
+    );
 }
 
 #[test]
@@ -894,4 +900,97 @@ fn process_errors_when_variant_missing() {
         .assert()
         .failure()
         .stderr(contains("Index variant 'missing' not found"));
+}
+
+// ---------------------------------------------------------------------------
+// Observability tests (FR-056 through FR-059)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn successful_operation_exits_with_code_zero() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .code(0);
+}
+
+#[test]
+fn failed_operation_exits_with_nonzero_code() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args(["process", "-i", "nonexistent_file_that_does_not_exist.csv"])
+        .assert()
+        .failure()
+        .code(1);
+}
+
+#[test]
+fn operation_emits_timing_output() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=info")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .stderr(
+            contains("duration_secs")
+                .and(contains("start:"))
+                .and(contains("end:")),
+        );
+}
+
+#[test]
+fn operation_logs_success_outcome() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=info")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success()
+        .stderr(contains("status=ok"));
+}
+
+#[test]
+fn operation_logs_error_outcome() {
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=error")
+        .args(["process", "-i", "nonexistent_file_that_does_not_exist.csv"])
+        .assert()
+        .failure()
+        .stderr(contains("status=error"));
+}
+
+#[test]
+fn rust_log_controls_verbosity() {
+    let (_dir, csv_path) = write_sample_csv(b',');
+
+    // With debug level, we should see debug-level output.
+    let debug_output = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=debug")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success();
+    let debug_stderr = String::from_utf8_lossy(&debug_output.get_output().stderr).to_string();
+
+    // With error-only level, debug messages should not appear.
+    let error_output = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("RUST_LOG", "csv_managed=error")
+        .args(["process", "-i", csv_path.to_str().unwrap(), "--preview"])
+        .assert()
+        .success();
+    let error_stderr = String::from_utf8_lossy(&error_output.get_output().stderr).to_string();
+
+    // Debug mode should produce more output than error-only mode.
+    assert!(
+        debug_stderr.len() > error_stderr.len(),
+        "Debug logging should produce more output than error-only logging"
+    );
 }

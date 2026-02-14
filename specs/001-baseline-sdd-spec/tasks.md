@@ -34,44 +34,44 @@
 
 ### Data Type System (FR-012 through FR-016)
 
-- [ ] T005 Audit `ColumnType` enum in src/schema.rs — confirm all 10 variants (String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency, Decimal) exist and match FR-012
-- [ ] T006 [P] Audit boolean parsing in src/data.rs — confirm all 6 input formats (true/false, yes/no, 1/0, t/f, y/n) per FR-013 are handled
-- [ ] T007 [P] Audit date parsing in src/data.rs — confirm common formats (YYYY-MM-DD, MM/DD/YYYY) per FR-014 are handled and canonicalize to YYYY-MM-DD
-- [ ] T008 [P] Audit currency parsing in src/data.rs — confirm symbols ($, €, £, ¥), thousands separators, and parentheses notation per FR-015 are handled
-- [ ] T009 [P] Audit decimal parsing in src/data.rs — confirm precision/scale validation (max 28) and rounding strategies per FR-016
+- [x] T005 Audit `ColumnType` enum in src/schema.rs — confirm all 10 variants (String, Integer, Float, Boolean, Date, DateTime, Time, Guid, Currency, Decimal) exist and match FR-012
+- [x] T006 [P] Audit boolean parsing in src/data.rs — confirm all 6 input formats (true/false, yes/no, 1/0, t/f, y/n) per FR-013 are handled
+- [x] T007 [P] Audit date parsing in src/data.rs — confirm common formats (YYYY-MM-DD, MM/DD/YYYY) per FR-014 are handled and canonicalize to YYYY-MM-DD
+- [x] T008 [P] Audit currency parsing in src/data.rs — confirm symbols ($, €, £, ¥), thousands separators, and parentheses notation per FR-015 are handled
+- [x] T009 [P] Audit decimal parsing in src/data.rs — confirm precision/scale validation (max 28) and rounding strategies per FR-016
 
 ### I/O & Encoding (FR-051 through FR-054)
 
-- [ ] T010 Audit delimiter auto-detection in src/io_utils.rs — confirm extension-based detection (.csv→comma, .tsv→tab) and manual override per FR-051
-- [ ] T011 [P] Audit encoding support in src/io_utils.rs — confirm encoding_rs infrastructure exists for independent input/output encoding per FR-052 (end-to-end pipeline behavior validated in US7 T101)
-- [ ] T012 [P] Audit stdin/stdout support in src/io_utils.rs — confirm `-i -` reader infrastructure and stdout writer exist per FR-053 (end-to-end pipeline behavior validated in US7 T100)
-- [ ] T013 [P] Audit CSV output quoting in src/io_utils.rs — confirm all fields are quoted per FR-054
+- [x] T010 Audit delimiter auto-detection in src/io_utils.rs — confirm extension-based detection (.csv→comma, .tsv→tab) and manual override per FR-051
+- [x] T011 [P] Audit encoding support in src/io_utils.rs — confirm encoding_rs infrastructure exists for independent input/output encoding per FR-052 (end-to-end pipeline behavior validated in US7 T101)
+- [x] T012 [P] Audit stdin/stdout support in src/io_utils.rs — confirm `-i -` reader infrastructure and stdout writer exist per FR-053 (end-to-end pipeline behavior validated in US7 T100)
+- [x] T013 [P] Audit CSV output quoting in src/io_utils.rs — confirm all fields are quoted per FR-054
 
 ### Observability (FR-056 through FR-059)
 
-- [ ] T014 Audit timing output in src/lib.rs `run_operation()` — confirm structured start/end/duration per FR-056
-- [ ] T015 [P] Audit log verbosity in src/lib.rs `init_logging()` — confirm RUST_LOG support per FR-057
-- [ ] T016 [P] Audit operation outcome logging in src/lib.rs — confirm success/error with context per FR-058
-- [ ] T017 [P] Audit exit codes in src/main.rs — confirm 0 for success and non-zero for error per FR-059
+- [x] T014 Audit timing output in src/lib.rs `run_operation()` — confirm structured start/end/duration per FR-056
+- [x] T015 [P] Audit log verbosity in src/lib.rs `init_logging()` — confirm RUST_LOG support per FR-057
+- [x] T016 [P] Audit operation outcome logging in src/lib.rs — confirm success/error with context per FR-058
+- [x] T017 [P] Audit exit codes in src/main.rs — confirm 0 for success and non-zero for error per FR-059
 
 ### Rustdoc Gaps
 
-- [ ] T018 [P] Add/verify module-level Rustdoc comment in src/data.rs documenting Value enum, type parsing responsibilities, and complexity
-- [ ] T019 [P] Add/verify module-level Rustdoc comment in src/schema.rs documenting Schema model, inference, and YAML I/O
-- [ ] T020 [P] Add/verify module-level Rustdoc comment in src/io_utils.rs documenting encoding, delimiter, reader/writer utilities
-- [ ] T021 [P] Add/verify module-level Rustdoc comment in src/lib.rs documenting crate root, command dispatch, and timing wrapper
-- [ ] T145 [P] Add/verify module-level Rustdoc comment in src/process.rs documenting process command, sort strategy, and transform pipeline
-- [ ] T146 [P] Add/verify module-level Rustdoc comment in src/schema_cmd.rs documenting schema subcommand dispatch and probe/infer/verify orchestration
-- [ ] T147 [P] Add/verify module-level Rustdoc comment in src/cli.rs documenting clap argument structures and subcommand definitions
-- [ ] T148 [P] Add/verify module-level Rustdoc comment in src/main.rs documenting entry point and error handling
-- [ ] T149 [P] Add/verify module-level Rustdoc comment in src/derive.rs documenting derived column specification and evaluation
-- [ ] T150 [P] Add/verify module-level Rustdoc comment in src/rows.rs documenting row parsing and filter evaluation helpers
-- [ ] T151 [P] Add/verify module-level Rustdoc comment in src/table.rs documenting ASCII table renderer
+- [x] T018 [P] Add/verify module-level Rustdoc comment in src/data.rs documenting Value enum, type parsing responsibilities, and complexity
+- [x] T019 [P] Add/verify module-level Rustdoc comment in src/schema.rs documenting Schema model, inference, and YAML I/O
+- [x] T020 [P] Add/verify module-level Rustdoc comment in src/io_utils.rs documenting encoding, delimiter, reader/writer utilities
+- [x] T021 [P] Add/verify module-level Rustdoc comment in src/lib.rs documenting crate root, command dispatch, and timing wrapper
+- [x] T145 [P] Add/verify module-level Rustdoc comment in src/process.rs documenting process command, sort strategy, and transform pipeline
+- [x] T146 [P] Add/verify module-level Rustdoc comment in src/schema_cmd.rs documenting schema subcommand dispatch and probe/infer/verify orchestration
+- [x] T147 [P] Add/verify module-level Rustdoc comment in src/cli.rs documenting clap argument structures and subcommand definitions
+- [x] T148 [P] Add/verify module-level Rustdoc comment in src/main.rs documenting entry point and error handling
+- [x] T149 [P] Add/verify module-level Rustdoc comment in src/derive.rs documenting derived column specification and evaluation
+- [x] T150 [P] Add/verify module-level Rustdoc comment in src/rows.rs documenting row parsing and filter evaluation helpers
+- [x] T151 [P] Add/verify module-level Rustdoc comment in src/table.rs documenting ASCII table renderer
 
 ### Foundational Test Coverage (FR-012–FR-016, FR-056–FR-059)
 
-- [ ] T152 [P] Verify tests exist for data type parsing success and failure paths (boolean formats, date formats, currency symbols, decimal precision overflow) covering FR-012 through FR-016 in tests/process.rs or tests/schema.rs
-- [ ] T153 [P] Verify tests exist for observability features (timing output, log verbosity, exit codes) covering FR-056 through FR-059 in tests/cli.rs
+- [x] T152 [P] Verify tests exist for data type parsing success and failure paths (boolean formats, date formats, currency symbols, decimal precision overflow) covering FR-012 through FR-016 in tests/process.rs or tests/schema.rs
+- [x] T153 [P] Verify tests exist for observability features (timing output, log verbosity, exit codes) covering FR-056 through FR-059 in tests/cli.rs
 
 **Checkpoint**: Foundation validated — all shared infrastructure confirmed against spec.
 

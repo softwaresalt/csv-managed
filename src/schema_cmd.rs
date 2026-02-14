@@ -1,3 +1,16 @@
+//! Schema subcommand dispatch — probe, infer, verify, and columns orchestration.
+//!
+//! Routes the `schema` CLI subcommand to the appropriate handler:
+//!
+//! - **probe**: read-only inference table display (FR-005)
+//! - **infer**: write a YAML schema file with optional diff and snapshot (FR-004, FR-006, FR-007)
+//! - **verify**: cell-level type validation and violation reporting (FR-041–FR-044)
+//! - **columns**: formatted column listing from an existing schema
+//! - **manual**: create a schema from explicit `--column name:type` definitions (FR-010)
+//!
+//! Also handles `--override` type overrides (FR-008), `--mapping` scaffold
+//! generation (FR-011), and NA-placeholder behavior configuration (FR-009).
+
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;

@@ -1,3 +1,18 @@
+//! Process command — sort, filter, project, derive, and write transformed CSV output.
+//!
+//! Implements the `process` subcommand, which applies a streaming transformation
+//! pipeline to CSV data: schema loading → delimiter/encoding resolution →
+//! index selection (optional) → datatype mapping → value replacement →
+//! typed parsing → row filtering → column projection → derived columns →
+//! output writing (CSV or ASCII table).
+//!
+//! ## Sort Strategy
+//!
+//! When `--sort` is specified, the engine first checks for a matching index
+//! variant (longest column prefix match). If found, rows are read via
+//! seek-based I/O without buffering. Otherwise, an in-memory sort fallback
+//! is used.
+
 use std::fs::File;
 
 use anyhow::{Context, Result, anyhow};

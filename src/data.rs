@@ -1,3 +1,16 @@
+//! Value types, typed parsing, and type-system primitives for CSV cell data.
+//!
+//! This module defines the [`Value`] enum (mirroring [`crate::schema::ColumnType`]),
+//! typed parsing functions for booleans, dates, datetimes, times, GUIDs, currencies,
+//! and fixed-precision decimals. It also provides currency/decimal rounding strategies,
+//! evalexpr conversion helpers, and column-name normalization.
+//!
+//! ## Complexity
+//!
+//! All parsing functions operate in O(n) time over the input string length.
+//! Currency and decimal parsers perform a single sanitization pass before
+//! delegating to `rust_decimal::Decimal::from_str`.
+
 use std::fmt;
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
@@ -860,5 +873,90 @@ mod tests {
         let narrow_type = ColumnType::Decimal(narrow_spec);
         assert!(parse_typed_value("123.456", &narrow_type).is_err());
         assert!(parse_typed_value("1234567", &narrow_type).is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // FR-013: Boolean parsing — all 6 input format pairs
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_boolean_accepts_all_six_truthy_formats() {
+        for input in &["true", "True", "t", "T", "yes", "Yes", "y", "Y", "1"] {
+            let result = parse_typed_value(input, &ColumnType::Boolean)
+                .unwrap_or_else(|_| panic!("should parse '{input}' as boolean"))
+                .expect("non-empty");
+            assert_eq!(
+                result,
+                Value::Boolean(true),
+                "input '{input}' should be true"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_boolean_accepts_all_six_falsy_formats() {
+        for input in &["false", "False", "f", "F", "no", "No", "n", "N", "0"] {
+            let result = parse_typed_value(input, &ColumnType::Boolean)
+                .unwrap_or_else(|_| panic!("should parse '{input}' as boolean"))
+                .expect("non-empty");
+            assert_eq!(
+                result,
+                Value::Boolean(false),
+                "input '{input}' should be false"
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // FR-014: Date parsing — failure path
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_naive_date_rejects_invalid_input() {
+        assert!(parse_naive_date("not-a-date").is_err());
+        assert!(parse_naive_date("2024-13-01").is_err());
+        assert!(parse_naive_date("").is_err());
+    }
+
+    #[test]
+    fn parse_naive_datetime_rejects_invalid_input() {
+        assert!(parse_naive_datetime("not-a-datetime").is_err());
+        assert!(parse_naive_datetime("2024-01-01 25:00:00").is_err());
+        assert!(parse_naive_datetime("").is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // FR-015: Currency parsing — symbol coverage
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_currency_accepts_all_supported_symbols() {
+        for (raw, expected) in [
+            ("$100.00", "100.00"),
+            ("€200.50", "200.50"),
+            ("£300.75", "300.75"),
+            ("¥400.25", "400.25"),
+        ] {
+            let parsed = parse_typed_value(raw, &ColumnType::Currency)
+                .unwrap_or_else(|_| panic!("should parse '{raw}'"))
+                .expect("non-empty");
+            match parsed {
+                Value::Currency(c) => {
+                    assert_eq!(c.to_string_fixed(), expected, "symbol input '{raw}'")
+                }
+                other => panic!("Expected currency for '{raw}', got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn parse_currency_accepts_parentheses_negative() {
+        let parsed = parse_typed_value("($500.00)", &ColumnType::Currency)
+            .expect("parse parenthesized currency")
+            .expect("non-empty");
+        match parsed {
+            Value::Currency(c) => assert_eq!(c.to_string_fixed(), "-500.00"),
+            other => panic!("Expected currency, got {other:?}"),
+        }
     }
 }

@@ -1,3 +1,16 @@
+//! I/O utilities for CSV reading, writing, encoding, and delimiter resolution.
+//!
+//! All file I/O in csv-managed flows through this module. It provides:
+//!
+//! - **Delimiter resolution**: extension-based auto-detection (`.csv` → comma,
+//!   `.tsv` → tab) with manual override support.
+//! - **Encoding**: input decoding and output transcoding via `encoding_rs`,
+//!   defaulting to UTF-8.
+//! - **Reader/writer construction**: `open_csv_reader`, `open_csv_writer`,
+//!   and seekable reader variants for index-accelerated reads.
+//! - **stdin/stdout**: the `-` path convention routes through standard streams.
+//! - **Quoting**: CSV output uses `QuoteStyle::Always` for round-trip safety.
+
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter, Read, Write},
@@ -104,7 +117,7 @@ pub fn open_csv_writer(
     let mut builder = csv::WriterBuilder::new();
     builder
         .delimiter(delimiter)
-        .quote_style(QuoteStyle::Necessary)
+        .quote_style(QuoteStyle::Always)
         .double_quote(true);
     Ok(builder.from_writer(writer))
 }

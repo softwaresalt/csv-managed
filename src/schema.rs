@@ -1,3 +1,19 @@
+//! Schema model, type inference, YAML persistence, and column metadata.
+//!
+//! This module owns the [`Schema`] struct (the canonical representation of a
+//! CSV file's structure), the [`ColumnType`] enum (10 supported data types),
+//! [`ColumnMeta`] per-column metadata (renames, replacements, datatype mappings),
+//! and the schema inference engine that samples rows to detect types.
+//!
+//! ## Responsibilities
+//!
+//! - YAML schema loading and saving via `serde_yaml`
+//! - Header detection heuristics and synthetic name assignment
+//! - Type inference with configurable sample size (default 2 000 rows)
+//! - Placeholder (NA, N/A, null, etc.) detection and policy
+//! - Column rename mapping resolution
+//! - Decimal precision/scale specification and validation
+
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashSet},
