@@ -744,6 +744,38 @@ fn schema_infer_preview_includes_placeholder_replacements() {
 }
 
 #[test]
+fn schema_probe_shows_placeholder_fill_with_custom_value() {
+    let temp = tempdir().expect("temp dir");
+    let csv_path = temp.path().join("placeholders.csv");
+    fs::write(&csv_path, "code,value\n001,NA\n002,#N/A\n003,N/A\n").expect("write csv");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "probe",
+            "-i",
+            csv_path.to_str().unwrap(),
+            "--na-behavior",
+            "fill",
+            "--na-fill",
+            "MISSING",
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+    assert!(
+        stdout.contains("Placeholder Suggestions"),
+        "placeholder section missing from probe output: {stdout}"
+    );
+    assert!(
+        stdout.contains("MISSING"),
+        "custom fill value 'MISSING' missing from probe output: {stdout}"
+    );
+}
+
+#[test]
 fn schema_infer_diff_reports_changes_and_no_changes() {
     let temp = tempdir().expect("temp dir");
     let csv_path = temp.path().join("diff.csv");

@@ -85,27 +85,27 @@
 
 ### Validation for User Story 1
 
-- [ ] T022 [US1] Audit schema inference sampling in src/schema.rs — confirm configurable sample rows (default 2000, 0 = full scan) per FR-001
-- [ ] T023 [US1] Audit header detection in src/schema.rs — confirm auto-detection and synthetic name assignment (`field_0`, `field_1`) per FR-002
-- [ ] T024 [P] [US1] Audit `--assume-header` flag in src/cli.rs `SchemaProbeArgs` — confirm presence and behavior per FR-003
-- [ ] T025 [P] [US1] Audit schema YAML persistence in src/schema.rs `Schema::save()` — confirm column order, types, renames, mappings, replacements per FR-004
-- [ ] T026 [P] [US1] Audit schema probing in src/schema_cmd.rs — confirm read-only inference table display per FR-005
-- [ ] T027 [P] [US1] Audit unified diff in src/schema_cmd.rs — confirm diff output between inferred and existing schema per FR-006
-- [ ] T028 [P] [US1] Audit snapshot support in src/schema_cmd.rs — confirm SHA-256 hash of header/type layout per FR-007
-- [ ] T029 [P] [US1] Audit `--override` flag in src/cli.rs and src/schema_cmd.rs — confirm type override per FR-008
-- [ ] T030 [P] [US1] Audit NA-placeholder detection in src/schema.rs — confirm NA, N/A, #N/A, #NA, null, none handling with configurable behavior per FR-009
-- [ ] T031 [P] [US1] Audit manual schema creation in src/schema_cmd.rs — confirm `--column name:type` definitions per FR-010
-- [ ] T032 [P] [US1] Audit `--mapping` flag in src/schema_cmd.rs — confirm mapping scaffold and snake_case suggestions per FR-011
+- [x] T022 [US1] Audit schema inference sampling in src/schema.rs — confirm configurable sample rows (default 2000, 0 = full scan) per FR-001
+- [x] T023 [US1] Audit header detection in src/schema.rs — confirm auto-detection and synthetic name assignment (`field_0`, `field_1`) per FR-002
+- [x] T024 [P] [US1] Audit `--assume-header` flag in src/cli.rs `SchemaProbeArgs` — confirm presence and behavior per FR-003
+- [x] T025 [P] [US1] Audit schema YAML persistence in src/schema.rs `Schema::save()` — confirm column order, types, renames, mappings, replacements per FR-004
+- [x] T026 [P] [US1] Audit schema probing in src/schema_cmd.rs — confirm read-only inference table display per FR-005
+- [x] T027 [P] [US1] Audit unified diff in src/schema_cmd.rs — confirm diff output between inferred and existing schema per FR-006
+- [x] T028 [P] [US1] Audit snapshot support in src/schema_cmd.rs — confirm SHA-256 hash of header/type layout per FR-007
+- [x] T029 [P] [US1] Audit `--override` flag in src/cli.rs and src/schema_cmd.rs — confirm type override per FR-008
+- [x] T030 [P] [US1] Audit NA-placeholder detection in src/schema.rs — confirm NA, N/A, #N/A, #NA, null, none handling with configurable behavior per FR-009
+- [x] T031 [P] [US1] Audit manual schema creation in src/schema_cmd.rs — confirm `--column name:type` definitions per FR-010
+- [x] T032 [P] [US1] Audit `--mapping` flag in src/schema_cmd.rs — confirm mapping scaffold and snake_case suggestions per FR-011
 
 ### Test Coverage for User Story 1
 
-- [ ] T033 [P] [US1] Verify test exists for acceptance scenario 1 (probe displays inference table) in tests/probe.rs
-- [ ] T034 [P] [US1] Verify test exists for acceptance scenario 2 (infer writes YAML schema) in tests/schema.rs
-- [ ] T035 [P] [US1] Verify test exists for acceptance scenario 3 (headerless CSV inference) in tests/schema.rs
-- [ ] T036 [P] [US1] Verify test exists for acceptance scenario 4 (NA-placeholder normalization) in tests/schema.rs or tests/probe.rs
-- [ ] T037 [P] [US1] Verify test exists for acceptance scenario 5 (schema diff) in tests/schema.rs
-- [ ] T038 [P] [US1] Verify test exists for acceptance scenario 6 (snapshot hash) in tests/schema.rs
-- [ ] T039 [US1] Add missing tests for any US1 acceptance scenarios not covered above
+- [x] T033 [P] [US1] Verify test exists for acceptance scenario 1 (probe displays inference table) in tests/probe.rs
+- [x] T034 [P] [US1] Verify test exists for acceptance scenario 2 (infer writes YAML schema) in tests/schema.rs
+- [x] T035 [P] [US1] Verify test exists for acceptance scenario 3 (headerless CSV inference) in tests/schema.rs
+- [x] T036 [P] [US1] Verify test exists for acceptance scenario 4 (NA-placeholder normalization) in tests/schema.rs or tests/probe.rs
+- [x] T037 [P] [US1] Verify test exists for acceptance scenario 5 (schema diff) in tests/schema.rs
+- [x] T038 [P] [US1] Verify test exists for acceptance scenario 6 (snapshot hash) in tests/schema.rs
+- [x] T039 [US1] Add missing tests for any US1 acceptance scenarios not covered above
 
 **Checkpoint**: Schema Discovery & Inference validated — all FR-001 through FR-011 confirmed.
 
