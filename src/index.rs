@@ -814,4 +814,56 @@ mod tests {
         // Ensure first offset corresponds to highest "a" value (3)
         assert!(offsets[0] > offsets[2]);
     }
+
+    /// FR-037: When sort has more columns than any single variant, the longest
+    /// matching prefix is selected (true partial match scenario).
+    #[test]
+    fn best_match_selects_longest_prefix_variant() {
+        let dir = tempdir().unwrap();
+        let csv_path = dir.path().join("data.csv");
+        std::fs::write(&csv_path, "a,b,c\n1,x,alpha\n2,y,beta\n3,z,gamma\n").unwrap();
+
+        let definitions = vec![
+            IndexDefinition::parse("short=a:asc").unwrap(),
+            IndexDefinition::parse("long=a:asc,b:asc").unwrap(),
+        ];
+
+        let index = CsvIndex::build(&csv_path, &definitions, None, None, b',', UTF_8).unwrap();
+        assert_eq!(index.variants().len(), 2);
+
+        // Sort by (a:asc, b:asc, c:asc) — both variants match as prefix, but
+        // "long" covers 2 columns vs "short" covering 1, so "long" wins.
+        let matched = index
+            .best_match(&[
+                ("a".to_string(), SortDirection::Asc),
+                ("b".to_string(), SortDirection::Asc),
+                ("c".to_string(), SortDirection::Asc),
+            ])
+            .expect("should find a matching variant");
+        assert_eq!(matched.name(), Some("long"));
+        assert_eq!(matched.columns().len(), 2);
+    }
+
+    /// FR-039: Loading an index with a mismatched version returns a clear error.
+    #[test]
+    fn load_rejects_incompatible_index_version() {
+        let dir = tempdir().unwrap();
+        let csv_path = dir.path().join("data.csv");
+        std::fs::write(&csv_path, "a\n1\n2\n").unwrap();
+
+        let definition = IndexDefinition::from_columns(vec!["a".to_string()]).unwrap();
+        let mut index = CsvIndex::build(&csv_path, &[definition], None, None, b',', UTF_8).unwrap();
+
+        // Tamper with the version to simulate a future incompatible format.
+        index.version = INDEX_VERSION + 99;
+        let index_path = dir.path().join("bad_version.idx");
+        index.save(&index_path).expect("save tampered index");
+
+        let err = CsvIndex::load(&index_path).expect_err("should reject incompatible version");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Unsupported index version") || msg.contains("index"),
+            "Error should mention version incompatibility, got: {msg}"
+        );
+    }
 }

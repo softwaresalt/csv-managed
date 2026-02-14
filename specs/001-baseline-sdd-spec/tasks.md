@@ -182,22 +182,22 @@
 
 ### Validation for User Story 4
 
-- [ ] T071 [US4] Audit B-Tree index build in src/index.rs — confirm byte-offset keys per FR-034
-- [ ] T072 [P] [US4] Audit multi-variant support in src/index.rs `CsvIndex` — confirm multiple named variants per FR-035
-- [ ] T073 [P] [US4] Audit covering expansion in src/index.rs `IndexDefinition::expand_covering_spec()` — confirm direction/prefix permutations per FR-036
-- [ ] T074 [P] [US4] Audit best-match selection in src/process.rs — confirm longest prefix match per FR-037
-- [ ] T075 [P] [US4] Audit `--index-variant` pinning in src/process.rs — confirm named variant selection per FR-038
-- [ ] T076 [P] [US4] Audit versioned binary format in src/index.rs `CsvIndex::save()`/`load()` — confirm version field and incompatibility detection per FR-039
-- [ ] T077 [US4] Audit streaming indexed sort in src/process.rs — confirm seek-based row reads without full buffering per FR-040
+- [x] T071 [US4] Audit B-Tree index build in src/index.rs — confirm byte-offset keys per FR-034
+- [x] T072 [P] [US4] Audit multi-variant support in src/index.rs `CsvIndex` — confirm multiple named variants per FR-035
+- [x] T073 [P] [US4] Audit covering expansion in src/index.rs `IndexDefinition::expand_covering_spec()` — confirm direction/prefix permutations per FR-036
+- [x] T074 [P] [US4] Audit best-match selection in src/process.rs — confirm longest prefix match per FR-037
+- [x] T075 [P] [US4] Audit `--index-variant` pinning in src/process.rs — confirm named variant selection per FR-038
+- [x] T076 [P] [US4] Audit versioned binary format in src/index.rs `CsvIndex::save()`/`load()` — confirm version field and incompatibility detection per FR-039
+- [x] T077 [US4] Audit streaming indexed sort in src/process.rs — confirm seek-based row reads without full buffering per FR-040
 
 ### Test Coverage for User Story 4
 
-- [ ] T078 [P] [US4] Verify test for named variant index build (acceptance scenario 1) in tests/cli.rs
-- [ ] T079 [P] [US4] Verify test for multi-spec index (acceptance scenario 2) in tests/cli.rs
-- [ ] T080 [P] [US4] Verify test for covering expansion (acceptance scenario 3) in tests/cli.rs
-- [ ] T081 [P] [US4] Verify test for partial match selection (acceptance scenario 4) in tests/process.rs or tests/cli.rs
-- [ ] T082 [P] [US4] Verify test for missing variant error (acceptance scenario 5) in tests/cli.rs
-- [ ] T083 [US4] Add missing tests for any US4 acceptance scenarios not covered above
+- [x] T078 [P] [US4] Verify test for named variant index build (acceptance scenario 1) in tests/cli.rs
+- [x] T079 [P] [US4] Verify test for multi-spec index (acceptance scenario 2) in tests/cli.rs
+- [x] T080 [P] [US4] Verify test for covering expansion (acceptance scenario 3) in tests/cli.rs
+- [x] T081 [P] [US4] Verify test for partial match selection (acceptance scenario 4) in tests/process.rs or tests/cli.rs
+- [x] T082 [P] [US4] Verify test for missing variant error (acceptance scenario 5) in tests/cli.rs
+- [x] T083 [US4] Add missing tests for any US4 acceptance scenarios not covered above
 
 **Checkpoint**: B-Tree Indexing validated — all FR-034 through FR-040 confirmed.
 
