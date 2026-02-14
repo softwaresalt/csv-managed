@@ -282,20 +282,20 @@
 
 ### Validation for User Story 8
 
-- [ ] T107 [US8] Audit temporal helper functions in src/expr.rs — confirm all 11 functions (date_add, date_sub, date_diff_days, date_format, datetime_add_seconds, datetime_diff_seconds, datetime_format, datetime_to_date, datetime_to_time, time_add_seconds, time_diff_seconds) per FR-029
-- [ ] T108 [P] [US8] Audit string functions in src/expr.rs — confirm `concat` per FR-030
-- [ ] T109 [P] [US8] Audit conditional logic in src/expr.rs — confirm `if(cond, true, false)` per FR-031
-- [ ] T110 [P] [US8] Audit positional aliases in src/expr.rs — confirm c0, c1 column resolution per FR-032
-- [ ] T111 [P] [US8] Audit `row_number` exposure in src/expr.rs — confirm availability when `--row-numbers` enabled per FR-033
+- [x] T107 [US8] Audit temporal helper functions in src/expr.rs — confirm all 11 functions (date_add, date_sub, date_diff_days, date_format, datetime_add_seconds, datetime_diff_seconds, datetime_format, datetime_to_date, datetime_to_time, time_add_seconds, time_diff_seconds) per FR-029
+- [x] T108 [P] [US8] Audit string functions in src/expr.rs — confirm `concat` per FR-030
+- [x] T109 [P] [US8] Audit conditional logic in src/expr.rs — confirm `if(cond, true, false)` per FR-031
+- [x] T110 [P] [US8] Audit positional aliases in src/expr.rs — confirm c0, c1 column resolution per FR-032
+- [x] T111 [P] [US8] Audit `row_number` exposure in src/expr.rs — confirm availability when `--row-numbers` enabled per FR-033
 
 ### Test Coverage for User Story 8
 
-- [ ] T112 [P] [US8] Verify test for date_diff_days derive (acceptance scenario 1) in tests/process.rs
-- [ ] T113 [P] [US8] Verify test for compound filter expression (acceptance scenario 2) in tests/process.rs
-- [ ] T114 [P] [US8] Verify test for concat derive (acceptance scenario 3) in tests/process.rs
-- [ ] T115 [P] [US8] Verify test for row_number in expression (acceptance scenario 4) in tests/process.rs
-- [ ] T116 [P] [US8] Verify test for positional aliases (acceptance scenario 5) in tests/process.rs
-- [ ] T117 [US8] Add missing tests for any US8 acceptance scenarios not covered above
+- [x] T112 [P] [US8] Verify test for date_diff_days derive (acceptance scenario 1) in tests/process.rs
+- [x] T113 [P] [US8] Verify test for compound filter expression (acceptance scenario 2) in tests/process.rs
+- [x] T114 [P] [US8] Verify test for concat derive (acceptance scenario 3) in tests/process.rs
+- [x] T115 [P] [US8] Verify test for row_number in expression (acceptance scenario 4) in tests/process.rs
+- [x] T116 [P] [US8] Verify test for positional aliases (acceptance scenario 5) in tests/process.rs
+- [x] T117 [US8] Add missing tests for any US8 acceptance scenarios not covered above
 
 **Checkpoint**: Expression Engine validated — all FR-029 through FR-033 confirmed.
 

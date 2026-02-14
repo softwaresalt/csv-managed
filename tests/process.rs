@@ -1312,3 +1312,212 @@ fn process_columns_and_exclude_columns_work_together() {
     );
     assert!(!rows.is_empty(), "Output should contain data rows");
 }
+
+/// T114: Verify concat derive produces concatenated string output (US8 acceptance scenario 3).
+#[test]
+fn process_derives_concat_expression() {
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 50);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let output_path = temp.path().join("concat_derive.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            data.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--derive",
+            "label=concat(player, \" scored \", performance_gls)",
+            "--columns",
+            PLAYER_COL,
+            "--columns",
+            GOALS_COL,
+            "--limit",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    let label_idx = headers
+        .iter()
+        .position(|h| h == "label")
+        .expect("label header");
+
+    assert!(!rows.is_empty(), "should produce output rows");
+    for record in &rows {
+        let label = record.get(label_idx).expect("label value");
+        assert!(
+            label.contains(" scored "),
+            "concat derive should produce 'X scored Y' but got: {label}"
+        );
+    }
+}
+
+/// T115: Verify row_number is usable inside expressions when --row-numbers is
+/// enabled (US8 acceptance scenario 4).
+#[test]
+fn process_derives_using_row_number_in_expression() {
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 50);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let output_path = temp.path().join("row_number_expr.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            data.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--row-numbers",
+            "--derive",
+            "is_first=row_number == 1",
+            "--columns",
+            PLAYER_COL,
+            "--limit",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    let row_num_idx = headers
+        .iter()
+        .position(|h| h == "row_number")
+        .expect("row_number header");
+    let is_first_idx = headers
+        .iter()
+        .position(|h| h == "is_first")
+        .expect("is_first header");
+
+    assert_eq!(rows.len(), 5, "should have 5 output rows");
+    for record in &rows {
+        let rn: i64 = record
+            .get(row_num_idx)
+            .expect("row_number")
+            .parse()
+            .expect("parse row_number");
+        let is_first = record.get(is_first_idx).expect("is_first");
+        if rn == 1 {
+            assert_eq!(is_first, "true", "first row should have is_first=true");
+        } else {
+            assert_eq!(
+                is_first, "false",
+                "non-first rows should have is_first=false"
+            );
+        }
+    }
+}
+
+/// T116: Verify positional aliases (c0, c1, …) resolve correctly in
+/// expressions (US8 acceptance scenario 5).
+#[test]
+fn process_derives_using_positional_aliases() {
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(
+        &temp,
+        &input,
+        &[
+            (GOALS_COL, ColumnCheck::Integer),
+            (MINUTES_COL, ColumnCheck::Integer),
+        ],
+        50,
+    );
+    let schema_path = create_schema_with_overrides(
+        &temp,
+        &data,
+        &[
+            (GOALS_COL, ColumnType::Integer),
+            (MINUTES_COL, ColumnType::Integer),
+        ],
+    );
+    let output_path = temp.path().join("positional_alias.csv");
+
+    // Read headers to discover the positional indices for goals and minutes
+    let (headers, _) = read_csv(&data);
+    let goals_pos = headers
+        .iter()
+        .position(|h| h == GOALS_COL)
+        .expect("goals column position");
+    let minutes_pos = headers
+        .iter()
+        .position(|h| h == MINUTES_COL)
+        .expect("minutes column position");
+
+    // Build derive using positional aliases c{N}
+    let derive_expr = format!("alias_sum=c{goals_pos} + c{minutes_pos}");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            data.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--derive",
+            &derive_expr,
+            "--columns",
+            GOALS_COL,
+            "--columns",
+            MINUTES_COL,
+            "--limit",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let (out_headers, rows) = read_csv(&output_path);
+    let alias_sum_idx = out_headers
+        .iter()
+        .position(|h| h == "alias_sum")
+        .expect("alias_sum header");
+    let goals_idx = out_headers
+        .iter()
+        .position(|h| h == GOALS_COL)
+        .expect("goals header");
+    let minutes_idx = out_headers
+        .iter()
+        .position(|h| h == MINUTES_COL)
+        .expect("minutes header");
+
+    assert!(!rows.is_empty(), "should produce output rows");
+    for record in &rows {
+        let goals: i64 = record
+            .get(goals_idx)
+            .expect("goals")
+            .parse()
+            .expect("parse goals");
+        let minutes: i64 = record
+            .get(minutes_idx)
+            .expect("minutes")
+            .parse()
+            .expect("parse minutes");
+        let alias_sum: i64 = record
+            .get(alias_sum_idx)
+            .expect("alias_sum")
+            .parse()
+            .expect("parse alias_sum");
+        assert_eq!(
+            alias_sum,
+            goals + minutes,
+            "positional alias derive should compute goals + minutes"
+        );
+    }
+}
