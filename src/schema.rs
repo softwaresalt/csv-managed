@@ -703,8 +703,8 @@ fn parse_with_type(value: &str, ty: &ColumnType) -> Result<DataValue> {
         .ok_or_else(|| anyhow!("Value is empty after trimming"))
 }
 
-fn value_column_type(value: &DataValue) -> ColumnType {
-    match value {
+fn value_column_type(value: &DataValue) -> Result<ColumnType> {
+    Ok(match value {
         DataValue::String(_) => ColumnType::String,
         DataValue::Integer(_) => ColumnType::Integer,
         DataValue::Float(_) => ColumnType::Float,
@@ -715,10 +715,10 @@ fn value_column_type(value: &DataValue) -> ColumnType {
         DataValue::Guid(_) => ColumnType::Guid,
         DataValue::Decimal(value) => ColumnType::Decimal(
             DecimalSpec::new(value.precision(), value.scale())
-                .expect("FixedDecimalValue guarantees valid decimal spec"),
+                .context("FixedDecimalValue produced invalid decimal spec")?,
         ),
         DataValue::Currency(_) => ColumnType::Currency,
-    }
+    })
 }
 
 fn apply_single_mapping(mapping: &DatatypeMapping, value: DataValue) -> Result<DataValue> {
@@ -998,7 +998,7 @@ fn render_mapped_value(value: &DataValue, mapping: &DatatypeMapping) -> Result<S
         _ => bail!(
             "Mapping output type '{:?}' is incompatible with computed value '{:?}'",
             mapping.to,
-            value_column_type(value)
+            value_column_type(value)?
         ),
     }
 }
@@ -2278,11 +2278,11 @@ impl ColumnMeta {
         let first_mapping = self
             .datatype_mappings
             .first()
-            .expect("has_mappings() guarantees at least one mapping");
+            .context("datatype_mappings is empty despite has_mappings() check")?;
 
         let mut current = parse_initial_value(value, first_mapping)?;
         for mapping in &self.datatype_mappings {
-            let current_type = value_column_type(&current);
+            let current_type = value_column_type(&current)?;
             ensure!(
                 current_type == mapping.from,
                 "Datatype mapping chain expects '{:?}' but encountered '{:?}'",
@@ -2295,7 +2295,7 @@ impl ColumnMeta {
         let last_mapping = self
             .datatype_mappings
             .last()
-            .expect("non-empty mapping chain");
+            .context("datatype_mappings is empty despite non-empty check")?;
         let rendered = render_mapped_value(&current, last_mapping)?;
         if rendered.is_empty() {
             Ok(None)
@@ -2369,7 +2369,7 @@ impl Schema {
                 validate_mapping_options(&column.name, mapping)?;
                 previous_to = Some(mapping.to.clone());
             }
-            let terminal = previous_to.expect("mapping chain must have terminal type");
+            let terminal = previous_to.context("mapping chain must have terminal type")?;
             ensure!(
                 terminal == column.datatype,
                 "Column '{}' mappings terminate at '{:?}' but column datatype is '{:?}'",

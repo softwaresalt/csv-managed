@@ -346,7 +346,7 @@ impl ColumnStats {
             return None;
         }
         let mut sorted = self.values.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.total_cmp(b));
         let mid = sorted.len() / 2;
         if sorted.len().is_multiple_of(2) {
             Some((sorted[mid - 1] + sorted[mid]) / 2.0)

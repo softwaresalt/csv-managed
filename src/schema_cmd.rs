@@ -228,7 +228,7 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         println!("Schema YAML Preview (not written):");
         let yaml = yaml_output
             .as_deref()
-            .expect("Preview requires serialized YAML output");
+            .context("Preview requires serialized YAML output")?;
         print!("{yaml}");
         if !yaml.ends_with('\n') {
             println!();
@@ -273,7 +273,7 @@ fn execute_infer(args: &SchemaInferArgs) -> Result<()> {
         }
         let new_yaml = yaml_output
             .as_ref()
-            .expect("Diff requires serialized YAML output");
+            .context("Diff requires serialized YAML output")?;
         println!();
         if existing_content == new_yaml {
             println!(
@@ -428,7 +428,7 @@ fn apply_replacements(columns: &mut [ColumnMeta], specs: &[String]) -> Result<()
         let column = columns
             .iter_mut()
             .find(|c| c.name == column_name)
-            .expect("column should exist");
+            .ok_or_else(|| anyhow!("Column '{column_name}' not found in schema"))?;
         if let Some(existing) = column
             .value_replacements
             .iter()

@@ -151,12 +151,12 @@ impl FrequencyAccumulator {
             let total = self
                 .totals
                 .get_mut(column_index)
-                .expect("Column should exist in totals");
+                .context("Column should exist in totals")?;
             *total += 1;
             let counter = self
                 .counts
                 .get_mut(column_index)
-                .expect("Column should exist in counts");
+                .context("Column should exist in counts")?;
             *counter.entry(value).or_insert(0) += 1;
         }
         Ok(())

@@ -1,3 +1,8 @@
+//! Join two CSV files on shared key columns.
+//!
+//! Supports inner, left, right, and full outer join strategies. The right-side
+//! file is loaded into memory as a hash map keyed by the join columns.
+
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context, Result, anyhow};

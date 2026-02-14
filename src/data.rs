@@ -236,6 +236,23 @@ pub enum Value {
 impl Eq for Value {}
 
 impl Value {
+    /// Returns a stable integer for each variant, used to define a deterministic
+    /// ordering when heterogeneous variants are compared (e.g. during sort).
+    fn variant_index(&self) -> u8 {
+        match self {
+            Value::String(_) => 0,
+            Value::Integer(_) => 1,
+            Value::Float(_) => 2,
+            Value::Boolean(_) => 3,
+            Value::Date(_) => 4,
+            Value::DateTime(_) => 5,
+            Value::Time(_) => 6,
+            Value::Guid(_) => 7,
+            Value::Decimal(_) => 8,
+            Value::Currency(_) => 9,
+        }
+    }
+
     pub fn as_display(&self) -> String {
         match self {
             Value::String(s) => s.clone(),
@@ -271,7 +288,7 @@ impl Ord for Value {
             (Value::Guid(a), Value::Guid(b)) => a.cmp(b),
             (Value::Decimal(a), Value::Decimal(b)) => a.cmp(b),
             (Value::Currency(a), Value::Currency(b)) => a.cmp(b),
-            _ => panic!("Cannot compare heterogeneous Value variants"),
+            _ => self.variant_index().cmp(&other.variant_index()),
         }
     }
 }

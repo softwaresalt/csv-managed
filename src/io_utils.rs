@@ -194,7 +194,9 @@ impl<W: Write> TranscodingWriter<W> {
                     let valid_up_to = err.valid_up_to();
                     if valid_up_to > 0 {
                         let valid_slice = &self.buffer[idx..idx + valid_up_to];
-                        let text = unsafe { std::str::from_utf8_unchecked(valid_slice).to_owned() };
+                        let text = std::str::from_utf8(valid_slice)
+                            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+                            .to_owned();
                         self.encode_and_write(&text)?;
                         self.buffer.drain(..idx + valid_up_to);
                         idx = 0;
