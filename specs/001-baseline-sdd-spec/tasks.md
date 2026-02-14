@@ -236,16 +236,16 @@
 
 ### Validation for User Story 6
 
-- [ ] T093 [US6] Audit multi-file append in src/append.rs — confirm header-once concatenation per FR-048
-- [ ] T094 [P] [US6] Audit header consistency check in src/append.rs — confirm mismatch error per FR-049
-- [ ] T095 [P] [US6] Audit schema-driven validation in src/append.rs — confirm type checking during append per FR-050
+- [x] T093 [US6] Audit multi-file append in src/append.rs — confirm header-once concatenation per FR-048
+- [x] T094 [P] [US6] Audit header consistency check in src/append.rs — confirm mismatch error per FR-049
+- [x] T095 [P] [US6] Audit schema-driven validation in src/append.rs — confirm type checking during append per FR-050
 
 ### Test Coverage for User Story 6
 
-- [ ] T096 [P] [US6] Verify test for identical-header append (acceptance scenario 1) in tests/cli.rs
-- [ ] T097 [P] [US6] Verify test for header mismatch error (acceptance scenario 2) in tests/cli.rs
-- [ ] T098 [P] [US6] Verify test for schema-validated append (acceptance scenario 3) in tests/cli.rs
-- [ ] T099 [US6] Add missing tests for any US6 acceptance scenarios not covered above
+- [x] T096 [P] [US6] Verify test for identical-header append (acceptance scenario 1) in tests/cli.rs
+- [x] T097 [P] [US6] Verify test for header mismatch error (acceptance scenario 2) in tests/cli.rs
+- [x] T098 [P] [US6] Verify test for schema-validated append (acceptance scenario 3) in tests/cli.rs
+- [x] T099 [US6] Add missing tests for any US6 acceptance scenarios not covered above
 
 **Checkpoint**: Multi-File Append validated — all FR-048 through FR-050 confirmed.
 

@@ -994,3 +994,229 @@ fn rust_log_controls_verbosity() {
         "Debug logging should produce more output than error-only logging"
     );
 }
+
+// =============================================================================
+// Phase 8: User Story 6 — Multi-File Append (FR-048 through FR-050)
+// =============================================================================
+
+/// FR-048 acceptance scenario 1: Appending multiple CSV files with identical
+/// headers produces a single output with the header written once and all rows
+/// from both inputs present.
+#[test]
+fn append_identical_headers_writes_header_once_with_all_rows() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n2,Bob,200\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name,amount\n3,Charlie,300\n4,Diana,400\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read combined CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+
+    // Header appears exactly once (first line)
+    assert_eq!(lines[0], "\"id\",\"name\",\"amount\"");
+
+    // All 4 data rows are present
+    assert_eq!(lines.len(), 5, "Expected 1 header + 4 data rows");
+
+    // Verify row content from both files
+    assert!(contents.contains("\"Alice\""), "Row from file a missing");
+    assert!(contents.contains("\"Diana\""), "Row from file b missing");
+}
+
+/// FR-049 acceptance scenario 2: Appending CSV files with mismatched headers
+/// produces an error and does not write output.
+#[test]
+fn append_header_mismatch_reports_error() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,email,amount\n2,bob@test.com,200\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("mismatch").or(contains("Mismatch")));
+}
+
+/// FR-050 acceptance scenario 3: Appending with a schema validates each row
+/// against declared types. Valid data succeeds; invalid data triggers an error.
+#[test]
+fn append_schema_validated_rejects_type_violation() {
+    let dir = tempdir().expect("temp dir");
+
+    // Create a schema YAML requiring id:integer, name:string, amount:float
+    let schema_path = dir.path().join("test-schema.yml");
+    let schema_yaml = r#"columns:
+  - name: id
+    datatype: integer
+  - name: name
+    datatype: string
+  - name: amount
+    datatype: float
+"#;
+    fs::write(&schema_path, schema_yaml).unwrap();
+
+    // File a: valid data
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100.50\n").unwrap();
+
+    // File b: invalid data — "not_a_number" in the integer id column
+    let file_b = dir.path().join("b.csv");
+    fs::write(
+        &file_b,
+        "id,name,amount\n2,Bob,200.75\nnot_a_number,Charlie,300\n",
+    )
+    .unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+}
+
+/// FR-050 positive path: Appending with a schema succeeds when all rows
+/// conform to the declared types.
+#[test]
+fn append_schema_validated_succeeds_for_valid_data() {
+    let dir = tempdir().expect("temp dir");
+
+    let schema_path = dir.path().join("test-schema.yml");
+    let schema_yaml = r#"columns:
+  - name: id
+    datatype: integer
+  - name: name
+    datatype: string
+  - name: amount
+    datatype: float
+"#;
+    fs::write(&schema_path, schema_yaml).unwrap();
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100.50\n2,Bob,200.75\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name,amount\n3,Charlie,300.00\n").unwrap();
+
+    let output_path = dir.path().join("combined.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read combined CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+    assert_eq!(lines.len(), 4, "Expected 1 header + 3 data rows");
+}
+
+/// FR-048 edge case: Appending a single file produces a valid output with
+/// header and all rows (degenerate case of concatenation).
+#[test]
+fn append_single_file_produces_valid_output() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name\n1,Alice\n2,Bob\n").unwrap();
+
+    let output_path = dir.path().join("out.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let contents = fs::read_to_string(&output_path).expect("read output CSV");
+    let lines: Vec<&str> = contents.lines().collect();
+    assert_eq!(lines.len(), 3, "Expected 1 header + 2 data rows");
+}
+
+/// FR-049 edge case: Header mismatch due to different column count
+/// triggers an error.
+#[test]
+fn append_header_column_count_mismatch_reports_error() {
+    let dir = tempdir().expect("temp dir");
+
+    let file_a = dir.path().join("a.csv");
+    fs::write(&file_a, "id,name,amount\n1,Alice,100\n").unwrap();
+
+    let file_b = dir.path().join("b.csv");
+    fs::write(&file_b, "id,name\n2,Bob\n").unwrap();
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "append",
+            "-i",
+            file_a.to_str().unwrap(),
+            "-i",
+            file_b.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("mismatch").or(contains("Mismatch")));
+}
