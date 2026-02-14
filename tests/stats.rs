@@ -496,3 +496,108 @@ fn stats_includes_temporal_columns_by_default() {
         "string column should not be present: {stdout}"
     );
 }
+
+#[test]
+fn stats_preserves_currency_precision_in_output() {
+    let data_path = fixture_path("currency_transactions.csv");
+    let schema_path = fixture_path("currency_transactions-schema.yml");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            data_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+
+    // gross_amount_raw is Currency with scale 2 (round)
+    let gross_line = stdout
+        .lines()
+        .find(|line| line.contains("gross_amount_raw"))
+        .expect("gross_amount_raw row present");
+    let gross_cells = parse_table_row(gross_line);
+    assert_eq!(gross_cells[0], "gross_amount_raw");
+    assert_eq!(gross_cells[1], "3", "should have 3 rows");
+
+    // tax_raw is Currency with scale 4 (truncate) — precision should be preserved
+    let tax_line = stdout
+        .lines()
+        .find(|line| line.contains("tax_raw"))
+        .expect("tax_raw row present");
+    let tax_cells = parse_table_row(tax_line);
+    assert_eq!(tax_cells[0], "tax_raw");
+    assert_eq!(tax_cells[1], "3", "should have 3 rows");
+    // min should be 0.0000 (scale 4)
+    assert_eq!(tax_cells[2], "0.0000", "min should preserve 4-digit scale");
+
+    // rebate_currency should also be present as Currency
+    let rebate_line = stdout
+        .lines()
+        .find(|line| line.contains("rebate_currency"))
+        .expect("rebate_currency row present");
+    let rebate_cells = parse_table_row(rebate_line);
+    assert_eq!(rebate_cells[0], "rebate_currency");
+    assert_eq!(rebate_cells[1], "3", "should have 3 rows");
+}
+
+#[test]
+fn stats_preserves_decimal_precision_in_output() {
+    let data_path = fixture_path("decimal_measurements.csv");
+    let schema_path = fixture_path("decimal_measurements-schema.yml");
+
+    let assert = Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "stats",
+            "-i",
+            data_path.to_str().unwrap(),
+            "-m",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("stdout utf8");
+
+    // measurement_round is decimal(10,2)
+    let round_line = stdout
+        .lines()
+        .find(|line| line.contains("measurement_round"))
+        .expect("measurement_round row present");
+    let round_cells = parse_table_row(round_line);
+    assert_eq!(round_cells[0], "measurement_round");
+    assert_eq!(round_cells[1], "4", "should have 4 rows");
+
+    // measurement_truncate is decimal(10,3)
+    let trunc_line = stdout
+        .lines()
+        .find(|line| line.contains("measurement_truncate"))
+        .expect("measurement_truncate row present");
+    let trunc_cells = parse_table_row(trunc_line);
+    assert_eq!(trunc_cells[0], "measurement_truncate");
+    assert_eq!(trunc_cells[1], "4", "should have 4 rows");
+
+    // measurement_exact is decimal(12,4) — min should preserve scale
+    let exact_line = stdout
+        .lines()
+        .find(|line| line.contains("measurement_exact"))
+        .expect("measurement_exact row present");
+    let exact_cells = parse_table_row(exact_line);
+    assert_eq!(exact_cells[0], "measurement_exact");
+    assert_eq!(exact_cells[1], "4", "should have 4 rows");
+    // min is 0.0001, max is 1000.0000 — should preserve 4-digit scale
+    assert_eq!(
+        exact_cells[2], "0.0001",
+        "min should preserve 4-digit scale"
+    );
+    assert_eq!(
+        exact_cells[3], "1000.0000",
+        "max should preserve 4-digit scale"
+    );
+}

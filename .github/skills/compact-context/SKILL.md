@@ -1,4 +1,3 @@
-```skill
 ---
 name: compact-context
 description: "Usage: Compact context. Captures the current session state into a structured checkpoint file, then compacts the conversation history to reclaim context window space."
@@ -166,4 +165,3 @@ The `/compact` command depends on the VS Code Copilot Chat version. If unavailab
 ### Checkpoint file is too large
 
 If the checkpoint exceeds 200 lines, trim the Files in Context section to the 10 most critical files and condense the Session Summary.
-```

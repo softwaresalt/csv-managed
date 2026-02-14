@@ -211,18 +211,18 @@
 
 ### Validation for User Story 5
 
-- [ ] T084 [US5] Audit summary statistics in src/stats.rs — confirm count, min, max, mean, median, stddev for numeric/temporal per FR-045
-- [ ] T085 [P] [US5] Audit frequency analysis in src/frequency.rs — confirm top-N distinct values with counts and percentages per FR-046
-- [ ] T086 [P] [US5] Audit filtered statistics in src/stats.rs — confirm filter application before computing per FR-047
+- [x] T084 [US5] Audit summary statistics in src/stats.rs — confirm count, min, max, mean, median, stddev for numeric/temporal per FR-045
+- [x] T085 [P] [US5] Audit frequency analysis in src/frequency.rs — confirm top-N distinct values with counts and percentages per FR-046
+- [x] T086 [P] [US5] Audit filtered statistics in src/stats.rs — confirm filter application before computing per FR-047
 
 ### Test Coverage for User Story 5
 
-- [ ] T087 [P] [US5] Verify test for numeric summary (acceptance scenario 1) in tests/stats.rs
-- [ ] T088 [P] [US5] Verify test for temporal stats (acceptance scenario 2) in tests/stats.rs
-- [ ] T089 [P] [US5] Verify test for frequency top-N (acceptance scenario 3) in tests/stats.rs
-- [ ] T090 [P] [US5] Verify test for filtered stats (acceptance scenario 4) in tests/stats.rs
-- [ ] T091 [P] [US5] Verify test for decimal/currency precision in stats (acceptance scenario 5) in tests/stats.rs
-- [ ] T092 [US5] Add missing tests for any US5 acceptance scenarios not covered above
+- [x] T087 [P] [US5] Verify test for numeric summary (acceptance scenario 1) in tests/stats.rs
+- [x] T088 [P] [US5] Verify test for temporal stats (acceptance scenario 2) in tests/stats.rs
+- [x] T089 [P] [US5] Verify test for frequency top-N (acceptance scenario 3) in tests/stats.rs
+- [x] T090 [P] [US5] Verify test for filtered stats (acceptance scenario 4) in tests/stats.rs
+- [x] T091 [P] [US5] Verify test for decimal/currency precision in stats (acceptance scenario 5) in tests/stats.rs
+- [x] T092 [US5] Add missing tests for any US5 acceptance scenarios not covered above
 
 **Checkpoint**: Summary Statistics & Frequency validated — all FR-045 through FR-047 confirmed.
 
