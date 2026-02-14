@@ -19,10 +19,10 @@
 
 **Purpose**: Establish spec-driven development artifacts and validate project health
 
-- [ ] T001 Verify project builds cleanly with `cargo build --release` and `cargo test --all`
-- [ ] T002 [P] Verify `cargo clippy --all-targets --all-features -- -D warnings` produces zero warnings
-- [ ] T003 [P] Verify `cargo fmt --check` passes with no formatting diffs
-- [ ] T004 [P] Validate all spec artifacts exist: plan.md, spec.md, research.md, data-model.md, contracts/cli-contract.md, quickstart.md in specs/001-baseline-sdd-spec/
+- [x] T001 Verify project builds cleanly with `cargo build --release` and `cargo test --all`
+- [x] T002 [P] Verify `cargo clippy --all-targets --all-features -- -D warnings` produces zero warnings
+- [x] T003 [P] Verify `cargo fmt --check` passes with no formatting diffs
+- [x] T004 [P] Validate all spec artifacts exist: plan.md, spec.md, research.md, data-model.md, contracts/cli-contract.md, quickstart.md in specs/001-baseline-sdd-spec/
 
 ---
 
