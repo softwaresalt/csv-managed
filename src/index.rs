@@ -910,8 +910,8 @@ mod tests {
 
     #[test]
     fn expand_covering_spec_rejects_empty_spec() {
-        let err = IndexDefinition::expand_covering_spec("")
-            .expect_err("empty covering spec should fail");
+        let err =
+            IndexDefinition::expand_covering_spec("").expect_err("empty covering spec should fail");
         assert!(
             err.to_string().contains("column")
                 || err.to_string().contains("missing")

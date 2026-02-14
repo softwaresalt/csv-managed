@@ -238,7 +238,10 @@ mod tests {
         ];
         for case in cases {
             let result = parse_filters(&[case.to_string()]);
-            assert!(result.is_ok(), "Expected success for '{case}', got: {result:?}");
+            assert!(
+                result.is_ok(),
+                "Expected success for '{case}', got: {result:?}"
+            );
         }
     }
 }

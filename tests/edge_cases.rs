@@ -60,7 +60,10 @@ fn empty_csv_process_produces_empty_output() {
     // Output file is created but contains no data rows.
     let data = fs::read_to_string(&output).unwrap_or_default();
     let line_count = data.lines().count();
-    assert!(line_count <= 1, "Expected 0 or 1 lines (header only), got {line_count}");
+    assert!(
+        line_count <= 1,
+        "Expected 0 or 1 lines (header only), got {line_count}"
+    );
 }
 
 #[test]
@@ -248,7 +251,10 @@ fn empty_stdin_process_handles_gracefully() {
 
     let data = fs::read_to_string(&output).unwrap_or_default();
     let line_count = data.lines().count();
-    assert!(line_count <= 1, "Expected 0 or 1 lines for empty stdin, got {line_count}");
+    assert!(
+        line_count <= 1,
+        "Expected 0 or 1 lines for empty stdin, got {line_count}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -295,8 +301,7 @@ fn filter_works_with_original_column_name_after_rename() {
     let schema = dir.path().join("schema.yml");
     let output = dir.path().join("out.csv");
 
-    fs::write(&csv, "id,name,amount\n1,Alice,42\n2,Bob,13\n3,Carol,100\n")
-        .expect("write csv");
+    fs::write(&csv, "id,name,amount\n1,Alice,42\n2,Bob,13\n3,Carol,100\n").expect("write csv");
     // Rename 'amount' to 'total' in schema, then filter by original name 'amount'.
     fs::write(
         &schema,
