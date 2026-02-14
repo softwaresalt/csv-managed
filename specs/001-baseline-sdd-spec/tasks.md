@@ -259,16 +259,16 @@
 
 ### Validation for User Story 7
 
-- [ ] T100 [US7] Audit end-to-end stdin pipeline reading in src/process.rs — confirm `-i -` data flows correctly through process command to produce valid output per FR-053
-- [ ] T101 [P] [US7] Audit end-to-end encoding transcoding in piped commands — confirm `--input-encoding` / `--output-encoding` produce correctly transcoded output per FR-052
-- [ ] T102 [P] [US7] Audit preview mode behavior in piped context in src/process.rs — confirm table output (not CSV) per acceptance scenario 3
+- [x] T100 [US7] Audit end-to-end stdin pipeline reading in src/process.rs — confirm `-i -` data flows correctly through process command to produce valid output per FR-053
+- [x] T101 [P] [US7] Audit end-to-end encoding transcoding in piped commands — confirm `--input-encoding` / `--output-encoding` produce correctly transcoded output per FR-052
+- [x] T102 [P] [US7] Audit preview mode behavior in piped context in src/process.rs — confirm table output (not CSV) per acceptance scenario 3
 
 ### Test Coverage for User Story 7
 
-- [ ] T103 [P] [US7] Verify test for `process | stats` pipeline (acceptance scenario 1) in tests/stdin_pipeline.rs
-- [ ] T104 [P] [US7] Verify test for encoding transcoding (acceptance scenario 2) in tests/cli.rs or tests/preview.rs
-- [ ] T105 [P] [US7] Verify test for preview mode in pipeline (acceptance scenario 3) in tests/preview.rs
-- [ ] T106 [US7] Add missing tests for any US7 acceptance scenarios not covered above
+- [x] T103 [P] [US7] Verify test for `process | stats` pipeline (acceptance scenario 1) in tests/stdin_pipeline.rs
+- [x] T104 [P] [US7] Verify test for encoding transcoding (acceptance scenario 2) in tests/cli.rs or tests/preview.rs
+- [x] T105 [P] [US7] Verify test for preview mode in pipeline (acceptance scenario 3) in tests/stdin_pipeline.rs
+- [x] T106 [US7] Add missing tests for any US7 acceptance scenarios not covered above
 
 **Checkpoint**: Streaming Pipeline Support validated — FR-053 confirmed.
 
