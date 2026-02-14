@@ -119,30 +119,30 @@
 
 ### Validation for User Story 2
 
-- [ ] T040 [US2] Audit row-level filtering in src/filter.rs — confirm all operators (=, !=, >, <, >=, <=, contains, startswith, endswith) per FR-017
-- [ ] T041 [P] [US2] Audit expression-based filtering in src/expr.rs — confirm boolean logic (AND, OR, nested if) per FR-018
-- [ ] T042 [P] [US2] Audit column projection in src/process.rs — confirm `--columns` include and `--exclude-columns` per FR-019
-- [ ] T043 [P] [US2] Audit derived columns in src/derive.rs and src/process.rs — confirm expression evaluation per FR-020
-- [ ] T044 [P] [US2] Audit multi-column sorting in src/process.rs — confirm per-column ascending/descending per FR-021
-- [ ] T045 [P] [US2] Audit datatype mapping application in src/process.rs — confirm ordered chain before replacements per FR-022
-- [ ] T046 [P] [US2] Audit value replacement application in src/process.rs — confirm schema-defined replacements per FR-023
-- [ ] T047 [P] [US2] Audit row number injection in src/process.rs — confirm `--row-numbers` per FR-024
-- [ ] T048 [P] [US2] Audit boolean format normalization in src/process.rs — confirm original/true-false/one-zero per FR-025
-- [ ] T049 [P] [US2] Audit row limit in src/process.rs — confirm `--limit` per FR-026
-- [ ] T050 [P] [US2] Audit preview mode in src/process.rs — confirm formatted table output per FR-027
-- [ ] T051 [P] [US2] Audit table mode in src/process.rs and src/table.rs — confirm elastic-width ASCII table per FR-028
+- [x] T040 [US2] Audit row-level filtering in src/filter.rs — confirm all operators (=, !=, >, <, >=, <=, contains, startswith, endswith) per FR-017
+- [x] T041 [P] [US2] Audit expression-based filtering in src/expr.rs — confirm boolean logic (AND, OR, nested if) per FR-018
+- [x] T042 [P] [US2] Audit column projection in src/process.rs — confirm `--columns` include and `--exclude-columns` per FR-019
+- [x] T043 [P] [US2] Audit derived columns in src/derive.rs and src/process.rs — confirm expression evaluation per FR-020
+- [x] T044 [P] [US2] Audit multi-column sorting in src/process.rs — confirm per-column ascending/descending per FR-021
+- [x] T045 [P] [US2] Audit datatype mapping application in src/process.rs — confirm ordered chain before replacements per FR-022
+- [x] T046 [P] [US2] Audit value replacement application in src/process.rs — confirm schema-defined replacements per FR-023
+- [x] T047 [P] [US2] Audit row number injection in src/process.rs — confirm `--row-numbers` per FR-024
+- [x] T048 [P] [US2] Audit boolean format normalization in src/process.rs — confirm original/true-false/one-zero per FR-025
+- [x] T049 [P] [US2] Audit row limit in src/process.rs — confirm `--limit` per FR-026
+- [x] T050 [P] [US2] Audit preview mode in src/process.rs — confirm formatted table output per FR-027
+- [x] T051 [P] [US2] Audit table mode in src/process.rs and src/table.rs — confirm elastic-width ASCII table per FR-028
 
 ### Test Coverage for User Story 2
 
-- [ ] T052 [P] [US2] Verify test for filter (acceptance scenario 1: `amount >= 100`) in tests/process.rs
-- [ ] T053 [P] [US2] Verify test for derive (acceptance scenario 2: computed column) in tests/process.rs
-- [ ] T054 [P] [US2] Verify test for index-accelerated sort (acceptance scenario 3) in tests/cli.rs or tests/process.rs
-- [ ] T055 [P] [US2] Verify test for column projection + exclusion (acceptance scenario 4) in tests/process.rs
-- [ ] T056 [P] [US2] Verify test for boolean normalization (acceptance scenario 5) in tests/process.rs
-- [ ] T057 [P] [US2] Verify test for preview mode (acceptance scenario 6) in tests/preview.rs
-- [ ] T058 [P] [US2] Verify test for value replacements (acceptance scenario 7) in tests/process.rs
-- [ ] T059 [P] [US2] Verify test for datatype mappings (acceptance scenario 8) in tests/process.rs
-- [ ] T060 [US2] Add missing tests for any US2 acceptance scenarios not covered above
+- [x] T052 [P] [US2] Verify test for filter (acceptance scenario 1: `amount >= 100`) in tests/process.rs
+- [x] T053 [P] [US2] Verify test for derive (acceptance scenario 2: computed column) in tests/process.rs
+- [x] T054 [P] [US2] Verify test for index-accelerated sort (acceptance scenario 3) in tests/cli.rs or tests/process.rs
+- [x] T055 [P] [US2] Verify test for column projection + exclusion (acceptance scenario 4) in tests/process.rs
+- [x] T056 [P] [US2] Verify test for boolean normalization (acceptance scenario 5) in tests/process.rs
+- [x] T057 [P] [US2] Verify test for preview mode (acceptance scenario 6) in tests/preview.rs
+- [x] T058 [P] [US2] Verify test for value replacements (acceptance scenario 7) in tests/process.rs
+- [x] T059 [P] [US2] Verify test for datatype mappings (acceptance scenario 8) in tests/process.rs
+- [x] T060 [US2] Add missing tests for any US2 acceptance scenarios not covered above
 
 **Checkpoint**: Data Transformation & Processing validated — all FR-017 through FR-028 confirmed.
 
@@ -156,19 +156,19 @@
 
 ### Validation for User Story 3
 
-- [ ] T061 [US3] Audit cell-level type validation in src/verify.rs — confirm every cell checked against declared type per FR-041
-- [ ] T062 [P] [US3] Audit tiered reporting in src/verify.rs — confirm summary/detail modes and configurable limits per FR-042
-- [ ] T063 [P] [US3] Audit header mismatch detection in src/verify.rs — confirm CSV vs schema header comparison per FR-043
-- [ ] T064 [P] [US3] Audit multi-file verification in src/schema_cmd.rs — confirm independent per-file reporting per FR-044
+- [x] T061 [US3] Audit cell-level type validation in src/verify.rs — confirm every cell checked against declared type per FR-041
+- [x] T062 [P] [US3] Audit tiered reporting in src/verify.rs — confirm summary/detail modes and configurable limits per FR-042
+- [x] T063 [P] [US3] Audit header mismatch detection in src/verify.rs — confirm CSV vs schema header comparison per FR-043
+- [x] T064 [P] [US3] Audit multi-file verification in src/schema_cmd.rs — confirm independent per-file reporting per FR-044
 
 ### Test Coverage for User Story 3
 
-- [ ] T065 [P] [US3] Verify test for summary report (acceptance scenario 1: invalid cell counts) in tests/schema.rs
-- [ ] T066 [P] [US3] Verify test for detail report (acceptance scenario 2: row/column violations) in tests/schema.rs
-- [ ] T067 [P] [US3] Verify test for header mismatch (acceptance scenario 3) in tests/schema.rs
-- [ ] T068 [P] [US3] Verify test for multi-file verification (acceptance scenario 4) in tests/schema.rs
-- [ ] T069 [P] [US3] Verify test for capped detail report (acceptance scenario 5: limit) in tests/schema.rs
-- [ ] T070 [US3] Add missing tests for any US3 acceptance scenarios not covered above
+- [x] T065 [P] [US3] Verify test for summary report (acceptance scenario 1: invalid cell counts) in tests/schema.rs
+- [x] T066 [P] [US3] Verify test for detail report (acceptance scenario 2: row/column violations) in tests/schema.rs
+- [x] T067 [P] [US3] Verify test for header mismatch (acceptance scenario 3) in tests/schema.rs
+- [x] T068 [P] [US3] Verify test for multi-file verification (acceptance scenario 4) in tests/schema.rs
+- [x] T069 [P] [US3] Verify test for capped detail report (acceptance scenario 5: limit) in tests/schema.rs
+- [x] T070 [US3] Add missing tests for any US3 acceptance scenarios not covered above
 
 **Checkpoint**: Schema Verification validated — all FR-041 through FR-044 confirmed.
 

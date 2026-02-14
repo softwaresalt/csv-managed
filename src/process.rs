@@ -80,6 +80,14 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .collect::<Vec<_>>();
+    let excluded_columns: Vec<String> = args
+        .exclude_columns
+        .iter()
+        .flat_map(|s| s.split(','))
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
     let derived_columns = parse_derived_columns(&args.derives)?;
     let filters = parse_filters(&args.filters)?;
 
@@ -197,6 +205,7 @@ pub fn execute(args: &ProcessArgs) -> Result<()> {
         &headers,
         &schema,
         &selected_columns,
+        &excluded_columns,
         &derived_columns,
         args.row_numbers,
         args.boolean_format,
@@ -708,6 +717,7 @@ impl OutputPlan {
         headers: &[String],
         schema: &Schema,
         selected_columns: &[String],
+        excluded_columns: &[String],
         derived: &[DerivedColumn],
         row_numbers: bool,
         boolean_format: BooleanFormat,
@@ -724,7 +734,12 @@ impl OutputPlan {
         } else {
             selected_columns.to_vec()
         };
+        let exclusion_set: std::collections::HashSet<&str> =
+            excluded_columns.iter().map(|s| s.as_str()).collect();
         for column in columns_to_use {
+            if exclusion_set.contains(column.as_str()) {
+                continue;
+            }
             let idx = column_map
                 .get(&column)
                 .copied()

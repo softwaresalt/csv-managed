@@ -875,3 +875,64 @@ fn schema_infer_diff_reports_changes_and_no_changes() {
         "expected no-change message missing: {no_diff_stdout}"
     );
 }
+
+#[test]
+fn schema_verify_validates_multiple_files_independently() {
+    let temp = tempdir().expect("temp dir");
+    let schema_path = temp.path().join("multi-schema.yml");
+    let valid_path = temp.path().join("valid.csv");
+    let also_valid_path = temp.path().join("also_valid.csv");
+    let invalid_path = temp.path().join("invalid.csv");
+
+    fs::write(&valid_path, "id,name\n1,Alice\n2,Bob\n").expect("write valid csv");
+    fs::write(&also_valid_path, "id,name\n3,Charlie\n4,Diana\n").expect("write also_valid csv");
+    fs::write(&invalid_path, "id,name\nnotanumber,Eve\n").expect("write invalid csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "infer",
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-o",
+            schema_path.to_str().unwrap(),
+            "--sample-rows",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    // Both valid files should pass verification together.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-i",
+            also_valid_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Including an invalid file should cause failure.
+    Command::cargo_bin("csv-managed")
+        .expect("binary present")
+        .args([
+            "schema",
+            "verify",
+            "-m",
+            schema_path.to_str().unwrap(),
+            "-i",
+            valid_path.to_str().unwrap(),
+            "-i",
+            invalid_path.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(contains("notanumber"));
+}

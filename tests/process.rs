@@ -1223,3 +1223,92 @@ fn process_applies_currency_mappings() {
     assert_eq!(third.get(3), Some("0.00"));
     assert_eq!(third.get(4), Some("0.0000"));
 }
+
+#[test]
+fn process_exclude_columns_removes_specified_columns() {
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 100);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let output_path = temp.path().join("excluded.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            data.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--exclude-columns",
+            GOALS_COL,
+            "--exclude-columns",
+            ASSISTS_COL,
+            "--limit",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    let header_names: Vec<&str> = headers.iter().collect();
+    assert!(
+        !header_names.contains(&GOALS_COL),
+        "Excluded column {GOALS_COL} should not appear in output"
+    );
+    assert!(
+        !header_names.contains(&ASSISTS_COL),
+        "Excluded column {ASSISTS_COL} should not appear in output"
+    );
+    assert!(
+        header_names.contains(&PLAYER_COL),
+        "Non-excluded column {PLAYER_COL} should still appear"
+    );
+    assert!(!rows.is_empty(), "Output should contain data rows");
+}
+
+#[test]
+fn process_columns_and_exclude_columns_work_together() {
+    let temp = tempdir().expect("tempdir");
+    let input = primary_dataset();
+    let data = create_subset_with_checks(&temp, &input, &[(GOALS_COL, ColumnCheck::Integer)], 100);
+    let schema_path =
+        create_schema_with_overrides(&temp, &data, &[(GOALS_COL, ColumnType::Integer)]);
+    let output_path = temp.path().join("combined_projection.csv");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "process",
+            "-i",
+            data.to_str().unwrap(),
+            "-o",
+            output_path.to_str().unwrap(),
+            "--schema",
+            schema_path.to_str().unwrap(),
+            "--columns",
+            PLAYER_COL,
+            "--columns",
+            GOALS_COL,
+            "--columns",
+            ASSISTS_COL,
+            "--exclude-columns",
+            GOALS_COL,
+            "--limit",
+            "5",
+        ])
+        .assert()
+        .success();
+
+    let (headers, rows) = read_csv(&output_path);
+    let header_names: Vec<&str> = headers.iter().collect();
+    assert_eq!(
+        header_names,
+        vec![PLAYER_COL, ASSISTS_COL],
+        "Only non-excluded selected columns should appear"
+    );
+    assert!(!rows.is_empty(), "Output should contain data rows");
+}
