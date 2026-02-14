@@ -827,6 +827,105 @@ fn install_command_passes_arguments_to_cargo() {
 }
 
 #[test]
+fn install_command_defaults_without_optional_flags() {
+    let dir = tempdir().expect("temp dir");
+    let shim_src = dir.path().join("cargo_shim_default.rs");
+    fs::write(
+        &shim_src,
+        r#"
+        use std::{env, fs, path::PathBuf};
+
+        fn main() {
+            let log_path = env::var_os("CSV_MANAGED_TEST_LOG").expect("CSV_MANAGED_TEST_LOG");
+            let joined = env::args().skip(1).collect::<Vec<_>>().join(" ");
+            let path = PathBuf::from(log_path);
+            fs::write(path, joined).expect("write log");
+        }
+        "#,
+    )
+    .expect("write shim source");
+
+    let shim_bin = dir
+        .path()
+        .join(format!("cargo-shim-default{}", env::consts::EXE_SUFFIX));
+    let status = StdCommand::new("rustc")
+        .arg(&shim_src)
+        .arg("-O")
+        .arg("-o")
+        .arg(&shim_bin)
+        .status()
+        .expect("compile shim");
+    assert!(status.success(), "failed to compile shim binary");
+
+    let log_path = dir.path().join("captured_default_args.txt");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("CSV_MANAGED_CARGO_SHIM", shim_bin.as_os_str())
+        .env("CSV_MANAGED_TEST_LOG", log_path.as_os_str())
+        .arg("install")
+        .assert()
+        .success();
+
+    let captured = fs::read_to_string(&log_path).expect("read captured args");
+    assert!(
+        captured.contains("install csv-managed"),
+        "expected base 'install csv-managed' command, got: {captured}"
+    );
+    assert!(
+        !captured.contains("--version"),
+        "should not contain --version when omitted"
+    );
+    assert!(
+        !captured.contains("--force"),
+        "should not contain --force when omitted"
+    );
+    assert!(
+        !captured.contains("--locked"),
+        "should not contain --locked when omitted"
+    );
+    assert!(
+        !captured.contains("--root"),
+        "should not contain --root when omitted"
+    );
+}
+
+#[test]
+fn install_command_reports_error_on_nonzero_exit() {
+    let dir = tempdir().expect("temp dir");
+    let shim_src = dir.path().join("cargo_shim_fail.rs");
+    fs::write(
+        &shim_src,
+        r#"
+        fn main() {
+            std::process::exit(1);
+        }
+        "#,
+    )
+    .expect("write shim source");
+
+    let shim_bin = dir
+        .path()
+        .join(format!("cargo-shim-fail{}", env::consts::EXE_SUFFIX));
+    let status = StdCommand::new("rustc")
+        .arg(&shim_src)
+        .arg("-O")
+        .arg("-o")
+        .arg(&shim_bin)
+        .status()
+        .expect("compile shim");
+    assert!(status.success(), "failed to compile shim binary");
+
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .env("CSV_MANAGED_CARGO_SHIM", shim_bin.as_os_str())
+        .arg("install")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cargo install csv-managed"));
+}
+
+#[test]
 fn process_accepts_named_index_variant() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");

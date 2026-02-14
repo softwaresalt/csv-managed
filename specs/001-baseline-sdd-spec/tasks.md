@@ -329,13 +329,13 @@
 
 ### Validation for User Story 10
 
-- [ ] T121 [US10] Audit install command in src/install.rs — confirm version, force, locked, root options per FR-055
+- [x] T121 [US10] Audit install command in src/install.rs — confirm version, force, locked, root options per FR-055
 
 ### Test Coverage for User Story 10
 
-- [ ] T122 [P] [US10] Verify test for `install --locked` (acceptance scenario 1) in tests/cli.rs
-- [ ] T123 [P] [US10] Verify test for `install --version` (acceptance scenario 2) in tests/cli.rs
-- [ ] T124 [US10] Add missing test if US10 acceptance scenarios not covered
+- [x] T122 [P] [US10] Verify test for `install --locked` (acceptance scenario 1) in tests/cli.rs
+- [x] T123 [P] [US10] Verify test for `install --version` (acceptance scenario 2) in tests/cli.rs
+- [x] T124 [US10] Add missing test if US10 acceptance scenarios not covered
 
 **Checkpoint**: Self-Install validated — FR-055 confirmed.
 
