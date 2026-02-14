@@ -309,13 +309,13 @@
 
 ### Validation for User Story 9
 
-- [ ] T118 [US9] Audit columns command in src/columns.rs — confirm position, name, datatype, rename display
+- [x] T118 [US9] Audit columns command in src/columns.rs — confirm position, name, datatype, rename display
 
 ### Test Coverage for User Story 9
 
-- [ ] T119 [P] [US9] Verify test for schema columns table output (acceptance scenario 1) in tests/schema.rs or tests/cli.rs
-- [ ] T154 [P] [US9] Verify test for schema columns with renames (acceptance scenario 2) in tests/schema.rs or tests/cli.rs
-- [ ] T120 [US9] Add missing tests for any US9 acceptance scenarios not covered above
+- [x] T119 [P] [US9] Verify test for schema columns table output (acceptance scenario 1) in tests/schema.rs or tests/cli.rs
+- [x] T154 [P] [US9] Verify test for schema columns with renames (acceptance scenario 2) in tests/schema.rs or tests/cli.rs
+- [x] T120 [US9] Add missing tests for any US9 acceptance scenarios not covered above
 
 **Checkpoint**: Schema Column Listing validated.
 

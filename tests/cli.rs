@@ -198,6 +198,51 @@ fn schema_columns_requires_schema_argument() {
 }
 
 #[test]
+fn schema_columns_displays_renames_in_output() {
+    let dir = tempdir().expect("temp dir");
+    let schema_path = dir.path().join("renamed-schema.yml");
+
+    // Create a schema with renames using manual schema creation
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "-o",
+            schema_path.to_str().unwrap(),
+            "-c",
+            "id:integer->Identifier",
+            "-c",
+            "name:string->Full Name",
+            "-c",
+            "amount:float",
+        ])
+        .assert()
+        .success();
+
+    // Run schema columns and verify renames appear in output
+    Command::cargo_bin("csv-managed")
+        .expect("binary exists")
+        .args([
+            "schema",
+            "columns",
+            "--schema",
+            schema_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(
+            contains("Identifier")
+                .and(contains("Full Name"))
+                .and(contains("id"))
+                .and(contains("name"))
+                .and(contains("amount"))
+                .and(contains("integer"))
+                .and(contains("string"))
+                .and(contains("float")),
+        );
+}
+
+#[test]
 fn probe_emits_mappings_into_schema_and_stdout() {
     let (dir, csv_path) = write_sample_csv(b',');
     let schema_path = dir.path().join("schema-schema.yml");
