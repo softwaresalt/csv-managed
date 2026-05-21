@@ -148,6 +148,7 @@ This release expands the application's reach beyond delimited files by introduci
 - [ ] Add the ability to process Excel data, streaming rows from selected worksheet(), feeding them through existing schema/replacement/projection machinery; implements data normalization of Excel formatted data.
 - [ ] Add the ability to read Parquet files.
 - [ ] Create plan for implementing efficient Parquet file indexing and data access. Version 1.5 needs a full product feature plan and strategy.
+- [ ] Add ability to read and process JSON and JSONL files, infer schema, index JSON & JSONL data files, transform indexed data and stream/pipe into Parquet and Delta files with Parquet file partitioning rules.
 
 </details>
 

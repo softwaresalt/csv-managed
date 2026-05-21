@@ -1,0 +1,85 @@
+=== CHECK 1: Template Variable Sweep ===
+UNRESOLVED in copilot-instructions.md: {{CONTINUOUS_LEARNING_DIR}}
+UNRESOLVED in adr-generator.agent.md: {{ADR_DIRECTORY}}
+UNRESOLVED in orchestrator.agent.md: {{ORCHESTRATOR_REASONING_EFFORT}}, {{ORCHESTRATOR_PROVIDER}}, {{ORCHESTRATOR_FAMILY}}, {{DEFAULT_BRANCH}}
+UNRESOLVED in ship.agent.md: {{DEFAULT_BRANCH}}, {{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}
+UNRESOLVED in stage.agent.md: {{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}
+UNRESOLVED in code-review-generic.instructions.md: {{REVIEW_LANGUAGE}}
+UNRESOLVED in continuous-learning.instructions.md: {{CONTINUOUS_LEARNING_DIR}}, {{CONTINUOUS_LEARNING_CAPTURE_HOOKS}}, {{CONTINUOUS_LEARNING_ENVIRONMENT_ADAPTER}}, {{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}
+UNRESOLVED in workflow-policies.md: {{DEFAULT_BRANCH}}
+UNRESOLVED in SKILL.md: {{CODEBASE_DOCS_DIRECTORY}}
+UNRESOLVED in SKILL.md: {{PLANS_DIRECTORY}}
+UNRESOLVED in SKILL.md: {{CHANGELOG_STYLE_FILE}}, {{CHANGELOG_FILE}}
+UNRESOLVED in SKILL.md: {{PLANS_DIRECTORY}}
+UNRESOLVED in SKILL.md: {{CONTINUOUS_LEARNING_DIR}}, {{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}
+UNRESOLVED in SKILL.md: {{CONTINUOUS_LEARNING_DIR}}
+UNRESOLVED in SKILL.md: {{CONTINUOUS_LEARNING_DIR}}
+UNRESOLVED in SKILL.md: {{DEFAULT_BRANCH}}
+UNRESOLVED in SKILL.md: {{PLANS_DIRECTORY}}, {{COMMIT_PREFIX}}
+UNRESOLVED in AGENTS.md: {{CONTINUOUS_LEARNING_DIR}}
+Total unresolved: 65
+
+=== CHECK 2: YAML Frontmatter ===
+FRONTMATTER OK: adr-generator.agent.md
+FRONTMATTER OK: adversarial-review.agent.md
+FRONTMATTER OK: build-orchestrator.agent.md
+FRONTMATTER MISSING: copilot-instructions.md
+FRONTMATTER OK: orchestrator.agent.md
+FRONTMATTER OK: pr-review.agent.md
+FRONTMATTER OK: prompt-builder.agent.md
+FRONTMATTER OK: rpi-agent.agent.md
+FRONTMATTER OK: rust-engineer.agent.md
+FRONTMATTER OK: security-sentinel.agent.md
+FRONTMATTER OK: ship.agent.md
+FRONTMATTER OK: speckit.analyze.agent.md
+FRONTMATTER OK: speckit.checklist.agent.md
+FRONTMATTER OK: speckit.clarify.agent.md
+FRONTMATTER OK: speckit.constitution.agent.md
+FRONTMATTER OK: speckit.implement.agent.md
+FRONTMATTER OK: speckit.plan.agent.md
+FRONTMATTER OK: speckit.specify.agent.md
+FRONTMATTER OK: speckit.tasks.agent.md
+FRONTMATTER OK: speckit.taskstoissues.agent.md
+FRONTMATTER OK: stage.agent.md
+FRONTMATTER OK: task-implementor.agent.md
+FRONTMATTER OK: task-planner.agent.md
+FRONTMATTER OK: task-researcher.agent.md
+FRONTMATTER OK: task-reviewer.agent.md
+FRONTMATTER OK: learnings-researcher.agent.md
+FRONTMATTER OK: architecture-strategist.agent.md
+FRONTMATTER OK: concurrency-reviewer.agent.md
+FRONTMATTER OK: constitution-reviewer.agent.md
+FRONTMATTER OK: rust-reviewer.agent.md
+FRONTMATTER OK: scope-boundary-auditor.agent.md
+FRONTMATTER OK: security-lens-reviewer.agent.md
+FRONTMATTER OK: security-reviewer.agent.md
+
+=== CHECK 3: Key Artifact Existence ===
+EXISTS: AGENTS.md
+EXISTS: copilot-instructions.md
+EXISTS: constitution.instructions.md
+EXISTS: rust.instructions.md
+EXISTS: stage.agent.md
+EXISTS: ship.agent.md
+EXISTS: workflow-policies.md
+EXISTS: SKILL.md
+EXISTS: SKILL.md
+EXISTS: SKILL.md
+EXISTS: SKILL.md
+EXISTS: SKILL.md
+EXISTS: agent-engram.instructions.md
+EXISTS: backlogit.instructions.md
+EXISTS: strict-safety.instructions.md
+EXISTS: release-observability.instructions.md
+EXISTS: adversarial-review.instructions.md
+EXISTS: continuous-learning.instructions.md
+EXISTS: config.yml
+EXISTS: .stash.md
+EXISTS: harness-manifest.yaml
+EXISTS: config.yaml
+EXISTS: acquire_lock.ps1
+EXISTS: search.ps1
+Missing: 0
+
+=== CHECK 4: Artifact Counts ===
+Instructions: 27 | Agents: 25 | ReviewPersonas: 7 | Skills: 40 | Policies: 1 | Prompts: 10

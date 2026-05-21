@@ -1,0 +1,4140 @@
+{
+  "mode": "verify-workspace",
+  "workspace_path": "D:\\Source\\GitHub\\csv-managed",
+  "autoharness_home": "D:\\Python314\\Lib\\site-packages\\autoharness\\data",
+  "staging_dir": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging",
+  "strict_schema_blockers": [
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.0: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.1: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.2: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.3: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.4: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.5: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.6: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.7: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.8: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.9: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.10: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.11: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.12: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.13: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.14: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.15: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.16: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.17: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.18: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.19: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.20: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.21: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.22: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.23: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.24: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.25: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.26: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.27: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.28: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.29: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.30: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.31: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.32: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.33: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.34: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.35: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.36: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.37: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.38: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.39: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.40: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.41: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.42: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.43: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.44: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.45: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.46: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.47: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.48: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.49: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.50: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.51: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.52: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.53: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.54: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.55: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.56: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.57: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.58: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.59: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.60: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.61: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.62: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.63: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.64: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.65: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.66: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.67: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.68: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.69: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.70: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.71: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.72: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.73: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.74: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.75: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.76: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.77: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.78: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.79: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.80: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.81: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.82: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.83: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.84: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.85: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.86: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.87: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.88: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.89: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.90: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.91: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.92: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.93: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.94: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.95: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.95.template: None is not of type 'string'"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.96: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.96.template: None is not of type 'string'"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "artifacts.97: 'checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.0: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.0: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.0: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.0: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.1: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.1: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.1: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.1: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.2: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.2: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.2: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.2: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.3: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.3: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.3: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.3: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.4: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.4: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.4: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.4: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.5: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.5: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.5: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.5: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.6: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.6: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.6: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.6: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.7: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.7: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.7: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.7: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.8: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.8: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.8: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.8: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.9: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.9: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.9: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.9: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.10: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.10: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.10: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.10: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.11: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.11: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.11: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.11: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.12: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.12: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.12: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.12: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.13: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.13: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.13: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.13: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.14: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.14: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.14: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.14: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.15: 'template_path' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.15: 'installed_at' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.15: 'installed_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "community_templates.15: 'source_checksum' is a required property"
+    },
+    {
+      "kind": "invalid-manifest-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "contract": "harness-manifest",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "profile_hash: None is not of type 'string'"
+    },
+    {
+      "kind": "invalid-config-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\config.yaml",
+      "contract": "harness-config",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "model_routing.orchestrator: {'model_family': 'gpt-5.4', 'reasoning_effort': '', 'model_provider': ''} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-config-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\config.yaml",
+      "contract": "harness-config",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "model_routing.tier1: {'model': 'gpt-5.4-mini', 'reasoning_effort': '', 'model_provider': '', 'model_family': 'gpt-5.4-mini'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-config-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\config.yaml",
+      "contract": "harness-config",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "model_routing.tier2: {'model': 'claude-sonnet-4.6', 'reasoning_effort': '', 'model_provider': '', 'model_family': 'claude-sonnet-4.6'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-config-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\config.yaml",
+      "contract": "harness-config",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "model_routing.tier3: {'model': 'claude-opus-4.6', 'reasoning_effort': '', 'model_provider': '', 'model_family': 'claude-opus-4.6'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "ci.quality_gates.0: {'name': 'fmt', 'command': 'cargo fmt -- --check'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "ci.quality_gates.1: {'name': 'clippy', 'command': 'cargo clippy --all-targets --all-features -- -D warnings'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "ci.quality_gates.2: {'name': 'test', 'command': 'cargo test --all-targets --all-features'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "ci.quality_gates.3: {'name': 'build', 'command': 'cargo build --release'} is not of type 'string'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.0: 'backlogit: operator config specifies backlogit' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.1: 'agent-engram: MCP configured in .vscode/mcp.json, engram markers in copilot-instructions.md' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.2: 'continuous-learning: operator config specifies' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.3: 'strict-safety: operator config specifies' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.4: 'release-observability: operator config specifies' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.5: 'adversarial-review: operator config specifies' is not of type 'object'"
+    },
+    {
+      "kind": "invalid-profile-schema",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "contract": "workspace-profile",
+      "observed_version": "1.0.0",
+      "current_version": "1.0.0",
+      "message": "harness_recommendations.recommendation_reasons.capability_packs.6: 'graphtor-docs: operator config specifies but no graphtor artifacts detected in workspace' is not of type 'object'"
+    }
+  ],
+  "warnings": [
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "AGENTS.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/constitution.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/copilot-instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/rust.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/commit-message.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/markdown.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/writing-style.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/git-merge.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/pull-request.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/prompt-builder.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/circuit-breaker.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/concurrency.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/architecture-doc.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/context-efficiency.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/ci-security.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/workflows.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/github-pr-automation.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/role-enforcement.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/backlog-integration.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/backlogit.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/backlogit-sql-schema.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/backlogit-yaml-header-tooling.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/agent-engram.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/continuous-learning.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/strict-safety.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/release-observability.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/adversarial-review.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/code-review-generic.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/instructions/agent-safety.instructions.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/stage.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/ship.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/orchestrator.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "missing-installed-artifact",
+      "path": ".github/agents/prompt-builder.agent.md",
+      "message": "Manifest-listed artifact is missing from the workspace."
+    },
+    {
+      "kind": "missing-installed-artifact",
+      "path": ".github/agents/rust-engineer.agent.md",
+      "message": "Manifest-listed artifact is missing from the workspace."
+    },
+    {
+      "kind": "missing-installed-artifact",
+      "path": ".github/agents/security-sentinel.agent.md",
+      "message": "Manifest-listed artifact is missing from the workspace."
+    },
+    {
+      "kind": "missing-installed-artifact",
+      "path": ".github/agents/adversarial-review.agent.md",
+      "message": "Manifest-listed artifact is missing from the workspace."
+    },
+    {
+      "kind": "missing-installed-artifact",
+      "path": ".github/agents/adr-generator.agent.md",
+      "message": "Manifest-listed artifact is missing from the workspace."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/research/learnings-researcher.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/architecture-strategist.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/constitution-reviewer.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/scope-boundary-auditor.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/rust-reviewer.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/concurrency-reviewer.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/security-reviewer.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/agents/review/security-lens-reviewer.agent.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/build-feature/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/fix-ci/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/impl-plan/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/deliberate/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/spike/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/plan-harden/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/compact-context/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/compound/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/compound-refresh/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/harness-architect/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/harvest/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/pr-lifecycle/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/safety-modes/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/file-lock/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/skill-search/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/security-audit/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/runtime-verification/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/operational-closure/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/observe/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/learn/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/evolve/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/iterative-experiment/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/harness-doctor/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/plan-review/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/review/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/shipment-reconcile/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/browser-automation/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/acquire-codebase-knowledge/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/writing-plans/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/brainstorming/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/changelog-generator/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/receiving-code-review/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/debugging/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/verification-before-completion/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/simplifying-code/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/document-review/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/meta-prompting/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/writing-tests/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/skill-creator/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/skills/mcp-builder/SKILL.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/policies/workflow-policies.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".github/prompts/ping-loop.prompt.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/acquire_lock.ps1",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/acquire_lock.sh",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/release_lock.ps1",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/release_lock.sh",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/search.ps1",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "scripts/search.sh",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "start.ps1",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": "start.sh",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".backlogit/config.yml",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".backlogit/queue/.stash.md",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    },
+    {
+      "kind": "manifest-checksum-missing",
+      "path": ".autoharness/backlog-registry.yaml",
+      "message": "Manifest-listed artifact has no checksum; drift scan skipped checksum comparison for this path."
+    }
+  ],
+  "warning_instances": 98,
+  "blockers": [],
+  "rendered": [
+    {
+      "path": "AGENTS.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\foundation\\AGENTS.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/constitution.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\foundation\\constitution.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\foundation\\copilot-instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/rust.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\technology-rust.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/commit-message.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\commit-message.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/markdown.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\markdown.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/writing-style.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\writing-style.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/git-merge.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\git-merge.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/pull-request.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\pull-request.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/prompt-builder.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\prompt-builder.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/circuit-breaker.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\circuit-breaker.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/concurrency.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\concurrency.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/architecture-doc.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\architecture-doc.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/context-efficiency.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\context-efficiency.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/ci-security.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\ci-security.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/workflows.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\workflows.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/github-pr-automation.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\github-pr-automation.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/role-enforcement.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\role-enforcement.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/backlog-integration.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\backlog-integration.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/backlogit.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\backlogit.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/backlogit-sql-schema.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\backlogit-sql-schema.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/backlogit-yaml-header-tooling.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\backlogit-yaml-header-tooling.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/agent-engram.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\agent-engram.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/continuous-learning.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\continuous-learning.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/strict-safety.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\strict-safety.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/release-observability.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\release-observability.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/adversarial-review.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\instructions\\adversarial-review.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/code-review-generic.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\instructions\\code-review-generic.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/instructions/agent-safety.instructions.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\instructions\\agent-safety.instructions.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/stage.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\stage.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/ship.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\ship.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/orchestrator.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\orchestrator.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/prompt-builder.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\prompt-builder.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/rust-engineer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\language-engineer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/security-sentinel.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\security-sentinel.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/adversarial-review.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\adversarial-review.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/adr-generator.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\agents\\adr-generator.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/research/learnings-researcher.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\research\\learnings-researcher.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/architecture-strategist.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\architecture-strategist.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/constitution-reviewer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\constitution-reviewer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/scope-boundary-auditor.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\scope-boundary-auditor.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/rust-reviewer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\technology-reviewer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/concurrency-reviewer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\concurrency-reviewer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/security-reviewer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\security-reviewer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/agents/review/security-lens-reviewer.agent.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\agents\\review\\security-lens-reviewer.agent.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/build-feature/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\build-feature\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/fix-ci/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\fix-ci\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/impl-plan/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\impl-plan\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/deliberate/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\deliberate\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/spike/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\spike\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/plan-harden/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\plan-harden\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/compact-context/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\compact-context\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/compound/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\compound\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/compound-refresh/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\compound-refresh\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/harness-architect/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\harness-architect\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/harvest/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\harvest\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/pr-lifecycle/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\pr-lifecycle\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/safety-modes/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\safety-modes\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/file-lock/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\file-lock\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/skill-search/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\skill-search\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/security-audit/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\security-audit\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/runtime-verification/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\runtime-verification\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/operational-closure/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\operational-closure\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/observe/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\observe\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/learn/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\learn\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/evolve/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\evolve\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/iterative-experiment/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\iterative-experiment\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/harness-doctor/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\harness-doctor\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/plan-review/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\plan-review\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/review/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\review\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/shipment-reconcile/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\shipment-reconcile\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/browser-automation/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\browser-automation\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/acquire-codebase-knowledge/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\acquire-codebase-knowledge\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/writing-plans/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\writing-plans\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/brainstorming/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\brainstorming\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/changelog-generator/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\changelog-generator\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/receiving-code-review/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\receiving-code-review\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/debugging/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\debugging\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/verification-before-completion/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\verification-before-completion\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/simplifying-code/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\simplifying-code\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/document-review/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\document-review\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/meta-prompting/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\meta-prompting\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/writing-tests/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\writing-tests\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/skill-creator/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\skill-creator\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/skills/mcp-builder/SKILL.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\community\\skills\\mcp-builder\\SKILL.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/policies/workflow-policies.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\policies\\workflow-policies.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".github/prompts/ping-loop.prompt.md",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\prompts\\ping-loop.prompt.md.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/acquire_lock.ps1",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\file-lock\\scripts\\acquire_lock.ps1",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/acquire_lock.sh",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\file-lock\\scripts\\acquire_lock.sh",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/release_lock.ps1",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\file-lock\\scripts\\release_lock.ps1",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/release_lock.sh",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\file-lock\\scripts\\release_lock.sh",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/search.ps1",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\skill-search\\scripts\\search.ps1",
+      "mode": "rendered"
+    },
+    {
+      "path": "scripts/search.sh",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\skills\\skill-search\\scripts\\search.sh",
+      "mode": "rendered"
+    },
+    {
+      "path": "start.ps1",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\scripts\\start.ps1.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": "start.sh",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\scripts\\start.sh.tmpl",
+      "mode": "rendered"
+    },
+    {
+      "path": ".autoharness/backlog-registry.yaml",
+      "template": "D:\\Python314\\Lib\\site-packages\\autoharness\\data\\templates\\backlog\\registries\\backlogit.registry.yaml",
+      "mode": "rendered"
+    }
+  ],
+  "skipped": [
+    {
+      "path": ".backlogit/config.yml",
+      "template": "None",
+      "reason": "template source could not be resolved deterministically"
+    },
+    {
+      "path": ".backlogit/queue/.stash.md",
+      "template": "None",
+      "reason": "template source could not be resolved deterministically"
+    }
+  ],
+  "unresolved": [
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\constitution.instructions.md",
+      "line": 191,
+      "placeholder": "{{ERROR_PATTERN}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\constitution.instructions.md",
+      "line": 192,
+      "placeholder": "{{DOC_COMMENT_STYLE}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\commit-message.instructions.md",
+      "line": 31,
+      "placeholder": "{{COMMIT_SCOPES}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\continuous-learning.instructions.md",
+      "line": 26,
+      "placeholder": "{{CONTINUOUS_LEARNING_CAPTURE_HOOKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\continuous-learning.instructions.md",
+      "line": 27,
+      "placeholder": "{{CONTINUOUS_LEARNING_ENVIRONMENT_ADAPTER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\continuous-learning.instructions.md",
+      "line": 47,
+      "placeholder": "{{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\instructions\\code-review-generic.instructions.md",
+      "line": 14,
+      "placeholder": "{{REVIEW_LANGUAGE}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\stage.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_3_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\stage.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_3_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\stage.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_3_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\stage.agent.md",
+      "line": 707,
+      "placeholder": "{{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_2_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_2_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_2_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 41,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 171,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 176,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 440,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 481,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 482,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 483,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 484,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 510,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 515,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 516,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 521,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 534,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 582,
+      "placeholder": "{{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 735,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\ship.agent.md",
+      "line": 737,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 9,
+      "placeholder": "{{ORCHESTRATOR_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 10,
+      "placeholder": "{{ORCHESTRATOR_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 11,
+      "placeholder": "{{ORCHESTRATOR_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 174,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 174,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 180,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 181,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 181,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 186,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 188,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 189,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 191,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 195,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 197,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\orchestrator.agent.md",
+      "line": 199,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\prompt-builder.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\prompt-builder.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\prompt-builder.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_2_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_2_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_2_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 32,
+      "placeholder": "{{LANGUAGE_IDIOM_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 36,
+      "placeholder": "{{LANGUAGE_SAFETY_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 40,
+      "placeholder": "{{LANGUAGE_ERROR_HANDLING_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 44,
+      "placeholder": "{{LANGUAGE_PERFORMANCE_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\rust-engineer.agent.md",
+      "line": 50,
+      "placeholder": "{{ANTI_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_3_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_3_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_3_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 28,
+      "placeholder": "{{SOURCE_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 34,
+      "placeholder": "{{SECURITY_SCAN_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 56,
+      "placeholder": "{{SOURCE_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 57,
+      "placeholder": "{{SECURITY_SCAN_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 81,
+      "placeholder": "{{SECURITY_SCAN_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 138,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 140,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\security-sentinel.agent.md",
+      "line": 146,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adversarial-review.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_3_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adversarial-review.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_3_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adversarial-review.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_3_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adr-generator.agent.md",
+      "line": 28,
+      "placeholder": "{{ADR_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adr-generator.agent.md",
+      "line": 42,
+      "placeholder": "{{ADR_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adr-generator.agent.md",
+      "line": 150,
+      "placeholder": "{{ADR_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\adr-generator.agent.md",
+      "line": 194,
+      "placeholder": "{{ADR_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\research\\learnings-researcher.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\research\\learnings-researcher.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\research\\learnings-researcher.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\architecture-strategist.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\architecture-strategist.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\architecture-strategist.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\constitution-reviewer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\constitution-reviewer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\constitution-reviewer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\scope-boundary-auditor.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\scope-boundary-auditor.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\scope-boundary-auditor.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 23,
+      "placeholder": "{{LANGUAGE_SAFETY_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 27,
+      "placeholder": "{{LANGUAGE_IDIOM_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 31,
+      "placeholder": "{{LANGUAGE_ERROR_HANDLING_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\rust-reviewer.agent.md",
+      "line": 35,
+      "placeholder": "{{LANGUAGE_PERFORMANCE_CHECKS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\concurrency-reviewer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_1_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\concurrency-reviewer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_1_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\concurrency-reviewer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_1_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-reviewer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_2_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-reviewer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_2_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-reviewer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_2_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-reviewer.agent.md",
+      "line": 32,
+      "placeholder": "{{SECURITY_REVIEW_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-lens-reviewer.agent.md",
+      "line": 9,
+      "placeholder": "{{TIER_2_REASONING_EFFORT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-lens-reviewer.agent.md",
+      "line": 10,
+      "placeholder": "{{TIER_2_PROVIDER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\agents\\review\\security-lens-reviewer.agent.md",
+      "line": 11,
+      "placeholder": "{{TIER_2_FAMILY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\build-feature\\SKILL.md",
+      "line": 120,
+      "placeholder": "{{FORMAT_FIX_COMMAND}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 13,
+      "placeholder": "{{QUALITY_GATE_1}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 13,
+      "placeholder": "{{QUALITY_GATE_4}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 13,
+      "placeholder": "{{FORMAT_FIX_COMMAND}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 35,
+      "placeholder": "{{POLL_INTERVAL}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 36,
+      "placeholder": "{{MAX_WAIT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 124,
+      "placeholder": "{{FORMAT_FIX_COMMAND}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\fix-ci\\SKILL.md",
+      "line": 286,
+      "placeholder": "{{FORMAT_FIX_COMMAND}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\harness-architect\\SKILL.md",
+      "line": 95,
+      "placeholder": "{{UNIMPLEMENTED_MARKER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\harness-architect\\SKILL.md",
+      "line": 106,
+      "placeholder": "{{SOURCE_DIR}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\harness-architect\\SKILL.md",
+      "line": 127,
+      "placeholder": "{{UNIMPLEMENTED_MARKER}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\pr-lifecycle\\SKILL.md",
+      "line": 160,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\pr-lifecycle\\SKILL.md",
+      "line": 186,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 36,
+      "placeholder": "{{AGENTIC_CONFIG_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 37,
+      "placeholder": "{{SOURCE_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 37,
+      "placeholder": "{{FILE_EXT}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 39,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 40,
+      "placeholder": "{{SECURITY_CONFIG_RULES}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 41,
+      "placeholder": "{{SECURITY_OWASP_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 53,
+      "placeholder": "{{AGENTIC_CONFIG_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 54,
+      "placeholder": "{{SOURCE_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 64,
+      "placeholder": "{{SECURITY_CONFIG_RULES}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 91,
+      "placeholder": "{{SOURCE_GLOB}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 91,
+      "placeholder": "{{SECURITY_OWASP_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 160,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 162,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\security-audit\\SKILL.md",
+      "line": 185,
+      "placeholder": "{{DOCS_SECURITY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\evolve\\SKILL.md",
+      "line": 33,
+      "placeholder": "{{CONTINUOUS_LEARNING_PROMOTION_THRESHOLD}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\harness-doctor\\SKILL.md",
+      "line": 39,
+      "placeholder": "{{HARNESS_MANIFEST_PATH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\harness-doctor\\SKILL.md",
+      "line": 48,
+      "placeholder": "{{HARNESS_MANIFEST_PATH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\review\\SKILL.md",
+      "line": 124,
+      "placeholder": "{{SECURITY_REVIEW_PATTERNS}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\acquire-codebase-knowledge\\SKILL.md",
+      "line": 10,
+      "placeholder": "{{CODEBASE_DOCS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\acquire-codebase-knowledge\\SKILL.md",
+      "line": 16,
+      "placeholder": "{{CODEBASE_DOCS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\acquire-codebase-knowledge\\SKILL.md",
+      "line": 64,
+      "placeholder": "{{CODEBASE_DOCS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\writing-plans\\SKILL.md",
+      "line": 16,
+      "placeholder": "{{PLANS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\writing-plans\\SKILL.md",
+      "line": 78,
+      "placeholder": "{{COMMIT_PREFIX}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\brainstorming\\SKILL.md",
+      "line": 44,
+      "placeholder": "{{PLANS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\changelog-generator\\SKILL.md",
+      "line": 55,
+      "placeholder": "{{CHANGELOG_STYLE_FILE}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\changelog-generator\\SKILL.md",
+      "line": 85,
+      "placeholder": "{{CHANGELOG_STYLE_FILE}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\changelog-generator\\SKILL.md",
+      "line": 87,
+      "placeholder": "{{CHANGELOG_FILE}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\skills\\document-review\\SKILL.md",
+      "line": 16,
+      "placeholder": "{{PLANS_DIRECTORY}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\policies\\workflow-policies.md",
+      "line": 236,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\.github\\policies\\workflow-policies.md",
+      "line": 264,
+      "placeholder": "{{DEFAULT_BRANCH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\start.ps1",
+      "line": 74,
+      "placeholder": "{{COPILOT_EXE_PATH}}"
+    },
+    {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\start.sh",
+      "line": 34,
+      "placeholder": "{{COPILOT_EXE_PATH}}"
+    }
+  ],
+  "checksum_scan": [
+    {
+      "path": "AGENTS.md",
+      "status": "checksum-untracked",
+      "actual": "208c86e465a4339eb47bdee2fbc0347cfdd77ae7913be0178b3ed599f7b61b59",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/constitution.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "abb6fda91a41e0768e92f10b141f45a2f53248d9a9e881e5ee81879593664041",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "status": "checksum-untracked",
+      "actual": "63053a9f0f996f6145e54b9f7bf6d0220199711735021e0f80fafbfcff8ec47e",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/rust.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "d80fe4e78a47e6a43324031c26662aa5ada4e6e5a3d30c3d8be12aed63d296f4",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/commit-message.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "73b4326361f97a60b99dc4ad9f8ce2661840b71da444f07ce0868d000da4892c",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/markdown.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "6ac28f56d9d00c13b76362d6058fbc8da42afe6eb96acd34fc53d9bf40868d9c",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/writing-style.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "1fc5cdcb661bd09ec47193af6e6a50d8c36b1e2991c2164a4a6a33d2c630af79",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/git-merge.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "fa06c7b36ab3ff785ed003342dd52a92d3a8582ee8293d7f3a0a96d22f34b497",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/pull-request.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "39f13c4648fce30421002fb9704e6996e116cc9f5ae2cea7cec6ad4df2d9c6e5",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/prompt-builder.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "306270c592268efbff4386f069afae3ac41e311e0eeab855835acd3fb0303fc5",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/circuit-breaker.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "27368b75943f6a57cbfe740017d43f9dba2242f74f2be0da55273acf16bf5a7d",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/concurrency.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "81a7b997eefe10d15689479e169963ee4aa71e65cdd840940de7e0df7142aa78",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/architecture-doc.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "743e6560af474507b795a30d2810f175de04a3be6827a8ad70cc6ab410a86fba",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/context-efficiency.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "7ee9531b3ef7f31f497780230f7e40788904dd76d46c66df19c43b28c108d8fd",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/ci-security.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "5a1342489bcb5663dfd2d5a8b2fb56a428be9b8eef2d73a378507313ce2eda06",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/workflows.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "a821b82483d642647cc6f4fe41990345181014d9c76763c951db453e12e4e1e9",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/github-pr-automation.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "3f59de3391cbf55b9bdf07bcb3a8742f488c96f77a9189809559aa150262e996",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/role-enforcement.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "8b8699e88cd50c3d9912db898b3c81c04e1acda836cadc8fcec26210be3ee0ac",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/backlog-integration.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "bf0fced904152be9ef57c455259aae8ecc49f289b8d9023ce5741c80efbd3221",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/backlogit.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "181fd87d786c76ad315523859b189609d2ea1882e205636aafc3971e17d664cb",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/backlogit-sql-schema.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "44bfab6aba8391dc12cc0c1d759aab58739972892d8eb5d3bcbb8a63a198609d",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/backlogit-yaml-header-tooling.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "d25b8a19e84b3fac44f0de7b5fb2939edcd6b7258484eee65ed303e968f25441",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/agent-engram.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "b56571bee11546bcb716c3f05904fbd0c0eab2c5f88a20c006b659a437982904",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/continuous-learning.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "42f5dde5d2a6ec9446e8c8f965b472b3e697d2743d593ac954f6384d3644b55b",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/strict-safety.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "9f70e1c9978d1071a3460dd91f5b057401e26892b97a93b2d5c94eaaf4c0f790",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/release-observability.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "8ecd4c49c4589b8ada7f59ef45795ef31ce41f8ace65cb7fe1d34bcbd17a2c92",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/adversarial-review.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "78f034f81859b364ffcc38e1e48e8417dca46c43cbe3c9eeeadb5663dd71b77f",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/code-review-generic.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "26020298bdafa7444013fc9f63f4f35e33386be172b5dda7b7f8bc1fda4d5c2c",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/instructions/agent-safety.instructions.md",
+      "status": "checksum-untracked",
+      "actual": "c351e96ccbf8ef9b421d4eada7eb63536666f5bd44c110ea30d1f6f22e28c9ba",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/stage.agent.md",
+      "status": "checksum-untracked",
+      "actual": "59c6cb2cfb7dfb191cc7abfbb8888c0ca8258b42ab38c1a77cb940066ee56a64",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/ship.agent.md",
+      "status": "checksum-untracked",
+      "actual": "3f69e109806bd4ff29b7db1521b6b1136b1500f1fd6323e6a461ea3c63027577",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/orchestrator.agent.md",
+      "status": "checksum-untracked",
+      "actual": "4289ad867adc69e43b0563486fde9d63af88a58d08bb6c718ecf1883d116ea34",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/prompt-builder.agent.md",
+      "status": "missing",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/rust-engineer.agent.md",
+      "status": "missing",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/security-sentinel.agent.md",
+      "status": "missing",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/adversarial-review.agent.md",
+      "status": "missing",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/adr-generator.agent.md",
+      "status": "missing",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/research/learnings-researcher.agent.md",
+      "status": "checksum-untracked",
+      "actual": "626033bd459fca60b8d6d74974e5ed54103de31d493286b8f506925c3d15a386",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/architecture-strategist.agent.md",
+      "status": "checksum-untracked",
+      "actual": "720539880e9496289e79301c83b192d1dc600799f9e1ed132a90cd4bc8665313",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/constitution-reviewer.agent.md",
+      "status": "checksum-untracked",
+      "actual": "737616111f81dc398c8016b41f120c369ab1f1172e40a5dadc143e2561d447c3",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/scope-boundary-auditor.agent.md",
+      "status": "checksum-untracked",
+      "actual": "cb77d33ffdf440e170e6f6ef03b49d8b78161282780090cc73c3ead458662060",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/rust-reviewer.agent.md",
+      "status": "checksum-untracked",
+      "actual": "3554e6728d283a2a968abd64e6f2d27e37085cf964a0706952764012e347e1ba",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/concurrency-reviewer.agent.md",
+      "status": "checksum-untracked",
+      "actual": "8d5bf54960af1c8ba22ddd706f724610e441dff9be6f2ea7db4911eb9abaa369",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/security-reviewer.agent.md",
+      "status": "checksum-untracked",
+      "actual": "228eb41db3c67041ce5cfbce320e651dc0dd60d632434b25b5882f1b677bcf19",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/agents/review/security-lens-reviewer.agent.md",
+      "status": "checksum-untracked",
+      "actual": "d9299499f7015556b6f98515880e88d50504cd61c3db8a91dba4dede255e3af3",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/build-feature/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "5d832add59eb48c2886e483b209f41a94b21b5bc8ad486d193c3c8f638dd8d58",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/fix-ci/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "54905e5f37cb5f70647a5992df89c6dc1b164513f3d59f43c62d58fe3737e116",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/impl-plan/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "f449b4769266f4ed72618a57b84b053071e7d9b1ea4c8524d60eb93c5b9bbebb",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/deliberate/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "e5e0d459c6eb57d87ad0790e32ad550fbc1ff77ff94df33b2f3f8b492ac0a323",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/spike/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "55cef4c8674151031d63ce303725f6a1c71b0fece459811df7d6385f8ce37c1e",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/plan-harden/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "f03ac59943c04649eea9a5185751d97cd005c2681930ecb61377e2d33cea301a",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/compact-context/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "70823a331676ad4c101fe2eb1ea2e1b6fc0b42a1bbb1703d827c34bf299ba2af",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/compound/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "ab110afd176440434db57a6ba3b8452d5d5f0a68d74cccaa1b25604ba1ef8846",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/compound-refresh/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "99f849184442886817ffd58f0060428e62c510fb516c85e546b6cfbfd4f28e11",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/harness-architect/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "ee329a00582fe2ef093a612908ec16b3b45d0793d817ba52f32d6d7d9d9597de",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/harvest/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "c3c22c99bbbd74b69389f72eae95d960079842c10f9ccdf8b1313a3561b78370",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/pr-lifecycle/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "610f283339937a009848c874421f3c2447e0ce9f0191451a999890e4420cbb24",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/safety-modes/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "12cff288698ddd5b2365ba5939eae148fe56240cf09af74d470402517a510942",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/file-lock/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "92f9ab1fd3de3a5e2967e9aa9c4dea2f49c58589c892df04c47c892be3a0a563",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/skill-search/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "4b5b4423eef36132a30108880409010fb25d1d3b2bbb5869eaa706955604b578",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/security-audit/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "d21814be237be3f1888a40c630482547f01d01b539287bd3ecd438385fd16bf0",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/runtime-verification/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "a04f6d5d4db2fe121bf9eb74a989d9021eeff7fb0210ba830a4c2ce99e6fd18b",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/operational-closure/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "3687a4844bb209762907c1110f7088607c776775debbc225f6209ff81d216f51",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/observe/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "763b621f5098004bcdbeeb04e553b2cd4716171e24a4c57e92e984ca0a902c1c",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/learn/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "211a3808294ad1584a51ce403939590f19121621776c66c516c8623acf9524ab",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/evolve/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "cfc0ad402117c288651e10a9b4a34ed1a38da1c5a51e4c1865974cd243ef6928",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/iterative-experiment/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "d16ee90bdc02c2425f3bdf27ee9d9cd65d71abb7225ef0ff6edff4c98cdc4c86",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/harness-doctor/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "6460bc1db05a17bc4b3049b2ba531f5b2a9c4d8ca940be10d62cf7e230f09d85",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/plan-review/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "40f16967065a8e52697eba6487712e5fdeca1176e67a3ff579132bdcf0ea4f06",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/review/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "61a7e98fe1af2440a5e641cbdd90005897a3ff191a11a3ed297853fbd4bf52a0",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/shipment-reconcile/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "2c325f0d04e956976f99e3bb2018320551ac4b38fa1677687ffa5bd9187f0b73",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/browser-automation/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "c4da5af8d5465a246142bd2f7d5b7d897748371e5cf85cc51b028831d5fcb213",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/acquire-codebase-knowledge/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "0932e503698d9bcce78d8e79cde2997aadebeade6618218ad30d9b9e7b630e79",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/writing-plans/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "8f56185f6b24b0826deb0d065ae0c826ea96269647338dd3d2089fcbe45981cf",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/brainstorming/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "e14a6e9dfec3ab152e560cd44da3d9afd39425cafffcea66804d457a1d3d92f0",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/changelog-generator/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "94c4a00c0db49c4c8a530c3a7bf52cd36be9189907df7b619d989839aa3471ee",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/receiving-code-review/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "24cff5fc2ed9d683e81062369c5ee27d1f50ad2d539f1cd50183ea14302be6f7",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/debugging/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "4212b18eb7688b8776bcc22f3bbcf548a81df088eab96796cae8b1410d7debcd",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/verification-before-completion/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "357dcc4a57390960844e6569caf687137e515cb15b1d3974f4b0b2f73b93e94f",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/simplifying-code/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "590c7051e9fbff87006b3e962fb0964ef7009f6964bb5f8d21a1349be941758f",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/document-review/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "84167654719b34228eb2158da82a0cd975d2448272c43d33dee43cd46baca5fc",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/meta-prompting/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "9c536392367f998b94633c6b7834ffaaf783a95d9ed2c4ff048a97529d4a3fe4",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/writing-tests/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "1ee92da49f3c144b2347f791f49e077bfcc263e4c668845b49fb7ce61741954b",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/skill-creator/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "836b1bedd9bd6599a75572a0ed0abb43c5f48de797118b826a1434ada78fe974",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/skills/mcp-builder/SKILL.md",
+      "status": "checksum-untracked",
+      "actual": "a97334e3e77da189f71a7ebadfba4ab3ea079d828cf3a593aa4dfc472c310c2a",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/policies/workflow-policies.md",
+      "status": "checksum-untracked",
+      "actual": "0d268e58ccf42ce32ef61508b092e4d099cfb37ddfb1caffe3558e6ef8086994",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".github/prompts/ping-loop.prompt.md",
+      "status": "checksum-untracked",
+      "actual": "e3cbf1c649b0e3da65670d9c5eea846a66a1d0ec3e82071f80c7ea2ebf71dfc6",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/acquire_lock.ps1",
+      "status": "checksum-untracked",
+      "actual": "14453d7e8a9c95ac5d917816b331c1a9fd6812a9ea1e49ac009c6f3bec7b5e3d",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/acquire_lock.sh",
+      "status": "checksum-untracked",
+      "actual": "65c543969c5014f5c91623be6087986acaa57ef6e98eb5ea15b944962d8886e7",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/release_lock.ps1",
+      "status": "checksum-untracked",
+      "actual": "3900e9d814a29f44837c67d461119c39afc96fdd9dc6f4efdbc0d0460bcdbe3c",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/release_lock.sh",
+      "status": "checksum-untracked",
+      "actual": "975eefc6c944c93548988a87c158fa27d9683ea878b783a1e07d8ebd769a6b09",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/search.ps1",
+      "status": "checksum-untracked",
+      "actual": "402d99a385c1157e503ff8b1621bef06ebafd46b9679f1ac1fd104e46cea8424",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "scripts/search.sh",
+      "status": "checksum-untracked",
+      "actual": "43b464100063496fa1965e3e312c127d22aeb0c0ec9209906972a4ade465d430",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "start.ps1",
+      "status": "checksum-untracked",
+      "actual": "d114f9e504d27c458bc6a8da50f980539f2a71fec9078a4dcae714772fa645ad",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": "start.sh",
+      "status": "checksum-untracked",
+      "actual": "22f64ce7d1f755f1fda50d4af5e7633e8bd0408f323b00a68362528995d07738",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".backlogit/config.yml",
+      "status": "checksum-untracked",
+      "actual": "458c0a4e31724509e64c7794c752914a9ec68b7e9d1b53ba4c0334df3754b19b",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".backlogit/queue/.stash.md",
+      "status": "checksum-untracked",
+      "actual": "9b7d5e81178952afc6ace6ce86d3f3806301e12b51ccb66e47a90e4e07e87c22",
+      "reason": "manifest checksum missing"
+    },
+    {
+      "path": ".autoharness/backlog-registry.yaml",
+      "status": "checksum-untracked",
+      "actual": "8462d407446993a72febb3e42c03d9269ebffe5e0a4110d473228302aff9f7dd",
+      "reason": "manifest checksum missing"
+    }
+  ],
+  "schema_contracts": {
+    "manifest": {
+      "kind": "manifest",
+      "contract_name": "harness-manifest",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\harness-manifest.yaml",
+      "schema_file": "harness-manifest.schema.json",
+      "compatibility_model": "versioned-contract",
+      "current_version": "1.0.0",
+      "known_versions": [
+        "0.9.0",
+        "1.0.0"
+      ],
+      "observed_version": "1.0.0",
+      "status": "current"
+    },
+    "config": {
+      "kind": "config",
+      "contract_name": "harness-config",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\config.yaml",
+      "schema_file": "harness-config.schema.json",
+      "compatibility_model": "versioned-contract",
+      "current_version": "1.0.0",
+      "known_versions": [
+        "0.9.0",
+        "1.0.0"
+      ],
+      "observed_version": "1.0.0",
+      "status": "current"
+    },
+    "profile": {
+      "kind": "profile",
+      "contract_name": "workspace-profile",
+      "path": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\workspace-profile.yaml",
+      "schema_file": "workspace-profile.schema.json",
+      "compatibility_model": "versioned-contract",
+      "current_version": "1.0.0",
+      "known_versions": [
+        "0.9.0",
+        "1.0.0"
+      ],
+      "observed_version": "1.0.0",
+      "status": "current"
+    }
+  },
+  "migration_proposals": [],
+  "targeted_checks": {
+    "backlogit_instruction_guidance": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\backlogit.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "backlogit_sql_schema_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\backlogit-sql-schema.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "backlogit_yaml_header_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\backlogit-yaml-header-tooling.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "agents_metadata_catalog_guidance": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\AGENTS.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_source_artifact_cleanup": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "closure_source_artifact_cleanup": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\skills\\operational-closure\\SKILL.md",
+      "ok": false,
+      "missing": [
+        "Source artifact cleanup",
+        "source_stash_id",
+        "source_deliberation_id"
+      ],
+      "order_violations": []
+    },
+    "stage_index_sync_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\stage.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_index_sync_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "agent_engram_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\agent-engram.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "continuous_learning_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\continuous-learning.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "strict_safety_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\strict-safety.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "release_observability_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\release-observability.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "adversarial_review_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\adversarial-review.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "copilot_durable_knowledge_layout": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\copilot-instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "copilot_session_memory_guidance": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\copilot-instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "copilot_remote_operator_guidance": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\copilot-instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "copilot_backlog_workflow_expectations": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\copilot-instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "stage_shipment_determinism": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\stage.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "stage_role_boundary": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\stage.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_role_boundary": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_release_closure_sequence": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": false,
+      "missing": [
+        "another top-level release unit may not begin yet"
+      ],
+      "order_violations": []
+    },
+    "orchestrator_release_closure_sequence": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\orchestrator.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "stage_tool_availability_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\stage.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_branch_management": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_branch_creation_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_tool_availability_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "ship_merge_confirmation_gate": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\ship.agent.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "pr_lifecycle_branch_retention": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\skills\\pr-lifecycle\\SKILL.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "security_review_persona_routing": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\skills\\review\\SKILL.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "security_plan_review_persona_routing": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\skills\\plan-review\\SKILL.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "p013_policy_in_workflow_policies": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\policies\\workflow-policies.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "installed_role_enforcement_instruction": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\instructions\\role-enforcement.instructions.md",
+      "ok": true,
+      "missing": [],
+      "order_violations": []
+    },
+    "orchestrator_tier_fields": {
+      "path": "D:\\Source\\GitHub\\csv-managed\\.github\\agents\\orchestrator.agent.md",
+      "ok": true,
+      "errors": []
+    },
+    "orchestrator_workspace_identity": {
+      "path": ".github/agents/orchestrator.agent.md",
+      "ok": true,
+      "has_project_name": true,
+      "has_unresolved_variable": false
+    },
+    "stage_workspace_identity": {
+      "path": ".github/agents/stage.agent.md",
+      "ok": true,
+      "has_project_name": true,
+      "has_unresolved_variable": false
+    },
+    "ship_workspace_identity": {
+      "path": ".github/agents/ship.agent.md",
+      "ok": true,
+      "has_project_name": true,
+      "has_unresolved_variable": false
+    }
+  },
+  "learning_signals": {
+    "compound_patterns": [],
+    "promotion_candidates": [],
+    "observation_patterns": [],
+    "closure_patterns": []
+  },
+  "portability_findings": [],
+  "report_paths": {
+    "json": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\verify-workspace-report.json",
+    "markdown": "D:\\Source\\GitHub\\csv-managed\\.autoharness\\staging\\verify-workspace-report.md"
+  },
+  "community_templates": [
+    {
+      "template_id": "adr-generator",
+      "installed_path": ".github/agents/adr-generator.agent.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "code-review-generic",
+      "installed_path": ".github/instructions/code-review-generic.instructions.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "agent-safety",
+      "installed_path": ".github/instructions/agent-safety.instructions.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "acquire-codebase-knowledge",
+      "installed_path": ".github/skills/acquire-codebase-knowledge/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "writing-plans",
+      "installed_path": ".github/skills/writing-plans/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "brainstorming",
+      "installed_path": ".github/skills/brainstorming/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "changelog-generator",
+      "installed_path": ".github/skills/changelog-generator/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "receiving-code-review",
+      "installed_path": ".github/skills/receiving-code-review/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "debugging",
+      "installed_path": ".github/skills/debugging/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "verification-before-completion",
+      "installed_path": ".github/skills/verification-before-completion/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "simplifying-code",
+      "installed_path": ".github/skills/simplifying-code/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "document-review",
+      "installed_path": ".github/skills/document-review/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "meta-prompting",
+      "installed_path": ".github/skills/meta-prompting/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "writing-tests",
+      "installed_path": ".github/skills/writing-tests/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "skill-creator",
+      "installed_path": ".github/skills/skill-creator/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    },
+    {
+      "template_id": "mcp-builder",
+      "installed_path": ".github/skills/mcp-builder/SKILL.md",
+      "ok": false,
+      "reason": "invalid path (must be relative, no parent traversal)"
+    }
+  ]
+}
