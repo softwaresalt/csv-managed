@@ -1,174 +1,223 @@
-# Copilot Instructions for csv-managed
+# csv-managed Development Guidelines
 
-High-performance Rust CLI (edition 2024, v1.0.x) that streams, transforms, validates, indexes, and profiles large CSV/TSV datasets. Targets minimal memory footprint on Windows, macOS, and Linux.
+Last updated: 2026-05-21
 
-## Project Layout
+csv-managed is a High-performance Rust CLI (edition 2024) that streams, transforms, validates, indexes, and profiles large CSV/TSV datasets.
+
+## Technology Stack
+
+| Layer           | Technology                | Notes                                 |
+|-----------------|---------------------------|---------------------------------------|
+| Language        | Rust 2024 | (Rust 2024 edition)          |
+| Build           | cargo            | `cargo build`                   |
+| Test            | cargo test           | `cargo test`                    |
+| Lint            | clippy                | `cargo clippy -- -D warnings`                    |
+| Format          | rustfmt             | `cargo fmt --all -- --check`                  |
+| CI              | GitHub Actions           | GitHub Actions with cargo caching, single lint-test job                          |
+
+
+## Project Structure
+
+```text
+src/                — Application source (lib.rs, cli.rs, 16 modules)
+src/main.rs         — Binary entry point
+tests/              — Integration tests (assert_cmd + predicates)
+tests/data/         — Fixture CSV and schema YAML files
+benches/            — Criterion benchmarks
+docs/               — Durable repository documentation
+docs/plans/         — Implementation plans and migrated task breakdowns
+docs/decisions/     — ADRs, research, and archived legacy decisions
+docs/design-docs/   — Design reference documents
+docs/product-specs/ — Product specs, quickstarts, and roadmap
+```
+
+## Commands
+
+```bash
+cargo build              # Build
+cargo test               # Run all tests
+cargo clippy -- -D warnings               # Lint
+cargo fmt --all -- --check             # Format check
+
+```
+
+## Code Style and Conventions
+
+### Error Handling
+
+anyhow::Result for fallible operations, .context() for error context
+
+### Naming
+
+snake_case for variables and functions, PascalCase for types and traits, SCREAMING_SNAKE_CASE for constants
+
+### Documentation
+
+/// doc comments on all public items, //! module-level Rustdoc
+
+### Testing
+
+* TDD required: write tests first, verify they fail, then implement
+* Test tiers in `tests/` directory:
+Unit: cargo test (inline #[cfg(test)] modules), Integration: cargo test --test (tests/ directory), Property: proptest, Benchmark: criterion
+
+## Search Strategy
+
+Use available workspace search tools before falling back to file-based search
+(grep, glob, view). Indexed search returns precise results with minimal token
+cost. File-based tools read raw content into the context window, consuming
+tokens proportional to file size.
+
+**Search tool preference order:**
+
+1. When the `agent-engram` capability pack is enabled and reachable: `unified_search`, `query_memory`, `map_code`, `list_symbols`, `impact_analysis`, `query_graph`
+2. Otherwise use workspace-indexed tools (if available): semantic search, symbol lookup, call graphs
+3. File-based fallback: grep, glob, view — only when indexed results are insufficient
+
+## Durable Knowledge Layout
 
 | Path | Purpose |
-|------|---------|
-| `src/lib.rs` | Crate root: module declarations, CLI dispatch via `run()`, operation timing |
-| `src/cli.rs` | `clap` derive definitions: `Cli`, `Commands` enum, all `*Args` structs |
-| `src/schema.rs` | `Schema` model, `ColumnType` enum (10 types), YAML load/save, type inference |
-| `src/data.rs` | `Value` enum, typed parsers (bool, date, time, GUID, currency, decimal) |
-| `src/process.rs` | `process` subcommand: sort, filter, project, derive, write |
-| `src/index.rs` | B-tree index build, `CsvIndex`, `IndexDefinition`, `IndexVariant` |
-| `src/filter.rs` | `FilterCondition`, `ComparisonOperator`, row-level filter parsing |
-| `src/expr.rs` | `evalexpr`-based filter expressions |
-| `src/stats.rs` | Summary statistics for numeric columns |
-| `src/frequency.rs` | Distinct-value frequency counts |
-| `src/append.rs` | Multi-file CSV concatenation with header validation |
-| `src/verify.rs` | Schema verification against CSV files |
-| `src/schema_cmd.rs` | Schema subcommand dispatch: probe, infer, verify, columns, manual create |
-| `src/io_utils.rs` | Reader/writer construction, delimiter/encoding resolution, stdin/stdout |
-| `src/derive.rs` | Derived column expressions (`name=expression`) |
-| `src/rows.rs` | Row-level typed parsing and filter expression evaluation |
-| `src/columns.rs` | Column listing from schema files |
-| `src/join.rs` | Join two CSV files (inner, left, right, full) -- currently commented out |
-| `src/table.rs` | ASCII table rendering for `--preview` and `--table` output |
-| `src/install.rs` | Self-install via `cargo install` |
-| `tests/*.rs` | Integration tests using `assert_cmd` + `predicates` |
-| `tests/data/` | Fixture CSV and schema YAML files |
-| `benches/` | Criterion benchmarks |
-| `docs/` | ADRs, CLI help, operation guides |
-| `specs/` | Feature specifications and task plans |
+|---|---|
+| `docs/compound/` | Reusable learnings and hard-won fixes |
+| `docs/plans/` | Implementation plans |
+| `docs/decisions/` | Durable decisions and investigation outputs |
+| `docs/memory/` | Session memory and checkpoints |
+| `docs/closure/` | Review, runtime verification, and closure artifacts |
+| `docs/design-docs/` | Graduated architecture and design rationale |
+| `docs/product-specs/` | Product-oriented requirements |
 
-## Architecture Rules
+## Session Memory Requirements
 
-* Stream CSV data row-by-row using `csv::Reader`. Never load entire files into memory.
-* Each subcommand follows the pattern: public `execute(args: &XArgs) -> Result<()>` in its own module, dispatched from `lib.rs::run()`.
-* All operations run inside `run_operation()`, which wraps execution with structured timing output (start, end, duration) and outcome logging.
-* Use `anyhow::Result` and `anyhow::Context` for error propagation throughout the codebase. There is no custom error enum; all modules use `anyhow`.
-* Log via `log` crate macros (`info!`, `debug!`, `error!`). The `env_logger` backend initializes once in `init_logging()`. Never `println!` from deep logic; bubble status up to the CLI layer.
-* Exit codes: `0` success, `1` error.
+* Working agent sessions MUST persist output to `docs/memory/` before the session ends — do NOT rely on built-in AI assistant memory features, which write to their own managed locations.
+* When the context window reaches approximately 65% capacity, checkpoint current work before continuing.
+* For long sessions, save memory checkpoints after completing each phase or major task group.
+* Content to capture: task IDs completed, files modified, decisions and rationale, failed approaches, open questions, and next steps.
+* File convention: `docs/memory/{YYYY-MM-DD}/{descriptive-slug}-memory.md`
+* After writing memory, invoke the **compact-context** skill to consolidate stale checkpoints and finalize decided-plans. This is a mandatory workflow step, not advisory.
+* If context has grown from loading multiple skill definitions mid-session, consider invoking **compact-context** proactively before hitting hard thresholds.
 
-## Key Dependencies and Usage
+## Foundational Protocols
 
-| Crate | Role |
-|-------|------|
-| `clap` (derive) | CLI argument parsing; all args in `cli.rs` |
-| `csv` | Streaming CSV read/write with `QuoteStyle::Always` for output |
-| `anyhow` | Error handling (`Result`, `Context`, `bail!`, `ensure!`) |
-| `serde` + `serde_yaml` | Schema YAML serialization/deserialization |
-| `chrono` | Date, time, datetime parsing (`NaiveDate`, `NaiveDateTime`, `NaiveTime`) |
-| `rust_decimal` | Currency and fixed-precision decimal values with rounding |
-| `encoding_rs` | Character encoding detection and transcoding |
-| `evalexpr` | Runtime expression evaluation for `--filter-expr` and `--derive` |
-| `sha2` | Content hashing for snapshot verification |
-| `uuid` | GUID column type parsing |
-| `similar` | Unified diff output for `schema infer --diff` |
-| `itertools` | Iterator combinators |
+| Protocol | Location | When |
+|---|---|---|
+| **Circuit Breaker** | `.github/instructions/circuit-breaker.instructions.md` | All retry loops and failure handling |
+| **Concurrency Control** | `.github/instructions/concurrency.instructions.md` | Multi-agent or human+agent concurrent edits |
+| **Skill Discovery** | `scripts/search.ps1` / `scripts/search.sh` | Finding capabilities by keyword (Primitive 6) |
 
-## Schema and Type System
+## Optional Capability Packs
 
-* Schemas are YAML files (`-schema.yml`) containing version, columns (name, alias, datatype, nullable, precision, format, replacements, mappings), and primary keys.
-* The `ColumnType` enum has 10 variants: `String`, `Integer`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Currency`, `Decimal`, `Guid`.
-* The `Value` enum mirrors `ColumnType` with parsed values plus `Null`.
-* Currency values use `rust_decimal::Decimal` with allowed scales of 2 or 4.
-* Fixed-precision decimals (`DecimalSpec`) carry precision and scale with configurable rounding strategies (truncate, round-half-up).
-* Type inference samples a configurable number of rows (default 2000) and detects types via heuristic parsing order.
-* Column renames and alias mappings resolve at ingestion boundary before any transforms.
+### agent-intercom
 
-## Coding Conventions Specific to This Codebase
+When the workspace enabled the `agent-intercom` capability pack:
 
-* Rust edition 2024: use `let` chains and other stabilized features.
-* Prefer `&str` and `Cow<'_, str>` over `String` cloning. Reuse scratch buffers in hot loops.
-* Delimiter resolution is centralized in `io_utils`: extension-based auto-detection (`.csv` comma, `.tsv` tab) with manual override.
-* The `-` path convention routes through stdin/stdout.
-* `--preview` mode sets a default limit of 10 rows and renders an ASCII table.
-* Use `parse_delimiter()` in `cli.rs` for any new delimiter arguments; it supports named values (`tab`, `pipe`, `semicolon`) and single ASCII characters.
-* Keep function bodies under 100 lines; extract helpers for clarity.
-* Add `//!` module-level Rustdoc to every source file describing scope and complexity.
+* verify the intercom server / tool surface is reachable before depending on remote approval or operator steering
+* call heartbeat / ping at session start and keep it alive during long-running work
+* broadcast major workflow transitions so the operator can observe planning, build, review, verification, and closure progress
+* route destructive terminal commands and destructive file operations through the intercom approval workflow
+* use transmit / standby flows when blocked on operator clarification or when intentionally pausing for instructions
+* if the intercom service is unreachable, warn that remote visibility is degraded and avoid pretending approval or operator awareness exists
 
-## Testing Conventions
+### agent-engram
 
-* Unit tests go in inline `#[cfg(test)]` modules within each source file.
-* Integration tests go in `tests/*.rs`, using `assert_cmd::Command` and `predicates::str::contains` for CLI validation.
-* Fixture helper pattern: `fn fixture_path(name: &str) -> PathBuf` resolving to `tests/data/`.
-* Use `tempfile::tempdir()` for ephemeral outputs; fixture CSVs stay under 50 KB.
-* Property tests use `proptest` (example in `lib.rs::tests`).
-* Benchmarks use `criterion` in `benches/` (run with `cargo bench`).
-* Always test both success and at least one failure path per public function.
-* Add `// Invariant:` comments above test data explaining assumptions.
-* Mark slow tests with `#[ignore]`.
+When the workspace enabled the `agent-engram` capability pack:
 
-## Adding a New Subcommand
+* verify the engram daemon / MCP surface is reachable before depending on indexed lookup
+* prefer engram tools for conceptual search, symbol discovery, call-graph lookup, impact analysis, and workspace-memory retrieval
+* verify the workspace binding state before relying on results; if the daemon auto-binds the workspace, prefer status checks over repeated rebinding
+* use `sync_workspace` or the equivalent freshness operation when code changed outside the expected indexing flow
+* if semantic search is unavailable or degraded, fall back to `list_symbols` + `map_code` + `impact_analysis` before resorting to broad file scans
+* treat `.engram/` generated artifacts as tool-managed state rather than files to hand-edit casually
 
-1. Define a new `*Args` struct in `cli.rs` with `#[derive(Debug, Args)]`.
-2. Add a variant to the `Commands` enum with the doc comment serving as CLI help text.
-3. Create a module (`src/<name>.rs`) with `pub fn execute(args: &XArgs) -> Result<()>`.
-4. Declare the module in `lib.rs` and add the dispatch arm in `run()` using `run_operation()`.
-5. Write integration tests in `tests/` using `assert_cmd`.
+### backlogit
 
-## Adding a New Column Type
+When the workspace enabled the `backlogit` capability pack:
 
-1. Add a variant to `ColumnType` in `schema.rs` and update serde, `FromStr`, `Display`, and the inference order.
-2. Add a corresponding variant to `Value` in `data.rs` with a parsing function.
-3. Update `parse_typed_value()` in `data.rs` and `ComparableValue` ordering.
-4. Add test fixtures with valid and invalid samples.
+* verify the backlogit MCP / CLI surface is reachable before depending on queue, dependency, memory, or traceability operations
+* prefer backlogit query operations for targeted state lookup instead of reading many backlog markdown files into context
+* use backlogit queue and dependency operations when available rather than inferring execution order from prose alone
+* write concise memory summaries and checkpoints through backlogit operations at task and session boundaries when supported
+* append significant task comments and associate commits with task IDs for execution traceability when those operations are available
+* if backlog content was edited outside the normal mutation flow, refresh the backlogit index before relying on query results
 
-## Performance Expectations
+### browser-verification
 
-* All row processing uses streaming iterators; `collect::<Vec<_>>()` on large datasets requires a justifying comment.
-* Index-accelerated reads use seek-based I/O without buffering the full file.
-* In-memory sort is the fallback only when no matching index variant exists.
-* Benchmarks live in `benches/<area>_<operation>.rs` and use `criterion`.
+When the workspace enabled the `browser-verification` capability pack:
 
-## Quality Gates
+* verify the target server or preview environment is reachable before launching browser work
+* choose headed vs headless mode intentionally and record the reason
+* derive browser routes from changed pages, components, or affected user journeys
+* treat OAuth, email, SMS, payments, CAPTCHAs, or other external flows as explicit human checkpoints
+* carry browser findings into runtime verification and operational closure rather than leaving them as informal notes
 
-Run these commands before committing (each as a separate invocation):
+### continuous-learning
 
-1. `cargo fmt --check`
-2. `cargo clippy -- -D warnings`
-3. `cargo test`
+When the workspace enabled the `continuous-learning` capability pack:
 
-## Terminal Command Execution Policy
+* store observation state under `.autoharness/continuous-learning/`
+* keep hook capture optional and environment-specific; manual capture is still valid
+* use `observe` to capture recurring workflow signals, `learn` to infer instincts, and `evolve` to promote mature patterns into `learned-*` artifacts
+* do not harden a rule into a learned instruction or skill until it has enough corroborating observations to justify the promotion
+* treat learned artifacts as explicit repository knowledge rather than invisible prompt-only behavior
 
-Run each terminal command as a separate, standalone invocation. Never chain commands with `;`, `&&`, `||`, or `|` except for output redirection.
+### strict-safety
 
-### Rules
+When the workspace enabled the `strict-safety` capability pack:
 
-1. One command per terminal call.
-2. No `cmd /c` wrappers. Run commands directly in the shell.
-3. No exit-code echo suffixes.
-4. Inspect output and exit code before running the next command.
-5. Always use `pwsh`, never `powershell` or `powershell.exe`.
+* follow `.github/instructions/strict-safety.instructions.md`
+* express risky work as `ProposedAction` entries with `ActionRisk` and `ActionResult`
+* require explicit approval before destructive actions and prefer approval for high-blast-radius actions
+* keep risky action records visible in plan hardening, review, runtime verification, and operational closure
 
-### Allowed Exceptions
+### release-observability
 
-Output redirection is permitted because it is I/O plumbing, not command chaining:
+When the workspace enabled the `release-observability` capability pack:
 
-* Shell redirection operators: `>`, `>>`, `2>&1`
-* Pipe to `Out-File`, `Set-Content`, or `Out-String`
+* follow `.github/instructions/release-observability.instructions.md`
+* produce monitoring plans with SLIs, dashboards, baselines, and alert thresholds before merge
+* complete pre-deploy audit checklists for runtime, migration, or rollout-risk changes
+* define explicit post-deploy observation windows with owner and duration
+* declare rollback triggers with named metrics and thresholds
+* carry all release-observability artifacts into operational closure
 
-### Auto-Approve Patterns
+### adversarial-review
 
-```json
-{
-    ".specify/scripts/bash/": true,
-    ".specify/scripts/powershell/": true,
-    "/^cargo (build|test|run|clippy|fmt|check|doc|update|install|search|publish|login|logout|new|init|add|upgrade|version|help|bench)(\\s[^;|&`]*)?(\\s*(>|>>|2>&1|\\|\\s*(Out-File|Set-Content|Out-String))\\s*[^;|&`]*)*$/": {
-        "approve": true,
-        "matchCommandLine": true
-    },
-    "/^cargo --(help|version|verbose|quiet|release|features)(\\s[^;|&`]*)?$/": {
-        "approve": true,
-        "matchCommandLine": true
-    },
-    "/^git (status|add|commit|diff|log|fetch|pull|push|checkout|branch|--version)(\\s[^;|&`]*)?(\\s*(>|>>|2>&1|\\|\\s*(Out-File|Set-Content|Out-String))\\s*[^;|&`]*)*$/": {
-        "approve": true,
-        "matchCommandLine": true
-    },
-    "/^(Out-File|Set-Content|Add-Content|Get-Content|Get-ChildItem|Copy-Item|Move-Item|New-Item|Test-Path)(\\s[^;|&`]*)?$/": {
-        "approve": true,
-        "matchCommandLine": true
-    },
-    "/^(echo|dir|mkdir|where\\.exe|vsWhere\\.exe|rustup|rustc|refreshenv)(\\s[^;|&`]*)?$/": {
-        "approve": true,
-        "matchCommandLine": true
-    },
-    "/^cmd /c \"cargo (test|check|clippy|fmt|build|doc|bench)(\\s[^;|&`]*)?\"(\\s*[;&|]+\\s*echo\\s.*)?$/": {
-        "approve": true,
-        "matchCommandLine": true
-    }
-}
-```
+When the workspace enabled the `adversarial-review` capability pack:
+
+* follow `.github/instructions/adversarial-review.instructions.md`
+* escalate from standard review when 3+ P0/P1 findings appear or the work is security-sensitive
+* dispatch parallel reviewer instances across different model tiers for cross-model diversity
+* assemble consensus-weighted findings (HIGH / MEDIUM / LOW confidence)
+* treat HIGH-confidence P0/P1 findings as gate-blocking
+* feed remediation queue entries into backlog
+
+## Remote Operator Integration
+
+### agent-intercom
+
+When `agent-intercom` is available:
+
+* Call `ping` at the start of any multi-step session to confirm liveness.
+* Broadcast progress at meaningful phase transitions — do not broadcast every trivial step.
+* Route approval for destructive actions through the intercom approval workflow before executing.
+* If intercom becomes unreachable mid-task, warn that operator visibility is degraded and continue only with safe, non-destructive work.
+
+The `ping-loop.prompt.md` prompt is available in `.github/prompts/` for sustained heartbeat sessions when the pack is installed.
+
+### agent-engram
+
+When `agent-engram` is available:
+
+* Verify workspace binding before relying on indexed results.
+* If the workspace is not bound or indexed, run `sync_workspace` or the workspace's equivalent freshness operation before searching.
+* Fall back to grep, glob, or direct file reads only when indexed results are unavailable or insufficient.
+
+## Backlog Workflow Expectations
+
+When a backlog tool is active in the workspace:
+
+* prefer queue-aware and dependency-aware operations over prose-only sequencing when the tool surface supports them
+* use comments, checkpoints, and commit-tracking operations when they add traceability
+* refresh the backlog index or query cache after out-of-band edits before trusting query results
+* avoid inventing parallel markdown trackers outside the configured backlog tool surface
+
+Generated by autoharness | Template: copilot-instructions.md.tmpl

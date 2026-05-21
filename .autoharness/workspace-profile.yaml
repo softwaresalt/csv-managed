@@ -1,0 +1,228 @@
+# .autoharness/workspace-profile.yaml
+schema_version: "1.0.0"
+generated_at: "2026-05-21T10:12:00-05:00"
+workspace_path: "D:\\Source\\GitHub\\csv-managed"
+
+languages:
+  primary: "Rust"
+  version: "2024"
+  secondary: []
+
+frameworks:
+  list: []
+  mcp_sdk: null
+  mcp_transport: null
+
+primary_stack_pack: "cli-tool"
+stack_packs:
+  - "cli-tool"
+
+build:
+  tool: "cargo"
+  command: "cargo build"
+  check_command: "cargo check --all-targets"
+
+test:
+  runner: "cargo test"
+  command: "cargo test"
+  directory: "tests/"
+
+lint:
+  tool: "clippy"
+  command: "cargo clippy -- -D warnings"
+
+format:
+  tool: "rustfmt"
+  command: "cargo fmt --all -- --check"
+  check_command: "cargo fmt --all -- --check"
+
+ci:
+  platform: "GitHub Actions"
+  pipeline_steps:
+    - "checkout"
+    - "install-toolchain"
+    - "cache-registry"
+    - "cache-build"
+    - "fmt-check"
+    - "clippy"
+    - "test"
+    - "build-release"
+  quality_gates:
+    - name: "fmt"
+      command: "cargo fmt -- --check"
+    - name: "clippy"
+      command: "cargo clippy --all-targets --all-features -- -D warnings"
+    - name: "test"
+      command: "cargo test --all-targets --all-features"
+    - name: "build"
+      command: "cargo build --release"
+  poll_interval: 30
+  max_wait: 600
+  notes: "GitHub Actions with cargo caching, single lint-test job"
+
+structure:
+  source_layout: "src/"
+  test_layout: "tests/"
+  doc_layout: "docs/"
+  existing_harness_artifacts:
+    - ".github/agents/ (18 agent files — speckit suite, build-orchestrator, rpi-agent, etc.)"
+    - ".github/instructions/rust.instructions.md"
+    - ".github/skills/build-feature/, compact-context/"
+    - ".github/prompts/ (9 speckit prompt files)"
+    - ".github/copilot-instructions.md"
+
+runtime_surfaces:
+  web_ui: false
+  public_api: false
+  background_jobs: false
+  browser_tooling: []
+  deployment_manifests: []
+
+conventions:
+  code_style:
+    edition: "2024"
+    error_handling: "anyhow::Result with Context"
+    logging: "log crate macros (info!, debug!, error!) with env_logger"
+    streaming: "Row-by-row CSV streaming, never load entire files"
+    function_size: "Under 100 lines"
+    string_handling: "Prefer &str and Cow<'_, str> over String cloning"
+  git:
+    remote: "https://github.com/softwaresalt/csv-managed.git"
+    default_branch: "main"
+    commit_style: "conventional"
+  documentation:
+    style: "/// doc comments, //! module-level Rustdoc"
+    adr_location: "docs/decisions/"
+    api_docs: "rustdoc"
+
+tools:
+  markdownlint: false
+  markdownlint_config: null
+
+agent_intercom:
+  detected: false
+  mcp_configured: false
+  config_paths: []
+  instruction_markers: []
+  recommended: false
+
+agent_engram:
+  detected: true
+  mcp_configured: true
+  config_paths:
+    - ".vscode/mcp.json"
+  instruction_markers:
+    - "copilot-instructions.md contains engram:start/engram:end markers"
+  recommended: true
+
+agent_native:
+  detected: false
+  mcp_sdk_present: false
+  mcp_transport: null
+  agent_tooling_markers: []
+  user_agent_parity_required: false
+  recommended_reviewer: false
+
+graphtor_docs:
+  detected: false
+  mcp_configured: false
+  sources_path: null
+  binary_on_path: false
+
+backlog_tool:
+  detected: false
+  tool_name: "backlogit"
+  directory: ".backlogit"
+  tool_type: "both"
+  mcp_registered: false
+  cli_available: false
+  config_path: null
+  registry_path: null
+  status_values:
+    - "queued"
+    - "active"
+    - "done"
+    - "blocked"
+  features:
+    sql_query: true
+    shipments: true
+    stash: true
+    checkpoints: true
+    comments: true
+    dependencies: true
+    telemetry: true
+
+vscode:
+  detected: true
+  user_settings_path: "C:\\Users\\derek.williams\\AppData\\Roaming\\Code\\User\\settings.json"
+  has_agent_settings: false
+
+strict_safety_signals: []
+release_observability_signals: []
+
+harness_recommendations:
+  preset: "full"
+  project_description: "High-performance Rust CLI (edition 2024) that streams, transforms, validates, indexes, and profiles large CSV/TSV datasets"
+  capability_packs:
+    - "backlogit"
+    - "agent-engram"
+    - "continuous-learning"
+    - "strict-safety"
+    - "release-observability"
+    - "adversarial-review"
+  install_layers:
+    - "foundation"
+    - "instructions"
+    - "workflow"
+    - "review"
+    - "runtime"
+    - "backlog"
+    - "knowledge"
+    - "overlays"
+  recommendation_reasons:
+    preset:
+      - "Operator config specifies full preset"
+    capability_packs:
+      - "backlogit: operator config specifies backlogit"
+      - "agent-engram: MCP configured in .vscode/mcp.json, engram markers in copilot-instructions.md"
+      - "continuous-learning: operator config specifies"
+      - "strict-safety: operator config specifies"
+      - "release-observability: operator config specifies"
+      - "adversarial-review: operator config specifies"
+      - "graphtor-docs: operator config specifies but no graphtor artifacts detected in workspace"
+
+existing_harness:
+  has_harness: true
+  artifacts:
+    - path: ".github/agents/build-orchestrator.agent.md"
+    - path: ".github/agents/pr-review.agent.md"
+    - path: ".github/agents/rpi-agent.agent.md"
+    - path: ".github/agents/rust-engineer.agent.md"
+    - path: ".github/agents/speckit.analyze.agent.md"
+    - path: ".github/agents/speckit.checklist.agent.md"
+    - path: ".github/agents/speckit.clarify.agent.md"
+    - path: ".github/agents/speckit.constitution.agent.md"
+    - path: ".github/agents/speckit.implement.agent.md"
+    - path: ".github/agents/speckit.plan.agent.md"
+    - path: ".github/agents/speckit.specify.agent.md"
+    - path: ".github/agents/speckit.tasks.agent.md"
+    - path: ".github/agents/speckit.taskstoissues.agent.md"
+    - path: ".github/agents/task-implementor.agent.md"
+    - path: ".github/agents/task-planner.agent.md"
+    - path: ".github/agents/task-researcher.agent.md"
+    - path: ".github/agents/task-reviewer.agent.md"
+    - path: ".github/agents/copilot-instructions.md"
+    - path: ".github/instructions/rust.instructions.md"
+    - path: ".github/skills/build-feature/SKILL.md"
+    - path: ".github/skills/compact-context/SKILL.md"
+    - path: ".github/prompts/speckit.analyze.prompt.md"
+    - path: ".github/prompts/speckit.checklist.prompt.md"
+    - path: ".github/prompts/speckit.clarify.prompt.md"
+    - path: ".github/prompts/speckit.constitution.prompt.md"
+    - path: ".github/prompts/speckit.implement.prompt.md"
+    - path: ".github/prompts/speckit.plan.prompt.md"
+    - path: ".github/prompts/speckit.specify.prompt.md"
+    - path: ".github/prompts/speckit.tasks.prompt.md"
+    - path: ".github/prompts/speckit.taskstoissues.prompt.md"
+
+drift_report: null

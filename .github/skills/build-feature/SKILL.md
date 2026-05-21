@@ -1,287 +1,153 @@
 ---
-name: build-feature
-description: "Usage: Build feature {spec-name} phase {phase-number}. Implements a single phase from the spec's task plan, iterating build-test cycles until the phase passes its constitution gate, then records memory, logs decisions, and commits."
-version: 1.0
-maturity: stable
-input:
-  properties:
-    spec-name:
-      type: string
-      description: "Directory name of the feature spec under specs/ (e.g., 001-batch-processing)."
-    phase-number:
-      type: integer
-      description: "Phase number to build from the spec's tasks.md (e.g., 6 for Phase 6)."
-  required:
-    - spec-name
-    - phase-number
+description: "Execute a harness loop — iteratively run tests, capture failures, fix code, and repeat until the harness passes or the circuit breaker trips"
 ---
 
-# Build Feature Skill
+## Build Feature
 
-Implements a single phase from a feature specification's task plan. The workflow iterates through build-test cycles until the phase satisfies its constitution gate, then records session memory, logs architectural decisions, and commits all changes.
+Implement a requested feature by continuously looping against a strict, compiling, but failing test harness until all tests pass.
 
-## Prerequisites
+## When to Use
 
-* A feature spec directory exists at `specs/${input:spec-name}/` containing `plan.md`, `spec.md`, and `tasks.md`
-* The target phase exists in `tasks.md` with defined tasks
-* The project compiles before starting (`cargo check` passes)
-* The `.github/agents/copilot-instructions.md` constitution and coding standards are accessible
+Invoked by the ship agent when a task has the `harness-ready` label. Not invoked directly by users.
 
-## Quick Start
+## Inputs
 
-Invoke the skill with both required parameters:
+* `task_id`: (Required) The backlog task ID to implement.
+* `harness_cmd`: (Required) The test command to run (e.g., `cargo test`).
 
-```text
-Build feature 001-<spec-name> phase <phase-number>
-```
+## Output
 
-The skill runs autonomously through all required steps, halting only on unrecoverable errors or constitution violations requiring human judgment.
+* All harness tests passing
+* Code changes committed
+* Task marked complete in backlog
 
-## Parameters Reference
+## Required Protocol
 
-| Parameter      | Required | Type    | Description                                                        |
-| -------------- | -------- | ------- | ------------------------------------------------------------------ |
-| `spec-name`    | Yes      | string  | Directory name under `specs/` containing the feature specification |
-| `phase-number` | Yes      | integer | Phase number from `tasks.md` to implement                          |
+When the `agent-intercom` capability pack is installed, follow
+`.github/instructions/agent-intercom.instructions.md` throughout the loop: establish heartbeat /
+ping visibility up front, broadcast meaningful attempt transitions, and route any destructive
+actions through the intercom approval path rather than improvising local-only approval.
 
-## Required Steps
+When the `agent-engram` capability pack is installed, follow
+`.github/instructions/agent-engram.instructions.md` throughout the loop: prefer indexed symbol and
+impact lookup while diagnosing failures, verify the workspace is bound before trusting engram
+results, and refresh stale indexes before concluding the code graph is wrong.
 
-### Step 1: Load Phase Context
+### The Harness Loop (5-Attempt Circuit Breaker)
 
-* Read `specs/${input:spec-name}/tasks.md` and extract all tasks for the specified phase.
-* Read `specs/${input:spec-name}/plan.md` for architecture, tech stack, and project structure.
-* Read `specs/${input:spec-name}/spec.md` for user stories and acceptance scenarios relevant to this phase.
-* Read `specs/${input:spec-name}/data-model.md` if it exists, for entity definitions and relationships.
-* Read `specs/${input:spec-name}/contracts/` if it exists, for API specifications and error codes.
-* Read `specs/${input:spec-name}/research.md` if it exists, for technical decisions and constraints.
-* Read `specs/${input:spec-name}/quickstart.md` if it exists, for integration scenarios.
-* Read `.github/agents/copilot-instructions.md` for the project constitution, coding standards, and session memory requirements.
-* Read `.github/agents/rust-engineer.agent.md` for language-specific engineering standards.
-* Read `.github/instructions/rust.instructions.md` for general Rust coding conventions.
-* Build a task execution list respecting dependencies: sequential tasks run in order, tasks marked `[P]` can run in parallel.
-* Identify which tasks are tests and which are implementation; TDD order means test tasks execute before their corresponding implementation tasks.
-* Report a summary of the phase scope: task count, estimated files affected, and user story coverage.
+**Before entering the loop**: Read coding standards once — constitution Principle I
+and `rust.instructions.md`. These apply to all fix attempts.
+Do not re-read the full standards on every iteration; only do a targeted re-read
+if working on a file in an unfamiliar module or if the error pattern changes.
 
-### Step 2: Check Constitution Gate
-
-* Read `specs/${input:spec-name}/plan.md` and locate the Constitution Check table.
-* Verify every principle listed in the table is satisfied for the work about to begin.
-* If `specs/${input:spec-name}/checklists/` exists, scan all checklist files and for each checklist count:
-  * Total items: all lines matching `- [ ]` or `- [X]` or `- [x]`
-  * Completed items: lines matching `- [X]` or `- [x]`
-  * Incomplete items: lines matching `- [ ]`
-* Create a status table:
+This loop is a skill-managed exception to the universal 3-retry circuit breaker
+(per `circuit-breaker.instructions.md`). The 5-attempt limit governs within this
+loop scope. However, if the **same error** recurs on attempts 3+, the universal
+circuit breaker applies: stop and escalate.
 
 ```text
-| Checklist   | Total | Completed | Incomplete | Status |
-|-------------|-------|-----------|------------|--------|
-| ux.md       | 12    | 12        | 0          | PASS   |
-| test.md     | 8     | 5         | 3          | FAIL   |
-| security.md | 6     | 6         | 0          | PASS   |
+Attempt 1..5:
+  1. Run harness_cmd → capture stdout/stderr
+  2. If all tests pass → SUCCESS → exit loop
+  3. Parse failure output → identify failing tests and error messages
+  4. If error is substantially identical to previous attempt → check same-error recurrence limit
+  5. Fix the code to address the specific failure
+  6. Verify compilation: cargo check --all-targets
+  7. If compilation fails → fix compilation errors first
+  8. Loop back to step 1
+
+After 5 failures → mark task as BLOCKED → exit
 ```
 
-* If any constitution principle is violated or any required checklist is incomplete, halt and report the violation with actionable remediation steps.
-* If all gates pass, proceed to Step 3.
+### Step-by-Step Detail
 
-### Step 3: Build Phase (Iterative)
+#### Step 1: Run the Harness
 
-Execute tasks in dependency order following TDD discipline:
+Execute `harness_cmd` and capture the full output. Record execution time.
 
-1. For each task group (tests first, then implementation):
-   * Classify the task type to determine which coding constraints apply:
-     * Schema tasks (touching `schema.rs`, `schema_cmd.rs`, `verify.rs`, `columns.rs`): Apply Schema and Error Handling constraints from the Coding Standards section below.
-     * Processing tasks (touching `process.rs`, `filter.rs`, `derive.rs`, `rows.rs`): Apply Processing Pipeline and Error Handling constraints.
-     * I/O tasks (touching `io_utils.rs`, `append.rs`): Apply I/O and Error Handling constraints.
-     * Index tasks (touching `index.rs`): Apply Index and Error Handling constraints.
-     * Expression tasks (touching `expr.rs`): Apply Expression Engine and Error Handling constraints.
-     * CLI tasks (touching `cli.rs`, `lib.rs`): Apply CLI and Error Handling constraints.
-   * Read any existing source files that the task modifies.
-   * For test tasks: write the test first, then run it and **confirm the test fails** before implementing the production code (red-green TDD).
-   * Implement the task following the coding standards from the rust-engineer agent, injecting only the task-type-specific constraints identified above.
-   * After implementing each task, run `cargo check` to verify compilation.
-   * If compilation fails, diagnose the error, fix it, and re-run `cargo check` until it passes.
-   * A task is complete only when `cargo check` passes **and** relevant tests pass. Mark the completed task as `[X]` in `specs/${input:spec-name}/tasks.md`.
+**Stall timeouts**:
 
-2. Follow these implementation rules:
-   * Setup tasks first (project structure, dependencies, configuration).
-   * Test tasks before their corresponding implementation tasks (TDD).
-   * Respect `[P]` markers: parallel tasks touching different files can be implemented together.
-   * Sequential tasks (no `[P]` marker) must complete in listed order.
-   * Tasks affecting the same files must run sequentially regardless of markers.
+* Build/test commands: 45 minutes
+* Other commands: 5 minutes
 
-3. Error handling during build:
-   * Halt execution if any sequential task fails. Do not proceed to the next task until the failure is resolved.
-   * For parallel tasks `[P]`, continue with successful tasks and report failed ones.
-   * Provide clear error messages with context for debugging.
-   * If implementation cannot proceed, report the blocker and suggest next steps.
+If the command exceeds the timeout, terminate and count it as a failed attempt.
 
-4. Track architectural decisions made during implementation for recording in Step 6.
+#### Step 2: Evaluate Results
 
-### Step 4: Test Phase (Iterative)
+If all tests pass, proceed to quality gates.
 
-Run the full test suite and iterate until all tests pass:
+#### Step 3: Parse Failures
 
-1. Run `cargo test --all-targets --all-features` to execute all test suites.
-2. If any test fails:
-   * Diagnose the failure from the test output.
-   * Fix the implementation (not the test, unless the test itself has a bug).
-   * Re-run `cargo test --all-targets --all-features` to verify the fix.
-   * Repeat until all tests pass.
-3. Run `cargo clippy --all-targets --all-features -- -D warnings` to verify lint compliance.
-4. If clippy reports warnings or errors, fix them and re-run until clean.
-5. Run `cargo fmt --all -- --check` to verify formatting.
-6. If formatting violations exist, run `cargo fmt --all` and verify.
-7. Report final test results: suite counts, pass rates, and any notable findings.
+Extract from the test output:
 
-Return to Step 3 if test failures reveal missing implementation work. Continue iterating between Step 3 and Step 4 until both build and test pass cleanly.
+* Which tests failed
+* The assertion or error message
+* The file and line where the failure occurred
+* The expected vs. actual values (if applicable)
 
-### Step 5: Constitution Validation
+When the `agent-engram` capability pack is installed, use engram-first lookup to inspect symbols,
+callers, and affected regions before expanding into broader file-based searches.
 
-Re-check the constitution after implementation is complete:
+#### Step 4: Re-read Standards
 
-* Verify no `unsafe` blocks were introduced.
-* Verify no `unwrap()` or `expect()` calls exist in library code paths (test code is acceptable).
-* Verify all new public items have `///` doc comments.
-* Verify error handling uses `anyhow::Result` with `.with_context()` on fallible calls.
-* Verify new `ColumnType` variants (if any) have corresponding `data::Value` variants and vice versa.
-* Verify streaming code paths use forward-only CSV iteration and do not buffer entire datasets.
-* If any violation is found, return to Step 3 to remediate before proceeding.
+Before writing any fix, re-read the relevant coding standards:
 
-### Step 6: Record Architectural Decisions
+* Constitution Principle I (safety-first language practices)
+* Technology-specific instructions (`rust.instructions.md`)
+* Any instruction files matching the files being modified
 
-For each significant decision made during the build phase:
+#### Step 5: Fix the Code
 
-* Create an ADR file in `docs/adrs/` following the naming convention `NNNN-{short-title}.md` where `NNNN` is the next sequential number (zero-padded to 4 digits).
-* Each ADR includes:
-  * Title describing the decision
-  * Status (Accepted)
-  * Context explaining the problem or situation
-  * Decision made and rationale
-  * Consequences (positive, negative, and risks)
-  * Date and the phase/task that prompted the decision
-* Decisions worth recording include: dependency choices, CLI design trade-offs, schema format changes, index format changes, expression engine extensions, streaming vs buffering trade-offs, and delimiter/encoding handling decisions.
-* Skip this step if no significant architectural decisions were made during the phase.
+Apply targeted fixes to address the specific test failure. Do NOT:
 
-### Step 7: Record Session Memory
+* Modify the test to make it pass (tests are the specification)
+* Add unrelated changes
+* Refactor code not related to the failure
+* Skip error handling to shortcut a fix
 
-Persist the full session details to `.copilot-tracking/memory/` following the project's session memory requirements:
+If the root cause is still unclear after repeated attempts, or the task touches a risky subsystem, invoke **safety-modes** in `investigate-first` or `freeze-scope` mode before continuing.
 
-* Create a memory file at `.copilot-tracking/memory/{YYYY-MM-DD}/{spec-name}-phase-{N}-memory.md` where the date is today and N is the phase number.
-* The memory file includes:
-  * Task Overview: phase scope and objectives
-  * Current State: all tasks completed, files modified, test results
-  * Important Discoveries: decisions made, failed approaches, CSV parsing or expression engine quirks encountered
-  * Next Steps: what the next phase should address, any open questions, known issues
-  * Context to Preserve: source file references, agent references, unresolved questions
-* Use the existing memory files in `.copilot-tracking/memory/` as format examples.
+#### Step 6: Verify Compilation
 
-### Step 8: Stage and Commit
+Run `cargo check --all-targets` to confirm the fix compiles. If compilation fails, fix compilation errors before returning to the harness loop.
 
-1. Review all changes made during the phase to ensure they align with the completed tasks and constitution.
-2. Review the ADRs created in Step 6 for clarity and completeness.
-3. Review all steps to ensure that no steps have been missed and address any missing steps in the sequence before proceeding.
-4. Review the session memory file for completeness and accuracy.
+### Post-Loop Quality Gates
 
-### Step 9: Stage, Commit, and Sync
+After the harness passes:
 
-Finalize all changes with a Git commit:
+1. **Lint**: `cargo clippy -- -D warnings`
+2. **Format**: `cargo fmt --all -- --check`
+   * If violations found: `cargo fmt --all` and re-check
+3. **Full test suite**: `cargo test`
 
-1. Accept all current diff changes (no interactive review).
-2. Run `git add -A` to stage all modified, created, and deleted files.
-3. Compose a commit message following these conventions:
-   * Format: `feat({spec-name}): complete phase {N} - {phase title}`
-   * Body: list of completed task IDs and a brief summary of what was built
-   * Footer: reference the spec path and any relevant ADR numbers
-4. Run `git commit` with the composed message.
-5. Run `git push` to sync the commit to the remote repository.
-6. Report the commit hash and a summary of changes committed.
+### Commit
 
-### Step 10: Compact Context
+If all quality gates pass:
 
-Compact the current session to preserve state and reclaim context window space.
+1. Stage all changes
+2. Create a conventional commit message referencing the task ID
+3. Report success to the caller
 
-1. Run the `compact-context` skill (located at `.github/skills/compact-context/SKILL.md`).
-2. Follow all steps defined in that skill: gather session state, write checkpoint, report, and compact.
+## Behavioral Constraints
 
-## Troubleshooting
+* No subagent spawning (leaf executor)
+* Never modify test files (tests are the specification)
+* Maximum 5 attempts before circuit breaker trips (skill-managed exception; see `circuit-breaker.instructions.md`)
+* Same-error recurrence at attempt 3+ triggers the universal circuit breaker
+* Read coding standards once at task start; targeted re-read for unfamiliar modules
+* One file change per tool call; broadcast after each write
+* When the `agent-intercom` capability pack is installed, use intercom broadcasts for attempt milestones and file-write visibility
 
-### Tests pass locally but fail in CI
+## Quality Criteria
 
-Verify the Rust toolchain matches CI configuration in `.github/workflows/ci.yml`. CI runs `cargo test --all-targets --all-features` and `cargo clippy --all-targets --all-features -- -D warnings`.
+* All harness tests pass
+* No lint violations
+* No format violations
+* Full test suite passes
+* Changes are scoped to the task requirements
 
-### Index deserialization errors
+## Model Routing
 
-If `.idx` files fail to load after format changes, check that `INDEX_VERSION` in `index.rs` was incremented and old index files are regenerated.
+This skill operates at **Tier 2 (Standard)** — routine build loop execution and quality verification.
 
-### Delimiter or encoding issues in tests
-
-Use `write_sample_csv(delimiter)` for temp files and `fixture_path(name)` for test data. Verify delimiter auto-detection matches the file extension (`.csv` → comma, `.tsv` → tab).
-
-### Constitution violation detected
-
-Return to Step 3 and fix the violation before proceeding. Common violations include `unwrap()` usage in library code, missing doc comments on public items, `unsafe` blocks, and buffering entire datasets in streaming code paths.
-
-## Coding Standards
-
-These rules are injected into each task based on its type classification in Step 3.
-
-### General Rust
-
-* Avoid `unsafe` code
-* Prefer borrowing over cloning
-* Use `anyhow::Result<()>` for all fallible functions; attach `.with_context()` at boundaries
-
-### Error Handling
-
-* `anyhow` is the primary error mechanism throughout binary and library code
-* Use `anyhow!()` / `bail!()` for contextual errors
-* Error messages should include relevant file paths or column names
-
-### Schema
-
-* Schema files are YAML (`*-schema.yml`), deserialized with `serde_yaml` into `Schema`
-* `ColumnType` enum has 8 variants: String, Integer, Float, Boolean, Date, DateTime, Time, Guid
-* `data::Value` mirrors `ColumnType` — keep them in sync when adding new types
-* Schema supports column rename via `mapping`, per-column `replace` arrays, and `datatype_mappings`
-
-### Processing Pipeline
-
-* Streaming first: use forward-only CSV iteration, do not buffer entire datasets
-* Index-assisted reads select the longest matching sort prefix to avoid in-memory sorting
-* Normalization order: datatype_mappings → replace mappings → typed parse → filter → project → derive → write
-
-### I/O
-
-* All I/O flows through `io_utils` — delimiter resolution, encoding resolution, CSV reader/writer construction
-* `encoding_rs` handles character encoding; default is UTF-8
-* CSV writers use `QuoteStyle::Always` for quote safety
-* Stdin/stdout streaming via `-` path convention
-
-### Index
-
-* Binary `.idx` files serialized with `bincode`, versioned via `INDEX_VERSION`
-* Multi-variant B-tree supporting mixed asc/desc sort directions
-* Increment `INDEX_VERSION` when changing the serialization format
-
-### Expression Engine
-
-* `evalexpr` crate with temporal helper functions registered in `expr.rs`
-* Shared by `--derive` and `--filter-expr` via `build_context()` and `evaluate_expression_to_bool()`
-* New helper functions must be registered in `register_temporal_functions()`
-
-### CLI
-
-* Defined via `clap` derive macros in `cli.rs`
-* Each subcommand has its own `*Args` struct
-* `preprocess_cli_args` in `lib.rs` handles special argument expansion
-
-### Architecture Awareness
-
-* CLI framework: `clap` 4 with derive macros; subcommands: `schema`, `index`, `process`, `append`, `stats`, `install`
-* Entry point: `main.rs` → `lib.rs::run()` → `Commands` enum dispatch
-* Type system: `schema::ColumnType` ↔ `data::Value` (mirrored enums)
-* Entirely synchronous — no async runtime
-
----
-
-Proceed with the user's request by executing the Required Steps in order for the specified `spec-name` and `phase-number`.
+Generated by autoharness | Template: build-feature/SKILL.md.tmpl

@@ -1,0 +1,3 @@
+{
+  "legacy-docs-migration": "Migrated legacy docs into docs/plans, docs/decisions, docs/design-docs, docs/product-specs, and docs/closure; updated README and instruction references; quality gates passed."
+}
