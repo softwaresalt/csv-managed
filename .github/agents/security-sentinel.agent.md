@@ -6,9 +6,9 @@ tools: read, search, terminal, edit
 model_routing: "Tier 3 (Frontier)"  # DEPRECATED — use model_tier
 model_tier: 3
 max_subagent_tier: 3
-reasoning_effort: "{{TIER_3_REASONING_EFFORT}}"
-model_provider: "{{TIER_3_PROVIDER}}"
-model_family: "{{TIER_3_FAMILY}}"
+reasoning_effort: ""
+model_provider: ""
+model_family: "claude-opus-4.6"
 subagent_depth: 0
 ---
 

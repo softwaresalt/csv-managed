@@ -6,9 +6,9 @@ tools: vscode, execute, read, edit, search
 model_routing: "Tier 2 (Standard)"  # DEPRECATED — use model_tier
 model_tier: 2
 max_subagent_tier: 2
-reasoning_effort: "{{TIER_2_REASONING_EFFORT}}"
-model_provider: "{{TIER_2_PROVIDER}}"
-model_family: "{{TIER_2_FAMILY}}"
+reasoning_effort: ""
+model_provider: ""
+model_family: "claude-sonnet-4.6"
 subagent_depth: 0
 ---
 

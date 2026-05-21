@@ -386,9 +386,9 @@ After all tasks in the queue are complete:
              }
            }'
            Confirm isResolved: true in the response.
-     9. Poll for Copilot re-review completion (max wait: {{CI_MAX_WAIT}}s):
+     9. Poll for Copilot re-review completion (max wait: 600s):
         Query the PR's latest review status. If the Copilot review has not
-        yet posted new comments after the push, wait {{CI_POLL_INTERVAL}}s
+        yet posted new comments after the push, wait 30s
         and re-check. Exit the wait when either new comments appear or
         the max wait is reached.
      10. review_fix_cycle += 1

@@ -6,9 +6,9 @@ tools: vscode, execute, read, edit, search
 model_routing: "Tier 1 (Fast/Cheap)"  # DEPRECATED — use model_tier
 model_tier: 1
 max_subagent_tier: 1
-reasoning_effort: "{{TIER_1_REASONING_EFFORT}}"
-model_provider: "{{TIER_1_PROVIDER}}"
-model_family: "{{TIER_1_FAMILY}}"
+reasoning_effort: ""
+model_provider: ""
+model_family: "gpt-5.4-mini"
 subagent_depth: 0
 ---
 
