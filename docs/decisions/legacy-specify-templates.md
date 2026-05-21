@@ -13,7 +13,7 @@ backlogit + autoharness migration. They are superseded by the templates in
 
 | Template | Purpose | New Equivalent |
 |----------|---------|----------------|
-| `agent-file-template.md` | Agent definition scaffold | `.github/agents/*.agent.md` |
+| `agent-file-template.md` | Agent definition scaffold | `.github/agents/*.agent.md` + `AGENTS.md` |
 | `checklist-template.md` | Quality checklist scaffold | Review skill personas |
 | `constitution-template.md` | Constitution scaffold | `.github/instructions/constitution.instructions.md` |
 | `plan-template.md` | Implementation plan scaffold | `impl-plan` skill |
