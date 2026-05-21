@@ -3,9 +3,9 @@
 
 ## Review Status
 
-* Phase: 2 (Analyze Changes — complete)
-* Last Updated: 2026-02-14
-* Summary: Full baseline codebase review of 21 source files (~9,400 LOC) across 13 phases of feature implementation
+* Phase: Complete ✅
+* Last Updated: 2026-03-06
+* Summary: Full baseline codebase review of 21 source files (~10,700 LOC). All 7 prior RI items resolved. NEW-01 fixed (schema.rs:1751 unwrap removed). NEW-02 documented as non-blocking follow-up. Quality gates: build ✅ clippy -D warnings ✅ tests 229/229 ✅ fmt ✅
 
 ## Branch and Metadata
 
@@ -50,7 +50,57 @@
 
 ### 🔍 In Review
 
-_Items queued for Phase 3 collaborative review below._
+_All prior items resolved. New items below._
+
+#### NEW-01: `.unwrap()` in production code — `schema.rs:1751`
+
+* File: `src/schema.rs`
+* Lines: 1751
+* Category: Convention
+* Severity: LOW
+
+**Description**: `chars.first().copied().unwrap()` in `build_header_aliases()` (private function). The `!sanitized.is_empty()` guard on line 1747 makes this logically infallible, but it still violates the no-unwrap convention. The `Vec<char>` intermediate allocation also adds a small heap cost on every header; this can be replaced with a direct `chars()` call.
+
+**Suggested Resolution**:
+```rust
+// Replace lines 1749–1754 with:
+if sanitized.len() >= 2 {
+    let mut ch_iter = sanitized.chars();
+    if let (Some(first), Some(last)) = (ch_iter.next(), ch_iter.last().or(ch_iter.next())) {
+        try_insert(&format!("{first}{last}"));
+    }
+}
+```
+Or more simply:
+```rust
+if sanitized.len() >= 2 {
+    let first = sanitized.chars().next().expect("sanitized is non-empty by guard");
+    let last  = sanitized.chars().next_back().unwrap_or(first);
+    try_insert(&format!("{first}{last}"));
+}
+```
+The cleanest idiomatic fix removes the `Vec<char>` entirely. Either eliminates the `unwrap()`.
+
+---
+
+#### NEW-02: 216 public items lack `///` Rustdoc comments
+
+* Files: `src/data.rs`, `src/schema.rs`, `src/io_utils.rs`, `src/process.rs`, `src/cli.rs`, `src/join.rs`, and others
+* Category: Documentation / Convention
+* Severity: LOW
+
+**Description**: Running `RUSTFLAGS="-W missing-docs" cargo build` reports **216 warnings** covering missing doc comments on public functions (36), methods (46+11), structs (27), struct fields (49), enum variants (35), enums (9), and constants (3). The project constitution requires `///` Rustdoc on all public items. While module-level `//!` comments were added (RI-07 fixed), per-item inline docs are absent for most types.
+
+Representative examples:
+- `src/data.rs`: `pub fn parse_naive_date`, `pub struct FixedDecimalValue`, all its methods, `pub fn parse_typed_value`, `pub fn value_to_evalexpr`, etc.
+- `src/io_utils.rs`: all 10+ public functions
+- `src/schema.rs`: `pub struct CsvLayout`, `pub enum PlaceholderPolicy`, `pub struct DecimalSpec`, `pub enum ColumnType` (and most variants), etc.
+- `src/cli.rs`: `pub struct Cli`, `pub enum Commands`, all arg structs and their fields
+- `src/join.rs`: `pub fn execute`, `pub enum JoinKind`, `pub struct JoinArgs`
+
+**Suggested Resolution**: Sweep all `pub` items in each module and add concise `///` one-line summaries. Struct fields used in serde deserialization benefit especially from docs as they appear in generated help text. As a pragmatic starting point, add `#![deny(missing_docs)]` to `lib.rs` gated by `#[cfg(doc)]` to make this a gate on doc builds.
+
+---
 
 #### RI-01: Value::Ord panics on heterogeneous variants
 
@@ -152,7 +202,33 @@ _Items queued for Phase 3 collaborative review below._
 
 ### ✅ Approved for PR Comment
 
-_None yet — pending Phase 3 decisions._
+#### RI-01 — FIXED ✅
+`Value::Ord` heterogeneous panic removed. Fallback now uses `variant_index().cmp()` at `data.rs:291`. `Float` comparison upgraded to `total_cmp` at `data.rs:283`.
+
+#### RI-02 — FIXED ✅
+`unsafe { from_utf8_unchecked }` replaced with safe `from_utf8(...).map_err(...)` at `io_utils.rs:197–198`. Zero unsafe code remains in the codebase.
+
+#### RI-03 — FIXED ✅
+Three `.expect()` calls in `schema_cmd.rs` production code replaced:
+- L231: `.context("Preview requires serialized YAML output")?`
+- L276: `.context("Diff requires serialized YAML output")?`
+- L431: `.ok_or_else(|| anyhow!("Column '{column_name}' not found in schema"))?`
+
+#### RI-04 — FIXED ✅
+`partial_cmp().unwrap()` in `stats.rs:349` replaced with `total_cmp` (NaN-safe, stable since Rust 1.62).
+
+#### RI-05 — FIXED ✅
+Two `.expect()` calls in `frequency.rs:154,158` replaced with `.context(...)` + `?`.
+
+#### RI-06 — FIXED ✅
+Four `.expect()` calls in `schema.rs` replaced:
+- L718: `.context("FixedDecimalValue produced invalid decimal spec")?`
+- L2281: `.context("datatype_mappings is empty despite has_mappings() check")?`
+- L2298: `.context("datatype_mappings is empty despite non-empty check")?`
+- L2372: `.context("mapping chain must have terminal type")?`
+
+#### RI-07 — FIXED ✅
+`//!` module-level documentation added to `columns.rs`, `install.rs`, and `join.rs`.
 
 ### ❌ Rejected / No Action
 
@@ -176,9 +252,20 @@ These are at or near the CLI output boundary. Debatable whether they violate the
 
 Guarded by `#[cfg(test)]` AND env var check — only present in test builds. Not a production concern.
 
+## Quality Gate Results
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Build | `cargo build` | ✅ 0 errors |
+| Lint | `cargo clippy --all-targets --all-features -- -D warnings` | ✅ 0 warnings |
+| Tests | `cargo test --all-targets --all-features` | ✅ 229 passed, 1 ignored, 0 failed |
+| Format | `cargo fmt --check` | ✅ no diffs |
+| Missing docs | `RUSTFLAGS="-W missing-docs" cargo build` | ⚠️ 216 warnings (not a hard gate yet) |
+
 ## Next Steps
 
-* [ ] Phase 3: Present RI-01 through RI-07 to user for decisions
-* [ ] Fix approved items
-* [ ] Run quality gates (cargo test, clippy, doc)
-* [ ] Phase 4: Create PR to main
+* [x] Phase 3: All RI items reviewed — all 7 resolved in current code
+* [x] Run quality gates
+* [x] Phase 4: Handoff document created
+* [x] NEW-01 fixed: removed `.unwrap()` from schema.rs:1751, replaced with panic-free `let` chain — also removes unnecessary `Vec<char>` allocation
+* [ ] Owner decision: roadmap plan for NEW-02 (216 missing `///` Rustdoc comments)

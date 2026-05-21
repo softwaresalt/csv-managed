@@ -1746,12 +1746,11 @@ fn build_header_aliases(header: &str) -> HashSet<String> {
         .collect();
     if !sanitized.is_empty() {
         try_insert(&sanitized);
-        if sanitized.len() >= 2 {
-            let chars: Vec<char> = sanitized.chars().collect();
-            let first = chars.first().copied().unwrap();
-            let last = chars.last().copied().unwrap_or(first);
-            let shorthand = format!("{}{}", first, last);
-            try_insert(&shorthand);
+        if sanitized.len() >= 2
+            && let (Some(first), Some(last)) =
+                (sanitized.chars().next(), sanitized.chars().next_back())
+        {
+            try_insert(&format!("{first}{last}"));
         }
         if sanitized.len() >= 3 {
             try_insert(&sanitized[..3]);
