@@ -4,10 +4,6 @@ status: Proposed
 date: 2023-10-27
 ---
 
-# ADR-003: Schema Evolution Output Format
-
-**Status:** Proposed
-**Date:** 2023-10-27
 
 ## Context
 
@@ -47,7 +43,7 @@ This approach would add an `evolution:` block directly into the generated schema
 
 ## Decision
 
-**Chosen Option:** Option 1 — Separate Artifact (`<schema_name>.evo.yml`)
+**Chosen Option:** Option 1 - Separate Artifact (`<schema_name>.evo.yml`)
 
 The evolution report will be generated as a separate artifact by default. This design maintains the integrity and single responsibility of the schema file, making it easier for both humans and machines to parse. It provides a cleaner and more explicit audit trail, as the evolution report is a distinct object that can be reviewed and committed.
 

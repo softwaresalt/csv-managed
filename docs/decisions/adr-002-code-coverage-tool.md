@@ -4,10 +4,6 @@ status: Proposed
 date: 2023-10-27
 ---
 
-# ADR-002: Code Coverage Tool Selection
-
-**Status:** Proposed
-**Date:** 2023-10-27
 
 ## Context
 

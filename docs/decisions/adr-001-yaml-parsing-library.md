@@ -4,10 +4,6 @@ status: Proposed
 date: 2023-10-27
 ---
 
-# ADR-001: YAML Parsing Library Selection
-
-**Status:** Proposed
-**Date:** 2023-10-27
 
 ## Context
 
@@ -53,13 +49,26 @@ A fork of the original `serde_yaml` that aims to be a drop-in replacement with c
 
 A modern `serde` wrapper for YAML, built on `libyaml-safer`, which provides safe bindings to the canonical C `libyaml` library.
 
+- **Pros:**
+  - **Excellent Performance:** `libyaml` is a highly optimized C library, and `serde_yml` is generally considered the fastest `serde`-compatible YAML crate.
+  - **Good Error Reporting:** Leverages `libyaml`'s robust parser, which provides detailed error messages with location context.
+  - **Actively Maintained:** The crate and its underlying dependencies are well-maintained.
 - **Cons:**
-  - Requires C toolchain dependency.
+  - **C Dependency:** Requires `libyaml` to be available on the build system. While the companion `-sys` crate attempts to build it from source via `cc`, this adds complexity to the build process and can be a hurdle for contributors on some platforms (especially Windows).
+  - **API Differences:** The API is not a drop-in replacement for `serde_yaml`, requiring code changes beyond just updating `Cargo.toml`.
 
 ### Option 3: `serde_yaml_ok`
 
+A newer pure-Rust YAML parser and `serde` implementation, designed from the ground up with a focus on safety and good error messages.
+
+- **Pros:**
+  - **Pure Rust:** No C dependencies, ensuring simple and portable builds with `cargo`.
+  - **Excellent Error Reporting:** A primary design goal of the library is to provide high-quality, context-rich error messages.
+  - **Actively Maintained:** The crate is under active development.
 - **Cons:**
-  - Relative lack of maturity and the need for a larger refactor.
+  - **API Differences:** The API is not a drop-in replacement for `serde_yaml`.
+  - **Maturity:** As a newer library, it is less battle-tested than the alternatives which are based on older, more established parsers (`yaml-rust` or `libyaml`).
+  - **Performance:** While likely sufficient for our needs (parsing small schema files), it is not as performance-focused as `serde_yml`.
 
 ## Decision
 
