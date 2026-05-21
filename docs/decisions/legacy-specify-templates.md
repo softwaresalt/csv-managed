@@ -5,8 +5,6 @@ date: 2026-05-21
 superseded_by: .backlogit/templates/
 ---
 
-# Legacy Specify Templates — Archive Reference
-
 These templates were part of the original `.specify/` system used before the
 backlogit + autoharness migration. They are superseded by the templates in
 `.backlogit/templates/`.
