@@ -3,7 +3,7 @@
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-02-14  
 **Updated**: 2026-02-14 (post-clarification)  
-**Feature**: [spec.md](../spec.md)
+**Feature**: [001-baseline-sdd-spec.md](../product-specs/001-baseline-sdd-spec.md)
 
 ## Content Quality
 

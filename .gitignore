@@ -3,7 +3,6 @@
 .cursor/
 /target
 /tmp
-.todos/current-task.md
 *.code-workspace
 
 # engram plugin (runtime artifacts — state files are intentionally tracked)
@@ -12,6 +11,7 @@
 .engram/logs/
 .engram/cozo/
 .engram/code-graph/
+.engram/metrics/
 .engram/.*
 
 # graphtor-docs — managed by graphtor-docs install

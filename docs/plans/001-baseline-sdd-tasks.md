@@ -1,7 +1,7 @@
 # Tasks: CSV-Managed — Baseline SDD Specification
 
-**Input**: Design documents from `/specs/001-baseline-sdd-spec/`
-**Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/cli-contract.md, quickstart.md
+**Input**: Design documents from `docs/product-specs/`, `docs/plans/`, `docs/decisions/`, and `docs/design-docs/`
+**Prerequisites**: `docs/plans/001-baseline-sdd-plan.md` (required), `docs/product-specs/001-baseline-sdd-spec.md` (required), `docs/decisions/001-baseline-sdd-research.md`, `docs/design-docs/data-model.md`, `docs/design-docs/cli-contract.md`, `docs/product-specs/quickstart.md`
 
 **Tests**: Included — the baseline spec requires validating existing test coverage against all 59 functional requirements and 10 user stories.
 
@@ -22,7 +22,7 @@
 - [x] T001 Verify project builds cleanly with `cargo build --release` and `cargo test --all`
 - [x] T002 [P] Verify `cargo clippy --all-targets --all-features -- -D warnings` produces zero warnings
 - [x] T003 [P] Verify `cargo fmt --check` passes with no formatting diffs
-- [x] T004 [P] Validate all spec artifacts exist: plan.md, spec.md, research.md, data-model.md, contracts/cli-contract.md, quickstart.md in specs/001-baseline-sdd-spec/
+- [x] T004 [P] Validate all migrated spec artifacts exist in `docs/`: `docs/plans/001-baseline-sdd-plan.md`, `docs/product-specs/001-baseline-sdd-spec.md`, `docs/decisions/001-baseline-sdd-research.md`, `docs/design-docs/data-model.md`, `docs/design-docs/cli-contract.md`, and `docs/product-specs/quickstart.md`
 
 ---
 

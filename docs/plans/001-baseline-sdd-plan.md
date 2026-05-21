@@ -1,10 +1,9 @@
 # Implementation Plan: CSV-Managed — Baseline SDD Specification
 
-**Branch**: `001-baseline-sdd-spec` | **Date**: 2026-02-13 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/001-baseline-sdd-spec/spec.md`
+**Branch**: `001-baseline-sdd-spec` | **Date**: 2026-02-13 | **Spec**: [001-baseline-sdd-spec.md](../product-specs/001-baseline-sdd-spec.md)
+**Input**: Feature specification from `docs/product-specs/001-baseline-sdd-spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command.
-See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This plan originated in the legacy speckit workflow and was migrated into `docs/plans/` during the autoharness documentation migration.
 
 ## Summary
 
@@ -58,14 +57,23 @@ buffering except explicit in-memory sort fallback; deterministic output ordering
 ### Documentation (this feature)
 
 ```text
-specs/001-baseline-sdd-spec/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-│   └── cli-contract.md  # CLI command interface contracts
-└── tasks.md             # Phase 2 output (/speckit.tasks command)
+docs/product-specs/
+├── 001-baseline-sdd-spec.md  # Feature specification
+└── quickstart.md             # Workflow quickstart
+
+docs/plans/
+├── 001-baseline-sdd-plan.md  # This file
+└── 001-baseline-sdd-tasks.md # Task breakdown
+
+docs/decisions/
+└── 001-baseline-sdd-research.md
+
+docs/design-docs/
+├── data-model.md
+└── cli-contract.md
+
+docs/closure/
+└── 001-baseline-sdd-checklist.md
 ```
 
 ### Source Code (repository root)

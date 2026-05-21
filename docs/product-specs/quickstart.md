@@ -145,7 +145,7 @@ csv-managed process -i legacy.csv --input-encoding windows-1252 --output-encodin
 
 ## Next Steps
 
-- Read [spec.md](spec.md) for the full feature specification
-- Read [data-model.md](data-model.md) for entity definitions
-- Read [contracts/cli-contract.md](contracts/cli-contract.md) for complete CLI contracts
+- Read [001-baseline-sdd-spec.md](001-baseline-sdd-spec.md) for the full feature specification
+- Read [data-model.md](../design-docs/data-model.md) for entity definitions
+- Read [cli-contract.md](../design-docs/cli-contract.md) for complete CLI contracts
 - Run `csv-managed --help` for built-in command help

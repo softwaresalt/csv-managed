@@ -106,7 +106,7 @@ Extended details moved to dedicated docs (see Documentation Map).
 | Operational notes (performance, errors, logging, testing) | [operations](docs/operations.md) |
 | CLI flag reference (captured help output) | [cli-help](docs/cli-help.md) |
 
-Roadmap/backlog: see the [roadmap](.plan/backlog.md).
+Roadmap/backlog: see the [roadmap](docs/product-specs/roadmap.md).
 
 ---
 
@@ -381,7 +381,7 @@ Run `cargo test`. Integration tests cover inference, indexing, process flags, pi
 
 ## Roadmap
 
-See consolidated backlog & release planning in `[.plan/backlog.md](.plan/backlog.md)` for upcoming features (join redesign, primary key indexes, batch definition ingestion, additional file formats).
+See consolidated backlog & release planning in [docs/product-specs/roadmap.md](docs/product-specs/roadmap.md) for upcoming features (join redesign, primary key indexes, batch definition ingestion, additional file formats).
 
 ---
 

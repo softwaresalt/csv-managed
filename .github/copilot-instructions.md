@@ -19,13 +19,16 @@ csv-managed is a High-performance Rust CLI (edition 2024) that streams, transfor
 ## Project Structure
 
 ```text
-src/           — Application source (lib.rs, cli.rs, 16 modules)
-src/main.rs    — Binary entry point
-tests/         — Integration tests (assert_cmd + predicates)
-tests/data/    — Fixture CSV and schema YAML files
-benches/       — Criterion benchmarks
-docs/          — ADRs, CLI help, operation guides
-specs/         — Feature specifications and task plans
+src/                — Application source (lib.rs, cli.rs, 16 modules)
+src/main.rs         — Binary entry point
+tests/              — Integration tests (assert_cmd + predicates)
+tests/data/         — Fixture CSV and schema YAML files
+benches/            — Criterion benchmarks
+docs/               — Durable repository documentation
+docs/plans/         — Implementation plans and migrated task breakdowns
+docs/decisions/     — ADRs, research, and archived legacy decisions
+docs/design-docs/   — Design reference documents
+docs/product-specs/ — Product specs, quickstarts, and roadmap
 ```
 
 ## Commands

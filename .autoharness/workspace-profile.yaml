@@ -92,7 +92,7 @@ conventions:
     commit_style: "conventional"
   documentation:
     style: "/// doc comments, //! module-level Rustdoc"
-    adr_location: "docs/adrs/"
+    adr_location: "docs/decisions/"
     api_docs: "rustdoc"
 
 tools:
